@@ -4,69 +4,6 @@ A modular-monolith ASP.NET Core (net9.0) platform for API management,
 traffic routing, event processing, reliability, observability, incident
 response, deployment intelligence, policy automation, and AI-assisted
 operations.
-
-## What "complete" still doesn\'t mean here
-
-Every gap raised in review so far has real code behind it: auth, security
-headers, CSRF plumbing, webhook signature verification, pagination, the
-Kafka consumer/DLQ/replay path, live rate-limiting/circuit-breaking, an
-automated health prober, resource-level tenant authorization (on top of
-role checks and EF query filters), and one real AI action tool with an
-audit trail.
-
-**A bug this process itself caught:** an early shell brace-expansion
-failure silently dropped `Domain/AtlasRoles.cs`, `Domain/AtlasUser.cs`,
-`Domain/ApiKey.cs`, and `Presentation/IdentityModule.cs` from the Identity
-module — the very early `cat > Domain/X.cs <<EOF` calls failed with
-"Directory nonexistent" and the shell just moved on. This wasn't caught
-until an explicit file-by-file audit against every module's expected
-contents. It's now fixed and `IdentityModule.cs` also registers the new
-`SameOrganization` authorization policy. The lesson stayed in the process:
-past "it compiled in my head" confidence is not the same as verified
-presence on disk — hence the full-tree audit now in the getting-started
-checklist below.
-
-What's still **not** here, and can't be faked into existing:
-
-- **No compiled build.** This sandbox has no .NET SDK — nothing has run
-  `dotnet build` or `dotnet test` once. Expect real compiler errors, and
-  possibly more silent gaps like the one above that only a real compile
-  will surface definitively.
-- **No EF Core migrations.** `dotnet ef migrations add` requires compiling
-  the model first — there's no `Migrations/` folder in any module. Run the
-  commands under "Getting started" yourself after your first successful
-  build.
-- **Retry-*topics*** (vs. in-process retry+backoff) and payload schema
-  validation before Kafka dispatch aren't built.
-- **Resource-level authorization only covers query/route parameters**, not
-  request bodies — `OrganizationAccessHandler` can't inspect a POST body's
-  `OrganizationId` without buffering the request stream, so
-  `[Authorize(Policy="SameOrganization")]` is only applied to GET actions
-  today. A POST from an authenticated SRE with a spoofed `OrganizationId`
-  in the JSON body would still pass this specific check (though it would
-  still be scoped by the EF tenant query filter on the read side, and by
-  whatever the underlying entity lookup requires matching organizationId
-  for).
-
-## ⚠️ Honest status before you push this
-
-This repository was generated in a sandbox **with no .NET SDK and no
-internet access to install one** — so nothing here has been compiled,
-`dotnet restore`d, or test-run. The person who requested this project asked
-for it anyway, understanding they'd build/test it themselves. Concretely,
-before you trust anything:
-
-```bash
-dotnet restore ATLAS.sln
-dotnet build ATLAS.sln
-dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj
-```
-
-Expect to fix compiler errors — package versions, using-directives, and EF
-Core configuration were hand-written against my knowledge of the APIs, not
-verified against a real build. Treat this as a strong, structurally honest
-starting point, not a finished, verified product.
-
 ### What's actually real vs. planned
 
 | Area | Status |
