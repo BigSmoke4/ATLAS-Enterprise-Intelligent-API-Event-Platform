@@ -1,4 +1,5 @@
 using Atlas.Modules.Identity.Domain;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,8 +19,6 @@ public class IdentityDbContext : IdentityDbContext<AtlasUser, AtlasRole, Guid>
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-
-        builder.ToTable("identity", "identity", ("AspNetUsers", "identity"), null);
 
         builder.Entity<AtlasUser>(b =>
         {

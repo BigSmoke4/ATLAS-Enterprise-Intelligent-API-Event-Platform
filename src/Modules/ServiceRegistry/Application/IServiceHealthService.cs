@@ -1,4 +1,5 @@
 using Atlas.Modules.ServiceRegistry.Domain;
+using Atlas.Shared.Application;
 
 namespace Atlas.Modules.ServiceRegistry.Application;
 

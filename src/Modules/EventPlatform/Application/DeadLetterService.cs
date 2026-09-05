@@ -97,7 +97,7 @@ public class DeadLetterService : IDeadLetterService
             return DeadLetterOperationResult.Fail("Cannot replay: no IEventPublisher configured (Kafka:BootstrapServers not set).");
 
         var envelope = new ReplayedEnvelope(entry.EventId, entry.EventType, 1, DateTimeOffset.UtcNow,
-            entry.CorrelationId, causationId: entry.Id, Producer: "atlas.eventplatform.replay", entry.PayloadJson);
+            entry.CorrelationId, entry.Id, "atlas.eventplatform.replay", entry.PayloadJson);
 
         await _publisher.PublishAsync(entry.OriginalTopic, envelope, ct);
         entry.MarkReplayed();
