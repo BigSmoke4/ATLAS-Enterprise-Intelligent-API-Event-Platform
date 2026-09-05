@@ -15,7 +15,7 @@ public class GetIncidentHistoryTool : IAtlasTool
 
     public async Task<ToolResult> InvokeAsync(Guid organizationId, IReadOnlyDictionary<string, string> arguments, CancellationToken ct = default)
     {
-        var incidents = await _incidentService.GetActiveIncidentsAsync(organizationId, ct);
+        var incidents = await _incidentService.GetActiveIncidentsAsync(organizationId, 1, 50, ct);
         if (incidents.Count == 0)
             return new ToolResult(false, "No active incidents.");
 

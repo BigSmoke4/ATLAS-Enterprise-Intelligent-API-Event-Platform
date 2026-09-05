@@ -15,7 +15,7 @@ public class GetServiceHealthTool : IAtlasTool
 
     public async Task<ToolResult> InvokeAsync(Guid organizationId, IReadOnlyDictionary<string, string> arguments, CancellationToken ct = default)
     {
-        var statuses = await _serviceHealthService.GetStatusAsync(organizationId, ct);
+        var statuses = await _serviceHealthService.GetStatusAsync(organizationId, 1, 50, ct);
         if (statuses.Count == 0)
             return new ToolResult(false, "No services registered.");
 
