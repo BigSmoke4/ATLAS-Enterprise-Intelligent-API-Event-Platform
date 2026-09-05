@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\Atlas.Shared.csproj" />
+    <ProjectReference Include="..\Observability\Atlas.Modules.Observability.csproj" />
+    <ProjectReference Include="..\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
+    <ProjectReference Include="..\IncidentManagement\Atlas.Modules.IncidentManagement.csproj" />
+    <ProjectReference Include="..\PolicyEngine\Atlas.Modules.PolicyEngine.csproj" />
+  </ItemGroup>
+</Project>

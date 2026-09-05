@@ -1,0 +1,12 @@
+.atlas-panel {
+    background: var(--atlas-panel-bg);
+    border: 1px solid var(--atlas-panel-border);
+    border-radius: var(--atlas-radius);
+    padding: 16px 20px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 2px 6px rgba(0,0,0,0.4);
+}
+.atlas-panel--inset {
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+}
+.atlas-status-text { color: var(--atlas-text-dim); font-family: monospace; }
+.atlas-note { color: var(--atlas-text-dim); font-size: 0.85rem; max-width: 60ch; }

@@ -1,0 +1,35 @@
+@using Atlas.Modules.IncidentManagement.Domain
+@model IReadOnlyList<Incident>
+@{
+    ViewData["Title"] = "Incidents";
+    Layout = "_Layout";
+}
+
+<section class="atlas-panel">
+    <h1>ACTIVE INCIDENTS</h1>
+
+    @if (Model.Count == 0)
+    {
+        <p class="atlas-status-text">No telemetry available. Pass ?organizationId=&lt;guid&gt;, or declare one via POST /api/v1/incidents.</p>
+    }
+    else
+    {
+        <table class="atlas-table">
+            <thead>
+                <tr><th>Title</th><th>Severity</th><th>Status</th><th>Detected</th><th>MTTD</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var i in Model)
+            {
+                <tr>
+                    <td>@i.Title</td>
+                    <td>@i.Severity</td>
+                    <td><span class="atlas-badge">@i.Status</span></td>
+                    <td>@i.DetectedAtUtc.ToString("u")</td>
+                    <td>@i.MeanTimeToDetect.ToString(@"hh\:mm\:ss")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

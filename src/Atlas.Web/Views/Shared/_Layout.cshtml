@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"] - ATLAS</title>
+    <link rel="stylesheet" href="~/css/variables.css" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/layout.css" />
+</head>
+<body>
+    <header class="atlas-panel atlas-topbar">
+        <span class="atlas-brand">ATLAS</span>
+        <span class="atlas-subbrand">Enterprise Intelligent API &amp; Event Platform</span>
+        <nav class="atlas-nav">
+            <a href="/Dashboard">Command Center</a>
+            <a href="/Services">Services</a>
+            <a href="/Incidents">Incidents</a>
+        </nav>
+    </header>
+    <main class="atlas-shell">
+        @RenderBody()
+    </main>
+    <script src="~/js/site.js"></script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>

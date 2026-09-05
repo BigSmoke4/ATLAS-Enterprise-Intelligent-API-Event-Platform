@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <IsPackable>false</IsPackable>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Reliability\Atlas.Modules.Reliability.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
+    <ProjectReference Include="..\..\src\Modules\TrafficManagement\Atlas.Modules.TrafficManagement.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Observability\Atlas.Modules.Observability.csproj" />
+    <ProjectReference Include="..\..\src\Modules\IncidentManagement\Atlas.Modules.IncidentManagement.csproj" />
+    <ProjectReference Include="..\..\src\Modules\PolicyEngine\Atlas.Modules.PolicyEngine.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeploymentIntelligence\Atlas.Modules.DeploymentIntelligence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\AIOperations\Atlas.Modules.AIOperations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\EventPlatform\Atlas.Modules.EventPlatform.csproj" />
+    <ProjectReference Include="..\..\src\Shared\Atlas.Shared.csproj" />
+  </ItemGroup>
+</Project>

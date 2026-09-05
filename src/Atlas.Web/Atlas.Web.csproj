@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Shared\Atlas.Shared.csproj" />
+    <ProjectReference Include="..\Modules\Identity\Atlas.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Organizations\Atlas.Modules.Organizations.csproj" />
+    <ProjectReference Include="..\Modules\APIManagement\Atlas.Modules.APIManagement.csproj" />
+    <ProjectReference Include="..\Modules\TrafficManagement\Atlas.Modules.TrafficManagement.csproj" />
+    <ProjectReference Include="..\Modules\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
+    <ProjectReference Include="..\Modules\EventPlatform\Atlas.Modules.EventPlatform.csproj" />
+    <ProjectReference Include="..\Modules\Reliability\Atlas.Modules.Reliability.csproj" />
+    <ProjectReference Include="..\Modules\Observability\Atlas.Modules.Observability.csproj" />
+    <ProjectReference Include="..\Modules\IncidentManagement\Atlas.Modules.IncidentManagement.csproj" />
+    <ProjectReference Include="..\Modules\DeploymentIntelligence\Atlas.Modules.DeploymentIntelligence.csproj" />
+    <ProjectReference Include="..\Modules\PolicyEngine\Atlas.Modules.PolicyEngine.csproj" />
+    <ProjectReference Include="..\Modules\AIOperations\Atlas.Modules.AIOperations.csproj" />
+    <ProjectReference Include="..\Modules\Audit\Atlas.Modules.Audit.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.0" />
+  </ItemGroup>
+</Project>

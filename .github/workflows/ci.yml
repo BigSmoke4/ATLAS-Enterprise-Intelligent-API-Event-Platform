@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: atlas_ci
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore ATLAS.sln
+
+      - name: Build
+        run: dotnet build ATLAS.sln --no-restore -c Release
+
+      - name: Unit tests
+        run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
+
+      - name: Integration tests
+        run: dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+
+      - name: Docker build
+        run: docker build -t atlas-web:ci .

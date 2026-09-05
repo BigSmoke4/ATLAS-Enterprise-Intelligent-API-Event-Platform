@@ -1,0 +1,14 @@
+.atlas-topbar {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 14px 24px;
+    background: var(--atlas-metal);
+    border-bottom: 1px solid var(--atlas-panel-border);
+}
+.atlas-brand { font-weight: 700; letter-spacing: 2px; font-size: 1.2rem; }
+.atlas-subbrand { color: var(--atlas-text-dim); font-size: 0.85rem; }
+.atlas-shell { padding: 24px; display: grid; gap: 16px; }
+.atlas-nav { margin-left: auto; display: flex; gap: 16px; }
+.atlas-nav a { color: var(--atlas-text-dim); text-decoration: none; font-size: 0.85rem; }
+.atlas-nav a:hover { color: var(--atlas-text); }

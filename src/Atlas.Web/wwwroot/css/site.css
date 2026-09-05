@@ -1,0 +1,8 @@
+@import url('variables.css');
+
+body {
+    background: var(--atlas-bg);
+    color: var(--atlas-text);
+    font-family: "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+}

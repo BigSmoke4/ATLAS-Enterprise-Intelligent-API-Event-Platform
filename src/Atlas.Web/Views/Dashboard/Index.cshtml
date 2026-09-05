@@ -1,0 +1,26 @@
+@{
+    ViewData["Title"] = "Command Center";
+    Layout = "_Layout";
+}
+
+<section class="atlas-panel atlas-panel--inset">
+    <h1>SYSTEM STATUS</h1>
+    <p class="atlas-status-text">No telemetry available.</p>
+    <p class="atlas-note">
+        The Observability module (Phase 5) has not been implemented yet, so
+        this dashboard intentionally does not display request rate, latency,
+        or error-rate numbers here — those would be fabricated. Wire up
+        Atlas.Modules.Observability's OpenTelemetry pipeline and this panel
+        will render real aggregates instead of this message.
+    </p>
+</section>
+
+<section class="atlas-panel">
+    <h2>ACTIVE INCIDENTS</h2>
+    <p class="atlas-status-text">No telemetry available.</p>
+</section>
+
+<section class="atlas-panel">
+    <h2>SLO / ERROR BUDGET</h2>
+    <p class="atlas-status-text">No telemetry available.</p>
+</section>

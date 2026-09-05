@@ -1,0 +1,4 @@
+/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.atlas-table th, .atlas-table td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--atlas-panel-border); }
+.atlas-table th { color: var(--atlas-text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }

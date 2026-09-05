@@ -1,0 +1,5 @@
+/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; background: #34393f; }
+.atlas-badge--healthy { background: rgba(56,193,114,0.2); color: var(--atlas-ok); }
+.atlas-badge--degraded { background: rgba(242,177,52,0.2); color: var(--atlas-warn); }
+.atlas-badge--unhealthy, .atlas-badge--unavailable { background: rgba(224,72,62,0.2); color: var(--atlas-error); }

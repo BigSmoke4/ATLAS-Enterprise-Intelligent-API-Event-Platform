@@ -1,0 +1,13 @@
+:root {
+    --atlas-bg: #1b1e22;
+    --atlas-panel-bg: #24282d;
+    --atlas-panel-border: #34393f;
+    --atlas-metal: linear-gradient(180deg, #3a3f45, #24282d);
+    --atlas-text: #d7dde3;
+    --atlas-text-dim: #8a929b;
+    --atlas-accent: #4fa3ff;
+    --atlas-ok: #38c172;
+    --atlas-warn: #f2b134;
+    --atlas-error: #e0483e;
+    --atlas-radius: 6px;
+}
