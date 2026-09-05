@@ -19,7 +19,7 @@ public class IncidentsController : Controller
     {
         var incidents = organizationId == Guid.Empty
             ? Array.Empty<Incident>()
-            : (await _incidents.GetActiveIncidentsAsync(organizationId, ct)).ToArray();
+            : (await _incidents.GetActiveIncidentsAsync(organizationId, 1, 50, ct)).ToArray();
         return View(incidents);
     }
 

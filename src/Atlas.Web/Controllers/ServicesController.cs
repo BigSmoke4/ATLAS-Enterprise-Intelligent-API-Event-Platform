@@ -21,7 +21,7 @@ public class ServicesController : Controller
     {
         var statuses = organizationId == Guid.Empty
             ? Array.Empty<ServiceStatusDto>()
-            : (await _serviceHealth.GetStatusAsync(organizationId, ct)).ToArray();
+            : (await _serviceHealth.GetStatusAsync(organizationId, 1, 50, ct)).ToArray();
         return View(statuses);
     }
 
