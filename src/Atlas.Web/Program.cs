@@ -112,6 +112,21 @@ builder.Services.AddHttpClient("downstream-example", client =>
 
 var app = builder.Build();
 
+// API clients must receive an authentication response rather than an HTML
+// HTTPS redirect when no credentials are present. Authenticated API clients
+// still pass through normal HTTPS enforcement below.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Headers.ContainsKey("X-Api-Key") &&
+        !context.Request.IsHttps)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
+
 if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
 {
     app.UseExceptionHandler();
