@@ -12,7 +12,10 @@ public sealed class AuthenticatedAuthorizationTests : IClassFixture<TestWebAppli
 
     public AuthenticatedAuthorizationTests(TestWebApplicationFactory factory)
     {
-        _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        // BaseAddress must be HTTPS: Program.cs deliberately answers 401 (not
+        // an HTTPS redirect) to plain-HTTP /api requests that carry no API
+        // key, which would mask the authorization decision these tests assert.
+        _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
     }
 
     [Fact]
