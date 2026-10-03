@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Atlas.Modules.EventPlatform.Application;
 using Atlas.Shared.Contracts;
 using Confluent.Kafka;
@@ -102,77 +101,18 @@ public class KafkaEventConsumer : BackgroundService
     {
         var eventType = result.Message.Headers.TryGetLastBytes("event-type", out var bytes)
             ? System.Text.Encoding.UTF8.GetString(bytes) : "unknown";
-        var eventVersion = result.Message.Headers.TryGetLastBytes("event-version", out var versionBytes) && int.TryParse(System.Text.Encoding.UTF8.GetString(versionBytes), out var parsedVersion) ? parsedVersion : 1;
-
+        var eventVersion = result.Message.Headers.TryGetLastBytes("event-version", out var versionBytes) &&
+                           int.TryParse(System.Text.Encoding.UTF8.GetString(versionBytes), out var parsedVersion) ? parsedVersion : 1;
         Guid.TryParse(result.Message.Key, out var correlationId);
 
-        var attempt = 0;
-        var backoff = _options.InitialBackoff;
-
-        while (true)
-        {
-            attempt++;
-            using var scope = _scopeFactory.CreateScope();
-            var idempotencyGuard = scope.ServiceProvider.GetRequiredService<IIdempotencyGuard>();
-            var dispatcher = scope.ServiceProvider.GetRequiredService<IEventHandlerDispatcher>();
-
-            var eventId = ExtractEventId(result.Message.Value) ?? DeterministicGuidFrom(result.Message.Value);
-            try
-            {
-                EventContractValidator.ValidateJson(result.Message.Value);
-                // Claim the event before dispatch to prevent concurrent duplicate
-                // execution. A failed handler releases the claim below so retry
-                // and DLQ processing remain possible.
-
-                var alreadyProcessed = !await idempotencyGuard.TryMarkProcessedAsync(_options.ConsumerGroup, eventId, ct);
-                if (alreadyProcessed)
-                {
-                    _logger.LogInformation("Event {EventId} already processed by {ConsumerGroup}; skipping (idempotent).", eventId, _options.ConsumerGroup);
-                    return;
-                }
-
-                var handled = await dispatcher.DispatchAsync(eventType, result.Message.Value, ct);
-                if (!handled)
-                {
-                    _logger.LogWarning("No handler registered for event type {EventType}; message acknowledged without processing.", eventType);
-                }
-                return; // success
-            }
-            catch (Exception ex) when (attempt <= _options.MaxRetries)
-            {
-                await idempotencyGuard.ReleaseAsync(_options.ConsumerGroup, eventId, ct);
-                _logger.LogWarning(ex, "Attempt {Attempt}/{MaxRetries} failed for {EventType}; backing off {Backoff}.",
-                    attempt, _options.MaxRetries, eventType, backoff);
-                await Task.Delay(backoff, ct);
-                backoff *= 2; // exponential backoff
-            }
-            catch (Exception ex)
-            {
-                await idempotencyGuard.ReleaseAsync(_options.ConsumerGroup, eventId, ct);
-                _logger.LogError(ex, "Exhausted {MaxRetries} retries for {EventType}; routing to dead-letter queue.", _options.MaxRetries, eventType);
-                using var dlqScope = _scopeFactory.CreateScope();
-                var dlq = dlqScope.ServiceProvider.GetRequiredService<IDeadLetterService>();
-                await dlq.RouteToDeadLetterAsync(result.Topic, eventId, eventType, correlationId, result.Message.Value, ex.Message, ct, eventVersion);
-                return;
-            }
-        }
+        using var scope = _scopeFactory.CreateScope();
+        var coordinator = new EventProcessingCoordinator(
+            scope.ServiceProvider.GetRequiredService<IIdempotencyGuard>(),
+            scope.ServiceProvider.GetRequiredService<IEventHandlerDispatcher>(),
+            scope.ServiceProvider.GetRequiredService<IDeadLetterService>(),
+            scope.ServiceProvider.GetRequiredService<ILogger<EventProcessingCoordinator>>());
+        await coordinator.ProcessAsync(result.Topic, eventType, eventVersion, correlationId, result.Message.Value,
+            _options.ConsumerGroup, _options.MaxRetries, _options.InitialBackoff, ct);
     }
 
-    private static Guid? ExtractEventId(string payloadJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(payloadJson);
-            var eventIdProperty = doc.RootElement.EnumerateObject().FirstOrDefault(p => string.Equals(p.Name, "EventId", StringComparison.OrdinalIgnoreCase));
-            if (eventIdProperty.Value.TryGetGuid(out var id) && id != Guid.Empty) return id;
-        }
-        catch (JsonException) { /* fall through to deterministic hash below */ }
-        return null;
-    }
-
-    private static Guid DeterministicGuidFrom(string payload)
-    {
-        var hash = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(payload));
-        return new Guid(hash);
-    }
 }
