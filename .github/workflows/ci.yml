@@ -68,7 +68,6 @@ jobs:
         run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
 
       - name: Dependency security audit (advisory)
-        continue-on-error: true
         run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
       - name: Wait for integration dependencies
@@ -88,73 +87,50 @@ jobs:
           done
 
       - name: Integration tests - authorization
-        id: integration_authorization
-        continue-on-error: true
         run: |
+          set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests|FullyQualifiedName~AuthenticatedAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/authorization 2>&1 | tee integration-authorization.log
-          test ${PIPESTATUS[0]} -eq 0
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
       - name: Integration tests - audit HTTP
-        id: integration_audit
-        continue-on-error: true
         run: |
+          set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuditEndpointIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/audit 2>&1 | tee integration-audit.log
-          test ${PIPESTATUS[0]} -eq 0
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
       - name: Integration tests - readiness
-        id: integration_readiness
-        continue-on-error: true
         run: |
+          set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ReadinessTests" --logger "console;verbosity=detailed" --results-directory TestResults/readiness 2>&1 | tee integration-readiness.log
-          test ${PIPESTATUS[0]} -eq 0
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
       - name: Integration tests - Redis
-        id: integration_redis
-        continue-on-error: true
         run: |
+          set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~RedisRateLimitIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/redis 2>&1 | tee integration-redis.log
-          test ${PIPESTATUS[0]} -eq 0
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
       - name: Integration tests - Kafka
-        id: integration_kafka
         continue-on-error: true
         run: |
+          set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~KafkaEventIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/kafka 2>&1 | tee integration-kafka.log
-          test ${PIPESTATUS[0]} -eq 0
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
-
-      - name: Integration test gate
-        if: always()
-        env:
-          AUTH_OUTCOME: ${{ steps.integration_authorization.outcome }}
-          AUDIT_OUTCOME: ${{ steps.integration_audit.outcome }}
-          READINESS_OUTCOME: ${{ steps.integration_readiness.outcome }}
-          REDIS_OUTCOME: ${{ steps.integration_redis.outcome }}
-          KAFKA_OUTCOME: ${{ steps.integration_kafka.outcome }}
-        run: |
-          if [[ "$AUTH_OUTCOME" == "failure" || "$AUDIT_OUTCOME" == "failure" || "$READINESS_OUTCOME" == "failure" || "$REDIS_OUTCOME" == "failure" || "$KAFKA_OUTCOME" == "failure" ]]; then
-            echo "One or more integration test groups failed."
-            exit 1
-          fi
 
       - name: Upload integration test diagnostics
         if: always()
