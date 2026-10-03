@@ -3,10 +3,10 @@ using Xunit;
 
 namespace Atlas.IntegrationTests;
 
-public sealed class AuthorizationPipelineTests : IClassFixture<TestWebApplicationFactory>
+public sealed class AuthorizationPipelineTests : IClassFixture<AnonymousTestWebApplicationFactory>
 {
     private readonly HttpClient _client;
-    public AuthorizationPipelineTests(TestWebApplicationFactory factory) => _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    public AuthorizationPipelineTests(AnonymousTestWebApplicationFactory factory) => _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
     [Theory]
     [InlineData("/api/v1/services?organizationId=11111111-1111-1111-1111-111111111111")]
