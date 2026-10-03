@@ -27,7 +27,12 @@ public class ReliabilityModule : IAtlasModule
         var redisConnectionString = configuration.GetConnectionString("Redis")
             ?? throw new InvalidOperationException("ConnectionStrings:Redis is not configured.");
 
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnectionString));
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var options = ConfigurationOptions.Parse(redisConnectionString);
+            options.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(options);
+        });
         services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
         services.AddSingleton<IDistributedLock, RedisDistributedLock>();
         services.AddSingleton<IRequestRateLimiter, FixedWindowRequestRateLimiter>();

@@ -17,9 +17,12 @@ using Atlas.Shared.Web;
 using Serilog;
 using Atlas.Web.Middleware;
 using Atlas.Web.Hubs;
+using Atlas.Web.Health;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using OpenTelemetry.Metrics;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -65,7 +68,11 @@ builder.Services.AddAuthentication(options =>
     options.LoginPath = "/account/login";
     options.AccessDeniedPath = "/account/denied";
 });
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })
+    .AddCheck<PostgresHealthCheck>("postgres", tags: new[] { "ready" })
+    .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" })
+    .AddCheck<KafkaHealthCheck>("kafka", tags: new[] { "ready" });
 builder.Services.AddAntiforgery(options =>
 {
     // Real CSRF protection for the Razor pages (Services/Incidents/Dashboard).
@@ -110,8 +117,8 @@ app.UseAuthentication();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = check => check.Tags.Contains("live") });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapHealthChecks("/health");
 app.MapPrometheusScrapingEndpoint("/metrics");
 app.MapHub<IncidentHub>("/hubs/incidents");

@@ -16,6 +16,7 @@ persisted `MetricSample` records.
 - `ISloService.GetSamplesAsync` cross-module read seam for deployment
   regression analysis.
 - ServiceRegistry background health probing.
+- `/health/live` is process-only liveness; `/health/ready` checks PostgreSQL, Redis, and Kafka independently; `/health` exposes the aggregate result.
 
 ## Deliberate remaining work
 
