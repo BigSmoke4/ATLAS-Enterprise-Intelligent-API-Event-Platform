@@ -19,5 +19,5 @@ modules=(
 for entry in "${modules[@]}"; do
   IFS=: read -r name project context <<< "$entry"
   echo "Creating $name migration $NAME"
-  dotnet ef migrations add "$NAME" --project "$ROOT/$project" --startup-project "$STARTUP" --context "$context" --output-dir Infrastructure/Migrations
+  dotnet ef migrations add "$NAME" --project "$ROOT/$project" --startup-project "$STARTUP" --context "$context" --output-dir Infrastructure/Migrations --verbose
  done
