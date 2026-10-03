@@ -60,7 +60,9 @@ jobs:
         run: dotnet build ATLAS.sln --no-restore -c Release
 
       - name: Static analysis
-        run: dotnet build ATLAS.sln --no-restore -c Release -warnaserror
+        run: |
+          set -o pipefail
+          dotnet build ATLAS.sln --no-restore -c Release -warnaserror 2>&1 | tee static-analysis.log
 
       - name: Unit tests
         run: |
@@ -178,6 +180,7 @@ jobs:
             migration-*.log
             unit-tests.log
             architecture-tests.log
+            static-analysis.log
           if-no-files-found: ignore
 
       - name: CI failure diagnostics
@@ -187,7 +190,7 @@ jobs:
           # first log that contains no matching lines — explicitly disable it.
           set +e
           shopt -s nullglob
-          for f in unit-tests.log architecture-tests.log migration-generation.log migration-application.log integration-*.log; do
+          for f in static-analysis.log unit-tests.log architecture-tests.log migration-generation.log migration-application.log integration-*.log; do
             echo "===== $f (tail) =====" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             tail -n 60 "$f" >> "$GITHUB_STEP_SUMMARY"
