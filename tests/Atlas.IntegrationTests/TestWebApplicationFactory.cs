@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Atlas.Modules.Audit.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using System.Text.Encodings.Web;
 using Microsoft.Extensions.Logging;
 
@@ -20,6 +21,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<AuditDbContext>();
             services.RemoveAll<DbContextOptions<AuditDbContext>>();
+            services.RemoveAll<IDbContextOptionsConfiguration<AuditDbContext>>();
             services.AddDbContext<AuditDbContext>(options => options.UseInMemoryDatabase("atlas-integration-audit"));
 
             services.AddAuthentication(options =>
