@@ -87,10 +87,15 @@ jobs:
             done
           done
 
-      - name: Integration tests - authorization
+      - name: Integration tests - anonymous authorization pipeline
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests|FullyQualifiedName~AuthenticatedAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/authorization 2>&1 | tee integration-authorization.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests" --logger "console;verbosity=detailed" --results-directory TestResults/authorization-pipeline 2>&1 | tee integration-authorization-pipeline.log
+
+      - name: Integration tests - authenticated authorization
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthenticatedAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/authenticated-authorization 2>&1 | tee integration-authenticated-authorization.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
