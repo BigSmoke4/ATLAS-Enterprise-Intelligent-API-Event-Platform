@@ -27,7 +27,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 - Kafka publish/consume abstraction, duplicate protection via a database uniqueness constraint, exponential retry, dead-letter persistence, and replay service
 - Incident state machine with actor-attributed timelines, filtered REST reads, MTTD/MTTR calculations, postmortem workflow, authorization-protected SignalR updates, and evidence-backed root-cause analysis; SLO/error-budget, deployment regression, and version-attributed canary analysis derived from stored samples
 - Safe policy representation (data-only predicates, no user code execution), immutable policy versions, audit records, and deduplicated `RaiseAlert` integration into IncidentManagement; circuit-breaker/rollback actions remain confirmation-gated
-- Centralized security headers, CSRF services, HMAC webhook verification, ProblemDetails support, dependency-aware PostgreSQL/Redis/Kafka readiness checks, Docker Compose, CI build/test/docker pipeline, and deterministic unit tests
+- Centralized security headers, CSRF services, HMAC webhook verification, ProblemDetails support, dependency-aware PostgreSQL/Redis/Kafka readiness checks, Docker Compose, CI build/test/integration/Docker pipeline, and deterministic unit tests
 - A restrained skeuomorphic control-room shell with centralized CSS/ES modules and explicit “No telemetry available” states
 
 ## Known gaps — not faked

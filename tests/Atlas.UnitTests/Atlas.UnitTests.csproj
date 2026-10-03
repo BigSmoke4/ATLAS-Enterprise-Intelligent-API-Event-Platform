@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Modules\Organizations\Atlas.Modules.Organizations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\Atlas.Modules.Identity.csproj" />
     <ProjectReference Include="..\..\src\Modules\APIManagement\Atlas.Modules.APIManagement.csproj" />
     <ProjectReference Include="..\..\src\Modules\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
     <ProjectReference Include="..\..\src\Modules\Reliability\Atlas.Modules.Reliability.csproj" />
