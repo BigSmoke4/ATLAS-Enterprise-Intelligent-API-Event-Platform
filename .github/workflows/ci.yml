@@ -72,7 +72,9 @@ jobs:
         run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
       - name: Integration tests
-        run: dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --logger "console;verbosity=detailed" --logger "trx;LogFileName=integration.trx" --results-directory TestResults/integration --blame-hang-timeout 60s
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --logger "console;verbosity=detailed" --logger "trx;LogFileName=integration.trx" --results-directory TestResults/integration --blame-hang-timeout 60s 2>&1 | tee integration-test.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
@@ -83,7 +85,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-test-results
-          path: TestResults/integration
+          path: |
+            TestResults/integration
+            integration-test.log
           if-no-files-found: ignore
 
       - name: Docker build
