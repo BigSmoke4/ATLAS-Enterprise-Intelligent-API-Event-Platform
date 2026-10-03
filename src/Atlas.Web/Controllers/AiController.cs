@@ -27,13 +27,13 @@ public class AiController : ControllerBase
         _audit = audit;
     }
 
-    public record AskRequest(Guid OrganizationId, string Question, string[] ToolNames);
+    public record AskRequest(Guid OrganizationId, string Question, string[] ToolNames, Dictionary<string, string>? ToolArguments = null);
     public record ExecuteActionRequest(Guid OrganizationId, string ToolName, Dictionary<string, string> Arguments, bool ExplicitConfirmation);
 
     [HttpPost("ask")]
     public async Task<IActionResult> Ask([FromBody] AskRequest request, CancellationToken ct)
     {
-        var answer = await _assistant.AnswerAsync(request.OrganizationId, request.Question, request.ToolNames, ct);
+        var answer = await _assistant.AnswerAsync(request.OrganizationId, request.Question, request.ToolNames, request.ToolArguments, ct);
         return Ok(answer);
     }
 

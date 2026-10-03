@@ -27,10 +27,12 @@ public class AIOperationsModule : IAtlasModule
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<ActionToolGuard>();
+        services.AddScoped<IRootCauseAnalysisService, RootCauseAnalysisService>();
 
         services.AddScoped<IAtlasTool, GetServiceHealthTool>();
         services.AddScoped<IAtlasTool, GetIncidentHistoryTool>();
         services.AddScoped<IAtlasTool, GetSloStatusTool>();
+        services.AddScoped<IAtlasTool, GetRootCauseAnalysisTool>();
         services.AddScoped<IAtlasTool, DeactivatePolicyTool>();
 
         var apiKey = configuration["AI:AnthropicApiKey"];
