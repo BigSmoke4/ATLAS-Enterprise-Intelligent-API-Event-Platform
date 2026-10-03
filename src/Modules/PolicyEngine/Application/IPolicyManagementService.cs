@@ -6,6 +6,8 @@ public interface IPolicyManagementService
 {
     Task<PolicyOperationResult<Guid>> CreateAsync(Guid organizationId, string name, IReadOnlyList<PolicyCondition> conditions, PolicyAction action, CancellationToken ct = default);
     Task<PolicyOperationResult> DeactivateAsync(Guid organizationId, Guid policyId, CancellationToken ct = default);
+    Task<PolicyOperationResult<Guid>> CreateVersionAsync(Guid organizationId, Guid policyId, IReadOnlyList<PolicyCondition> conditions, PolicyAction action, CancellationToken ct = default);
+    Task<PolicyOperationResult> ActivateAsync(Guid organizationId, Guid policyId, CancellationToken ct = default);
     Task<IReadOnlyList<PolicyRule>> ListAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default);
     Task<IReadOnlyList<PolicyEvaluationOutcome>> EvaluateActiveRulesAsync(Guid organizationId, IReadOnlyDictionary<string, double> facts, CancellationToken ct = default);
 }

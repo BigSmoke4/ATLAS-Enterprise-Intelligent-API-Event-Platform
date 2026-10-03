@@ -29,6 +29,7 @@ public class IncidentManagementModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "incidentmanagement")));
 
         services.AddScoped<IIncidentService, IncidentService>();
+        services.AddScoped<IIncidentAlertSink, IncidentAlertSink>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
