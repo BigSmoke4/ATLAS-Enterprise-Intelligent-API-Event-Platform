@@ -183,21 +183,27 @@ jobs:
       - name: CI failure diagnostics
         if: failure()
         run: |
+          # GH shells run with -eo pipefail, which would abort this step on the
+          # first log that contains no matching lines — explicitly disable it.
+          set +e
           shopt -s nullglob
-          logs=(unit-tests.log architecture-tests.log migration-generation.log migration-application.log integration-*.log)
-          for f in "${logs[@]}"; do
+          for f in unit-tests.log architecture-tests.log migration-generation.log migration-application.log integration-*.log; do
             echo "===== $f (tail) =====" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             tail -n 60 "$f" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            # Also surface the most relevant lines as check-run annotations so
-            # failures are inspectable without downloading artifacts.
-            grep -Ei "error|failed|exception|Expected|Actual" "$f" \
-              | grep -Ev "0 Warning|0 Error|Passed!|warn" | tail -n 25 \
+            # Surface the most relevant lines as check-run annotations so
+            # failures are inspectable through the Checks API. % and CR must
+            # be escaped or the workflow command parser mangles the line.
+            grep -aEi "error|failed|exception|Expected:|Actual:|Unable|denied|refused|invalid" "$f" \
+              | grep -aEv "0 Warning|0 Error|Passed!" | tail -n 40 \
               | while IFS= read -r line; do
-                  echo "::error::$f: ${line//$'\r'/}"
+                  line="${line//'%'/'%25'}"
+                  line="${line//$'\r'/'%0D'}"
+                  echo "::error::$f: $line"
                 done
           done
+          exit 0
 
       - name: Docker build
         run: docker build -t atlas-web:ci .
