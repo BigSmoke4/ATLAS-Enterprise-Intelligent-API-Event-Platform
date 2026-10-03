@@ -7,6 +7,7 @@ public class DeadLetterEvent : Entity
     public string OriginalTopic { get; private set; } = string.Empty;
     public Guid EventId { get; private set; }
     public string EventType { get; private set; } = string.Empty;
+    public int Version { get; private set; } = 1;
     public Guid CorrelationId { get; private set; }
     public string PayloadJson { get; private set; } = string.Empty;
     public string FailureReason { get; private set; } = string.Empty;
@@ -18,12 +19,12 @@ public class DeadLetterEvent : Entity
     private DeadLetterEvent() { }
 
     public static DeadLetterEvent Create(string originalTopic, Guid eventId, string eventType, Guid correlationId,
-        string payloadJson, string failureReason)
+        string payloadJson, string failureReason, int version = 1)
     {
         var now = DateTimeOffset.UtcNow;
         return new DeadLetterEvent
         {
-            OriginalTopic = originalTopic, EventId = eventId, EventType = eventType, CorrelationId = correlationId,
+            OriginalTopic = originalTopic, EventId = eventId, EventType = eventType, Version = version, CorrelationId = correlationId,
             PayloadJson = payloadJson, FailureReason = failureReason, RetryCount = 1,
             FirstFailedAtUtc = now, LastFailedAtUtc = now
         };

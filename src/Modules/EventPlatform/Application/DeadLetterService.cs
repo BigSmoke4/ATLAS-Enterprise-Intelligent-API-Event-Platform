@@ -8,8 +8,8 @@ namespace Atlas.Modules.EventPlatform.Application;
 
 public interface IDeadLetterService
 {
-    Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default);
-    Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default);
+    Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default, int version = 1);
+    Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null);
 
     /// <summary>Flags a dead-lettered event as replayed WITHOUT re-publishing it — use when the fix was applied out-of-band (e.g. a manual data correction) and the message itself should not run again.</summary>
     Task<DeadLetterOperationResult> MarkReplayedAsync(Guid deadLetterEventId, CancellationToken ct = default);
@@ -45,7 +45,7 @@ public class DeadLetterService : IDeadLetterService
         _publisher = publisher;
     }
 
-    public async Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default)
+    public async Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default, int version = 1)
     {
         var existing = await _db.DeadLetterEvents.FirstOrDefaultAsync(d => d.EventId == eventId && d.OriginalTopic == topic, ct);
         if (existing is not null)
@@ -54,16 +54,20 @@ public class DeadLetterService : IDeadLetterService
         }
         else
         {
-            _db.DeadLetterEvents.Add(DeadLetterEvent.Create(topic, eventId, eventType, correlationId, payloadJson, failureReason));
+            _db.DeadLetterEvents.Add(DeadLetterEvent.Create(topic, eventId, eventType, correlationId, payloadJson, failureReason, version));
         }
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
         var query = _db.DeadLetterEvents.Where(d => !d.Replayed);
         if (!string.IsNullOrWhiteSpace(topic)) query = query.Where(d => d.OriginalTopic == topic);
+        if (!string.IsNullOrWhiteSpace(eventType)) query = query.Where(d => d.EventType == eventType);
+        if (fromUtc.HasValue) query = query.Where(d => d.LastFailedAtUtc >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(d => d.LastFailedAtUtc <= toUtc.Value);
+        if (eventId.HasValue) query = query.Where(d => d.EventId == eventId.Value);
         return await query.AsNoTracking().OrderByDescending(d => d.LastFailedAtUtc)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync(ct);
@@ -96,10 +100,17 @@ public class DeadLetterService : IDeadLetterService
         if (_publisher is null)
             return DeadLetterOperationResult.Fail("Cannot replay: no IEventPublisher configured (Kafka:BootstrapServers not set).");
 
-        var envelope = new ReplayedEnvelope(entry.EventId, entry.EventType, 1, DateTimeOffset.UtcNow,
-            entry.CorrelationId, entry.Id, "atlas.eventplatform.replay", entry.PayloadJson);
-
-        await _publisher.PublishAsync(entry.OriginalTopic, envelope, ct);
+        if (_publisher is IRawEventPublisher rawPublisher)
+        {
+            await rawPublisher.PublishRawAsync(entry.OriginalTopic, entry.PayloadJson, entry.EventType, entry.Version,
+                entry.EventId, entry.CorrelationId, entry.Id, "atlas.eventplatform.replay", DateTimeOffset.UtcNow, ct);
+        }
+        else
+        {
+            var envelope = new ReplayedEnvelope(entry.EventId, entry.EventType, entry.Version, DateTimeOffset.UtcNow,
+                entry.CorrelationId, entry.Id, "atlas.eventplatform.replay", entry.PayloadJson);
+            await _publisher.PublishAsync(entry.OriginalTopic, envelope, ct);
+        }
         entry.MarkReplayed();
         await _db.SaveChangesAsync(ct);
         return DeadLetterOperationResult.Ok();

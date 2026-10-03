@@ -29,4 +29,12 @@ public class IdempotencyGuard : IIdempotencyGuard
             return false;
         }
     }
+
+    public async Task ReleaseAsync(string consumerGroup, Guid eventId, CancellationToken ct = default)
+    {
+        var record = await _db.IdempotencyRecords.SingleOrDefaultAsync(r => r.ConsumerGroup == consumerGroup && r.EventId == eventId, ct);
+        if (record is null) return;
+        _db.IdempotencyRecords.Remove(record);
+        await _db.SaveChangesAsync(ct);
+    }
 }

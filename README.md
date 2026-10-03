@@ -9,6 +9,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 - .NET 9, nullable C#, ASP.NET Core MVC and Razor Views (no SPA framework)
 - PostgreSQL/EF Core with a separate schema and DbContext per module
 - Redis abstractions plus atomic Redis-backed fixed-window, token-bucket, sliding-window, and leaky-bucket request limiters
+- Kafka event contracts with metadata validation, version/correlation headers, authenticated publish endpoint, idempotent retry release, DLQ persistence, and filtered dry-run/live replay
 - Kafka publisher/consumer abstraction with retry, idempotency, and DLQ plumbing
 - OpenTelemetry ASP.NET Core/runtime instrumentation, Prometheus `/metrics`, structured Serilog logging, and health endpoints
 - xUnit tests, WebApplicationFactory integration coverage, and NetArchTest boundary checks

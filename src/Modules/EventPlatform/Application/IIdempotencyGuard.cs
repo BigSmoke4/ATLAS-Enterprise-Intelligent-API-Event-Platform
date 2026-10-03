@@ -9,4 +9,5 @@ namespace Atlas.Modules.EventPlatform.Application;
 public interface IIdempotencyGuard
 {
     Task<bool> TryMarkProcessedAsync(string consumerGroup, Guid eventId, CancellationToken ct = default);
+    Task ReleaseAsync(string consumerGroup, Guid eventId, CancellationToken ct = default);
 }
