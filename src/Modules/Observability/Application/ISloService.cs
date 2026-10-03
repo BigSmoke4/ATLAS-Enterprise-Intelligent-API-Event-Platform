@@ -22,6 +22,10 @@ public interface ISloService
     /// </summary>
     Task<IReadOnlyList<MetricSampleDto>> GetSamplesAsync(Guid organizationId, Guid serviceId, SloMetricType metricType,
         DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct = default);
+
+    /// <summary>Lists defined SLOs for an organization (definitions only; compliance is a separate call built from samples).</summary>
+    Task<IReadOnlyList<SloDefinitionDto>> ListSlosAsync(Guid organizationId, CancellationToken ct = default);
 }
 
 public record MetricSampleDto(double Value, bool? Success, DateTimeOffset RecordedAtUtc, string? DeploymentVersion = null);
+public record SloDefinitionDto(Guid SloId, Guid ServiceId, string Name, SloMetricType MetricType, double TargetValue, TimeSpan WindowDuration);

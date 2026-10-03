@@ -1,0 +1,45 @@
+@model Atlas.Web.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Sign In";
+    Layout = "_Layout";
+}
+
+<section class="atlas-toolbar">
+    <div><div class="atlas-kicker">ATLAS / ACCESS</div><h1>OPERATOR SIGN-IN</h1></div>
+</section>
+
+<section class="atlas-dashboard-grid">
+    <article class="atlas-panel atlas-panel--inset atlas-wide">
+        <div class="atlas-panel-header"><h2>SIGN IN</h2><span class="atlas-badge">AUTHORIZED ACCESS ONLY</span></div>
+
+        <form asp-action="Login" asp-controller="Account" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="atlas-status-text"></div>
+
+            <div class="atlas-field">
+                <label asp-for="Email">EMAIL</label>
+                <input asp-for="Email" autocomplete="username" />
+                <span asp-validation-for="Email" class="atlas-note"></span>
+            </div>
+
+            <div class="atlas-field">
+                <label asp-for="Password">PASSWORD</label>
+                <input asp-for="Password" autocomplete="current-password" />
+                <span asp-validation-for="Password" class="atlas-note"></span>
+            </div>
+
+            <div class="atlas-field">
+                <label><input asp-for="RememberMe" /> REMEMBER THIS BROWSER</label>
+            </div>
+
+            <button type="submit" class="atlas-button">SIGN IN</button>
+        </form>
+
+        <p class="atlas-note">
+            Accounts are provisioned administratively (registration is disabled by
+            default in production profiles). Repeated failures lock the account
+            per the configured lockout policy.
+        </p>
+    </article>
+</section>

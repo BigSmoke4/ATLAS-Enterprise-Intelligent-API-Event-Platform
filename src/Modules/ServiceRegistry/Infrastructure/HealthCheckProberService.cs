@@ -1,3 +1,5 @@
+using Atlas.Modules.Observability.Application;
+using Atlas.Modules.Observability.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -63,13 +65,33 @@ public class HealthCheckProberService : BackgroundService
         client.Timeout = _options.RequestTimeout;
 
         var instances = await db.Instances.ToListAsync(ct);
+        var outcomes = new List<(ServiceInstance Instance, bool Success)>();
         foreach (var instance in instances)
         {
             var success = await ProbeInstanceAsync(client, instance.HostAndPort, ct);
             instance.RecordHealthCheck(success, DateTimeOffset.UtcNow);
+            outcomes.Add((instance, success));
         }
 
         await db.SaveChangesAsync(ct);
+
+        // Every real probe outcome is also emitted as an Availability
+        // MetricSample in Observability, so availability SLOs are fed by
+        // measured traffic rather than manual API calls. A failed telemetry
+        // write must never roll back the health record — telemetry emission
+        // is isolated and logged per instance.
+        var slo = scope.ServiceProvider.GetRequiredService<ISloService>();
+        foreach (var (instance, success) in outcomes)
+        {
+            try
+            {
+                await slo.RecordOutcomeAsync(instance.OrganizationId, instance.ServiceId, SloMetricType.Availability, success, null, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to record availability telemetry for instance {InstanceId}.", instance.Id);
+            }
+        }
     }
 
     private async Task<bool> ProbeInstanceAsync(HttpClient client, string hostAndPort, CancellationToken ct)

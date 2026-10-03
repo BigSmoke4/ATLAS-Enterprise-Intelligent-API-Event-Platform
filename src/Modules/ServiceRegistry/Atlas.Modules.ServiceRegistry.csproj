@@ -12,5 +12,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\Atlas.Shared.csproj" />
+    <!-- Probed health-check outcomes are also emitted as availability
+         MetricSamples through Observability's Application-layer contract
+         (ISloService). This is the documented cross-module seam: an
+         Application interface, never Observability's DbContext. -->
+    <ProjectReference Include="..\Observability\Atlas.Modules.Observability.csproj" />
   </ItemGroup>
 </Project>

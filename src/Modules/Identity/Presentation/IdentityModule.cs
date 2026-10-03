@@ -46,6 +46,11 @@ public class IdentityModule : IAtlasModule
         // authorization policy wiring lives.
         services.AddSingleton<IAuthorizationHandler, OrganizationAccessHandler>();
 
+        // Roles and the optional configured development operator are
+        // reference data; the seeder is idempotent and fails soft (logs)
+        // when the database has not been migrated yet.
+        services.AddHostedService<IdentityRoleSeedService>();
+
         services.AddAuthorization(options =>
         {
             foreach (var role in AtlasRoles.All)
