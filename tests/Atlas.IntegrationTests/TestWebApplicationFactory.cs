@@ -3,7 +3,10 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Atlas.Modules.Audit.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using System.Text.Encodings.Web;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +18,10 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<AuditDbContext>();
+            services.RemoveAll<DbContextOptions<AuditDbContext>>();
+            services.AddDbContext<AuditDbContext>(options => options.UseInMemoryDatabase("atlas-integration-audit"));
+
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = "IntegrationTest";
@@ -33,7 +40,7 @@ public sealed class IntegrationTestAuthenticationHandler : AuthenticationHandler
     {
         var organization = Request.Headers["X-Test-Organization"].FirstOrDefault();
         var role = Request.Headers["X-Test-Role"].FirstOrDefault() ?? "Viewer";
-        if (!Guid.TryParse(organization, out var organizationId)) return Task.FromResult(AuthenticateResult.NoResult());
+        if (!Guid.TryParse(organization, out var organizationId) && role != "PlatformAdmin") return Task.FromResult(AuthenticateResult.NoResult());
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "22222222-2222-2222-2222-222222222222"),
