@@ -125,6 +125,15 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") && context.User.Identity?.IsAuthenticated != true)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
 if (!app.Environment.IsEnvironment("Testing"))
     app.UseAtlasRateLimiting();
 app.UseAuthorization();
