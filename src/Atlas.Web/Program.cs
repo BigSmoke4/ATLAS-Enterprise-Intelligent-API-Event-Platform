@@ -125,7 +125,8 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
-app.UseAtlasRateLimiting();
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseAtlasRateLimiting();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = check => check.Tags.Contains("live") });
