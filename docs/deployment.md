@@ -22,3 +22,7 @@ GitHub Actions provisions PostgreSQL, Redis, Zookeeper, and Kafka. The
 WebApplicationFactory integration suite verifies API authorization and
 readiness against those services before the Docker build. Readiness failures
 are surfaced as dependency failures rather than masked by a hard-coded 200.
+
+For a running Compose deployment, execute `scripts/smoke.sh` (or set
+`ATLAS_BASE_URL`) to verify liveness, dependency readiness, and the
+Prometheus-compatible metrics endpoint.

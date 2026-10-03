@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Atlas.Web\Atlas.Web.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Reliability\Atlas.Modules.Reliability.csproj" />
   </ItemGroup>
 </Project>
