@@ -14,9 +14,9 @@ namespace Atlas.Modules.Reliability.Presentation;
 /// it on every live HTTP request (see Program.cs `app.UseAtlasRateLimiting()`);
 /// CircuitBreakerRegistry + CircuitBreakerDelegatingHandler enforce a real
 /// circuit breaker on outbound HttpClient calls attached to it. Rate limits
-/// currently use one process-wide default (100 req/min per IP or API key
-/// prefix) rather than per-route config from APIManagement.ApiRoute — that
-/// integration is the next real gap, not a fabricated one.
+/// use the route policy provider when a matching API route is configured;
+/// otherwise they fall back to a documented 100 req/min IP limit. Scope
+/// keys support IP, user, API key, tenant, endpoint, and global policies.
 /// </summary>
 public class ReliabilityModule : IAtlasModule
 {

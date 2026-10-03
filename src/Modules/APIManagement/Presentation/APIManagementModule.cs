@@ -29,6 +29,7 @@ public class APIManagementModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "apimanagement")));
 
         services.AddScoped<IApiCatalogService, ApiCatalogService>();
+        services.AddScoped<IRoutePolicyProvider, ApiRoutePolicyProvider>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

@@ -19,7 +19,10 @@ public interface IServiceHealthService
     /// invented numbers here.
     /// </summary>
     Task<IReadOnlyList<InstanceStatusDto>> GetInstancesAsync(Guid organizationId, Guid serviceId, CancellationToken ct = default);
+    Task<Result> AddDependencyAsync(Guid organizationId, Guid serviceId, Guid dependsOnServiceId, CancellationToken ct = default);
+    Task<IReadOnlyList<ServiceDependencyDto>> GetDependenciesAsync(Guid organizationId, Guid serviceId, CancellationToken ct = default);
 }
 
 public record ServiceStatusDto(Guid ServiceId, string Name, ServiceHealth AggregateHealth, int InstanceCount, int HealthyInstanceCount);
 public record InstanceStatusDto(Guid InstanceId, string HostAndPort, ServiceHealth Health);
+public record ServiceDependencyDto(Guid ServiceId, Guid DependsOnServiceId);

@@ -15,6 +15,7 @@ public class ServiceRegistryDbContext : DbContext
 
     public DbSet<RegisteredService> Services => Set<RegisteredService>();
     public DbSet<ServiceInstance> Instances => Set<ServiceInstance>();
+    public DbSet<ServiceDependency> Dependencies => Set<ServiceDependency>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -33,6 +34,14 @@ public class ServiceRegistryDbContext : DbContext
             // read-only IReadOnlyCollection<Guid> backed by a private field needs
             // verifying against a real build before wiring it up — left as a
             // documented gap rather than a guessed-at, unverified configuration.
+        });
+
+        builder.Entity<ServiceDependency>(b =>
+        {
+            b.ToTable("ServiceDependencies");
+            b.HasKey(d => new { d.OrganizationId, d.ServiceId, d.DependsOnServiceId });
+            b.HasIndex(d => new { d.OrganizationId, d.DependsOnServiceId });
+            b.HasQueryFilter(d => !_tenantContext.HasOrganization || d.OrganizationId == _tenantContext.CurrentOrganizationId);
         });
 
         builder.Entity<ServiceInstance>(b =>

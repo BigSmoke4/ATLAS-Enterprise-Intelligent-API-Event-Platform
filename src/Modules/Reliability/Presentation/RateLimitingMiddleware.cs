@@ -1,4 +1,5 @@
 using Atlas.Modules.Reliability.Application;
+using Atlas.Shared.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -10,26 +11,25 @@ namespace Atlas.Modules.Reliability.Presentation;
 /// was previously missing: the algorithms existed, nothing called them on
 /// an actual HTTP request. Scope key is API key if present, else client IP,
 /// matching the master prompt's "IP / user / API key / tenant / endpoint /
-/// global" scopes (IP and API key implemented; user/tenant/endpoint scoping
-/// requires reading the authenticated principal, added once route-level
-/// policy lookup — APIManagement's ApiRoute.RateLimit — is wired in here).
+/// global" scopes. Route policies come from the APIManagement application
+/// contract; an explicit default remains for unconfigured routes.
 /// </summary>
 public class RateLimitingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly IRequestRateLimiter _limiter;
     private readonly ILogger<RateLimitingMiddleware> _logger;
+    private readonly IRoutePolicyProvider _routePolicies;
 
-    // TODO: replace this fixed default with a per-route lookup from
-    // APIManagement.Domain.ApiRoute.RateLimit once that integration is built.
     private const int DefaultLimitPerWindow = 100;
     private static readonly TimeSpan DefaultWindow = TimeSpan.FromMinutes(1);
 
-    public RateLimitingMiddleware(RequestDelegate next, IRequestRateLimiter limiter, ILogger<RateLimitingMiddleware> logger)
+    public RateLimitingMiddleware(RequestDelegate next, IRequestRateLimiter limiter, ILogger<RateLimitingMiddleware> logger, IRoutePolicyProvider routePolicies)
     {
         _next = next;
         _limiter = limiter;
         _logger = logger;
+        _routePolicies = routePolicies;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -42,12 +42,17 @@ public class RateLimitingMiddleware
             return;
         }
 
-        var scopeKey = ResolveScopeKey(context);
+        var organizationId = Guid.TryParse(context.User.FindFirst("org_id")?.Value, out var parsedOrganizationId) ? parsedOrganizationId : (Guid?)null;
+        var routePolicy = await _routePolicies.FindAsync(organizationId, context.Request.Path.Value ?? "/", context.Request.Method, context.RequestAborted);
+        var limit = routePolicy?.LimitPerWindow ?? DefaultLimitPerWindow;
+        var window = routePolicy?.Window ?? DefaultWindow;
+        var scope = routePolicy?.Scope ?? "Ip";
+        var scopeKey = ResolveScopeKey(context, scope, organizationId);
 
         RateLimitDecision decision;
         try
         {
-            decision = await _limiter.CheckAsync(scopeKey, DefaultLimitPerWindow, DefaultWindow, context.RequestAborted);
+            decision = await _limiter.CheckAsync(scopeKey, limit, window, context.RequestAborted);
         }
         catch (Exception ex)
         {
@@ -80,13 +85,15 @@ public class RateLimitingMiddleware
         await _next(context);
     }
 
-    private static string ResolveScopeKey(HttpContext context)
+    private static string ResolveScopeKey(HttpContext context, string scope, Guid? organizationId)
     {
-        var apiKeyPrefix = context.Request.Headers["X-Api-Key-Prefix"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(apiKeyPrefix)) return $"apikey:{apiKeyPrefix}";
-
-        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return $"ip:{ip}";
+        var normalized = scope.ToLowerInvariant();
+        if (normalized == "global") return "global";
+        if (normalized == "tenant") return $"tenant:{organizationId?.ToString() ?? "anonymous"}";
+        if (normalized == "user") return $"user:{context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous"}";
+        if (normalized == "endpoint") return $"endpoint:{context.Request.Method}:{context.Request.Path}";
+        if (normalized == "apikey") return $"apikey:{context.Request.Headers["X-Api-Key-Prefix"].FirstOrDefault() ?? "anonymous"}";
+        return $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}";
     }
 }
 

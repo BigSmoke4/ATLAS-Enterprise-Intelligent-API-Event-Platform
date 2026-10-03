@@ -49,8 +49,15 @@ public class ApiRoute : TenantEntity
 
     public void SetRetryPolicy(int maxRetries)
     {
-        if (maxRetries < 0) throw new ArgumentOutOfRangeException(nameof(maxRetries));
+        if (maxRetries < 0 || maxRetries > 10) throw new ArgumentOutOfRangeException(nameof(maxRetries), "Retries must be between 0 and 10.");
         MaxRetries = maxRetries;
+    }
+
+    public void SetRateLimit(RateLimitPolicy? rateLimit)
+    {
+        if (rateLimit is not null && (rateLimit.LimitPerWindow <= 0 || rateLimit.Window <= TimeSpan.Zero))
+            throw new ArgumentException("Rate limit must have a positive limit and window.");
+        RateLimit = rateLimit;
     }
 }
 

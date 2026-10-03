@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.APIManagement.Application;
+using Atlas.Modules.APIManagement.Domain;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -21,6 +22,7 @@ public class ApiManagementController : ControllerBase
     public record RegisterApiRequest(Guid OrganizationId, string Name, string BasePath);
     public record AddVersionRequest(Guid OrganizationId, int VersionNumber);
     public record AddRouteRequest(Guid OrganizationId, string Path, string HttpMethod);
+    public record ConfigureRouteRequest(Guid OrganizationId, RateLimitPolicy? RateLimit, TimeSpan Timeout, int MaxRetries);
 
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
@@ -38,6 +40,7 @@ public class ApiManagementController : ControllerBase
     }
 
     [HttpPost("{apiId:guid}/versions")]
+    [Authorize(Policy = "Role:OrganizationAdmin")]
     public async Task<IActionResult> AddVersion(Guid apiId, [FromBody] AddVersionRequest request, CancellationToken ct)
     {
         var result = await _catalog.AddVersionAsync(request.OrganizationId, apiId, request.VersionNumber, ct);
@@ -45,7 +48,22 @@ public class ApiManagementController : ControllerBase
         return Ok(new { versionId = result.Value });
     }
 
+    [HttpGet("versions/{apiVersionId:guid}/routes")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<IReadOnlyList<ApiRouteDto>>> ListRoutes(Guid apiVersionId, [FromQuery] Guid organizationId, CancellationToken ct)
+        => Ok(await _catalog.ListRoutesAsync(organizationId, apiVersionId, ct));
+
+    [HttpPost("routes/{routeId:guid}/configure")]
+    [Authorize(Policy = "Role:OrganizationAdmin")]
+    public async Task<IActionResult> ConfigureRoute(Guid routeId, ConfigureRouteRequest request, CancellationToken ct)
+    {
+        var result = await _catalog.ConfigureRouteAsync(request.OrganizationId, routeId, request.RateLimit, request.Timeout, request.MaxRetries, ct);
+        if (!result.IsSuccess) return result.ErrorCode == "NOT_FOUND" ? NotFound(new ProblemDetails { Title = result.Error }) : BadRequest(new ProblemDetails { Title = result.Error });
+        return NoContent();
+    }
+
     [HttpPost("versions/{apiVersionId:guid}/routes")]
+    [Authorize(Policy = "Role:OrganizationAdmin")]
     public async Task<IActionResult> AddRoute(Guid apiVersionId, [FromBody] AddRouteRequest request, CancellationToken ct)
     {
         var result = await _catalog.AddRouteAsync(request.OrganizationId, apiVersionId, request.Path, request.HttpMethod, ct);

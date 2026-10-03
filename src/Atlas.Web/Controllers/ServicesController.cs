@@ -14,6 +14,7 @@ public class ServicesController : Controller
     public record RegisterServiceRequest(Guid OrganizationId, Guid EnvironmentId, string Name);
     public record RegisterInstanceRequest(Guid OrganizationId, string HostAndPort);
     public record RecordHealthCheckRequest(Guid OrganizationId, bool Success);
+    public record AddDependencyRequest(Guid OrganizationId, Guid DependsOnServiceId);
 
     /// <summary>Razor view. Real data — if organizationId is empty/unset the view shows "No telemetry available." rather than fabricating rows.</summary>
     [HttpGet("/Services")]
@@ -45,8 +46,28 @@ public class ServicesController : Controller
     public async Task<IActionResult> RegisterInstance(Guid serviceId, [FromBody] RegisterInstanceRequest request, CancellationToken ct)
     {
         var result = await _serviceHealth.RegisterInstanceAsync(request.OrganizationId, serviceId, request.HostAndPort, ct);
-        if (!result.IsSuccess) return NotFound(new ProblemDetails { Title = result.Error });
+        if (!result.IsSuccess) return result.ErrorCode switch
+        {
+            "NOT_FOUND" => NotFound(new ProblemDetails { Title = result.Error }),
+            "CONFLICT" => Conflict(new ProblemDetails { Title = result.Error }),
+            _ => BadRequest(new ProblemDetails { Title = result.Error })
+        };
         return Ok(new { instanceId = result.Value });
+    }
+
+    [HttpGet("/api/v1/services/{serviceId:guid}/dependencies")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<IReadOnlyList<ServiceDependencyDto>>> Dependencies(Guid serviceId, [FromQuery] Guid organizationId, CancellationToken ct)
+        => Ok(await _serviceHealth.GetDependenciesAsync(organizationId, serviceId, ct));
+
+    [HttpPost("/api/v1/services/{serviceId:guid}/dependencies")]
+    [Authorize(Policy = "Role:SRE")]
+    public async Task<IActionResult> AddDependency(Guid serviceId, [FromBody] AddDependencyRequest request, CancellationToken ct)
+    {
+        if (!User.IsInRole("PlatformAdmin") && User.FindFirst("org_id")?.Value != request.OrganizationId.ToString()) return Forbid();
+        var result = await _serviceHealth.AddDependencyAsync(request.OrganizationId, serviceId, request.DependsOnServiceId, ct);
+        if (!result.IsSuccess) return result.ErrorCode switch { "NOT_FOUND" => NotFound(new ProblemDetails { Title = result.Error }), "CONFLICT" => Conflict(new ProblemDetails { Title = result.Error }), _ => BadRequest(new ProblemDetails { Title = result.Error }) };
+        return NoContent();
     }
 
     [HttpPost("/api/v1/service-instances/{instanceId:guid}/health-check")]
