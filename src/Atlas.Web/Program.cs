@@ -124,6 +124,17 @@ app.UseAtlasSecurityHeaders();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Headers.ContainsKey("X-Api-Key") &&
+        context.User.Identity?.IsAuthenticated != true)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.Use(async (context, next) =>
 {
