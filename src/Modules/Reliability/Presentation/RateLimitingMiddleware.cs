@@ -44,16 +44,19 @@ public class RateLimitingMiddleware
 
         var organizationId = Guid.TryParse(context.User.FindFirst("org_id")?.Value, out var parsedOrganizationId) ? parsedOrganizationId : (Guid?)null;
         RoutePolicySnapshot? routePolicy = null;
-        try
+        if (context.User.Identity?.IsAuthenticated == true)
         {
-            routePolicy = await _routePolicies.FindAsync(organizationId, context.Request.Path.Value ?? "/", context.Request.Method, context.RequestAborted);
-        }
-        catch (Exception ex)
-        {
-            // A missing/unavailable policy store must not turn an otherwise
-            // valid request into a 500. Use the safe default and leave an
-            // operational signal for remediation.
-            _logger.LogWarning(ex, "Route rate-limit policy unavailable; using the default policy for {Path}.", context.Request.Path);
+            try
+            {
+                routePolicy = await _routePolicies.FindAsync(organizationId, context.Request.Path.Value ?? "/", context.Request.Method, context.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                // A missing/unavailable policy store must not turn an otherwise
+                // valid request into a 500. Use the safe default and leave an
+                // operational signal for remediation.
+                _logger.LogWarning(ex, "Route rate-limit policy unavailable; using the default policy for {Path}.", context.Request.Path);
+            }
         }
         var limit = routePolicy?.LimitPerWindow ?? DefaultLimitPerWindow;
         var window = routePolicy?.Window ?? DefaultWindow;
