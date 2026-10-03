@@ -71,8 +71,9 @@ jobs:
 
       - name: Generate and apply disposable CI schema
         run: |
-          scripts/add-migration.sh CiBaseline
-          scripts/migrate.sh
+          set -o pipefail
+          scripts/add-migration.sh CiBaseline 2>&1 | tee migration-generation.log
+          scripts/migrate.sh 2>&1 | tee migration-application.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
 
@@ -162,6 +163,7 @@ jobs:
           path: |
             TestResults
             integration-*.log
+            migration-*.log
           if-no-files-found: ignore
 
       - name: Docker build
