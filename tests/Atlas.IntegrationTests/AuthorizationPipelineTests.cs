@@ -6,7 +6,7 @@ namespace Atlas.IntegrationTests;
 public sealed class AuthorizationPipelineTests : IClassFixture<AnonymousTestWebApplicationFactory>
 {
     private readonly HttpClient _client;
-    public AuthorizationPipelineTests(AnonymousTestWebApplicationFactory factory) => _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    public AuthorizationPipelineTests(AnonymousTestWebApplicationFactory factory) => _client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, BaseAddress = new Uri("https://localhost") });
 
     [Theory]
     [InlineData("/api/v1/services?organizationId=11111111-1111-1111-1111-111111111111")]
