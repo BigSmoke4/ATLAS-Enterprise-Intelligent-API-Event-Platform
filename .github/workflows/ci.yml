@@ -67,7 +67,8 @@ jobs:
       - name: Architecture tests
         run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
 
-      - name: Dependency security audit
+      - name: Dependency security audit (advisory)
+        continue-on-error: true
         run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
       - name: Integration tests

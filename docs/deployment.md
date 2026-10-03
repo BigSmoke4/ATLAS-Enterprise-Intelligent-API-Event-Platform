@@ -20,7 +20,10 @@ documents required variables.
 
 GitHub Actions provisions PostgreSQL, Redis, Zookeeper, and Kafka. The
 WebApplicationFactory integration suite verifies API authorization and
-readiness against those services before the Docker build. Readiness failures
+readiness against those services before the Docker build. The dependency
+vulnerability command is currently advisory (`continue-on-error`) because
+NuGet advisory output requires independent review; a reported advisory must
+not be interpreted as a clean security result. Readiness failures
 are surfaced as dependency failures rather than masked by a hard-coded 200.
 
 For a running Compose deployment, execute `scripts/smoke.sh` (or set
