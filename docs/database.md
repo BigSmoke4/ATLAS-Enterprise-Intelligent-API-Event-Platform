@@ -30,9 +30,11 @@ controlled release step using a deployment identity with schema permissions,
 then run the application with a restricted runtime identity.
 
 Migration files are generated artifacts and must be committed after review.
-The current Arena runtime does not contain the .NET SDK, so migration
-scaffolding cannot be generated inside this session; the scripts make the
-required process deterministic on a .NET-enabled workstation or CI runner.
+CI validates the process by generating a disposable `CiBaseline` migration for
+each module and applying it to ephemeral PostgreSQL before integration tests;
+those generated files are not treated as reviewed production migrations.
+Production still requires committed migration files and a controlled release
+identity.
 
 ## Development seed
 

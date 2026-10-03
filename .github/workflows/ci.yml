@@ -64,6 +64,16 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
 
+      - name: Install EF tooling
+        run: dotnet tool install --global dotnet-ef --version 9.0.1
+
+      - name: Generate and apply disposable CI schema
+        run: |
+          scripts/add-migration.sh CiBaseline
+          scripts/migrate.sh
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+
       - name: Architecture tests
         run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
 
