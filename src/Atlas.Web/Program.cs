@@ -112,13 +112,14 @@ builder.Services.AddHttpClient("downstream-example", client =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
 {
     app.UseExceptionHandler();
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseHttpsRedirection();
 app.UseAtlasSecurityHeaders();
 app.UseStaticFiles();
 app.UseRouting();
