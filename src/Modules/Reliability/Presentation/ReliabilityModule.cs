@@ -38,6 +38,6 @@ public class ReliabilityModule : IAtlasModule
     {
         // Rate limiting is applied as middleware (app.UseAtlasRateLimiting()
         // in Program.cs), not as a per-endpoint route, so nothing to map here.
-        // TODO: /api/v1/reliability/circuit-breakers (read-only state snapshot via ICircuitBreakerRegistry.SnapshotStates()).
+        // Circuit state is mapped by Atlas.Web/Controllers/ReliabilityController.
     }
 }

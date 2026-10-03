@@ -15,6 +15,12 @@ file class FakeRateLimitStore : IRateLimitStore
     }
     public Task<double> GetTokenBucketLevelAsync(string key, CancellationToken ct = default) => Task.FromResult(-1.0);
     public Task SetTokenBucketLevelAsync(string key, double level, TimeSpan ttl, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<(bool Allowed, long CurrentCount)> IncrementSlidingWindowAsync(string key, int limit, TimeSpan window, CancellationToken ct = default)
+    { var count = _counters.GetValueOrDefault(key) + 1; _counters[key] = count; return Task.FromResult((count <= limit, count)); }
+    public Task<(bool Allowed, long CurrentCount)> TryConsumeLeakyBucketAsync(string key, int capacity, double leakPerSecond, TimeSpan ttl, CancellationToken ct = default)
+    { var count = _counters.GetValueOrDefault(key) + 1; _counters[key] = count; return Task.FromResult((count <= capacity, count)); }
+    public Task<(bool Allowed, double Level)> TryConsumeTokenBucketAsync(string key, double capacity, double refillPerSecond, double cost, TimeSpan ttl, CancellationToken ct = default)
+    { var level = _counters.GetValueOrDefault(key, (long)capacity); var allowed = level > 0; if (allowed) level--; _counters[key] = level; return Task.FromResult((allowed, (double)level)); }
 }
 
 public class FixedWindowRequestRateLimiterTests

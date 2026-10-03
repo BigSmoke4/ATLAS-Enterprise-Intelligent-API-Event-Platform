@@ -47,12 +47,13 @@ public class RateLimitingMiddleware
         var limit = routePolicy?.LimitPerWindow ?? DefaultLimitPerWindow;
         var window = routePolicy?.Window ?? DefaultWindow;
         var scope = routePolicy?.Scope ?? "Ip";
+        var algorithm = Enum.TryParse<RateLimitAlgorithm>(routePolicy?.Algorithm, true, out var parsedAlgorithm) ? parsedAlgorithm : RateLimitAlgorithm.FixedWindow;
         var scopeKey = ResolveScopeKey(context, scope, organizationId);
 
         RateLimitDecision decision;
         try
         {
-            decision = await _limiter.CheckAsync(scopeKey, limit, window, context.RequestAborted);
+            decision = await _limiter.CheckAsync(scopeKey, limit, window, context.RequestAborted, algorithm);
         }
         catch (Exception ex)
         {

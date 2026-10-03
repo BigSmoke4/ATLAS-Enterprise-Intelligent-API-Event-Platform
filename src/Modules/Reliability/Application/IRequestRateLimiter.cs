@@ -11,5 +11,5 @@ public record RateLimitDecision(bool Allowed, int LimitPerWindow, TimeSpan Windo
 /// </summary>
 public interface IRequestRateLimiter
 {
-    Task<RateLimitDecision> CheckAsync(string scopeKey, int limitPerWindow, TimeSpan window, CancellationToken ct = default);
+    Task<RateLimitDecision> CheckAsync(string scopeKey, int limitPerWindow, TimeSpan window, CancellationToken ct = default, RateLimitAlgorithm algorithm = RateLimitAlgorithm.FixedWindow);
 }

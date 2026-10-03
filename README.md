@@ -8,7 +8,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 
 - .NET 9, nullable C#, ASP.NET Core MVC and Razor Views (no SPA framework)
 - PostgreSQL/EF Core with a separate schema and DbContext per module
-- Redis abstractions plus an atomic Redis-backed request limiter
+- Redis abstractions plus atomic Redis-backed fixed-window, token-bucket, sliding-window, and leaky-bucket request limiters
 - Kafka publisher/consumer abstraction with retry, idempotency, and DLQ plumbing
 - OpenTelemetry ASP.NET Core/runtime instrumentation, Prometheus `/metrics`, structured Serilog logging, and health endpoints
 - xUnit tests, WebApplicationFactory integration coverage, and NetArchTest boundary checks
@@ -31,7 +31,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 
 ## Known gaps — not faked
 
-The following are deliberately not represented as complete: refresh-token rotation/session revocation and production integration coverage for the new account endpoints, EF migrations and deterministic demo seeding, automatic telemetry aggregation, full API endpoint coverage for every module, dependency topology persistence/visualization, production Kafka schema validation/outbox guarantees, all four distributed limiter algorithms, Grafana dashboard provisioning, a real LLM provider contract with tenant-safe tool execution, and load/performance results. See `docs/architecture.md`, `docs/database.md`, `docs/observability.md`, and `docs/threat-model.md` for the implementation boundary and next steps.
+The following are deliberately not represented as complete: refresh-token rotation/session revocation and production integration coverage for the new account endpoints, EF migrations and deterministic demo seeding, automatic telemetry aggregation, full API endpoint coverage for every module, dependency topology persistence/visualization, production Kafka schema validation/outbox guarantees, Grafana dashboard provisioning, a real LLM provider contract with tenant-safe tool execution, and load/performance results. See `docs/architecture.md`, `docs/database.md`, `docs/observability.md`, and `docs/threat-model.md` for the implementation boundary and next steps.
 
 ## Run locally
 

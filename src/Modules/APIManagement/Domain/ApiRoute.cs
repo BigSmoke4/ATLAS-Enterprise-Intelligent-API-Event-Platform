@@ -30,6 +30,8 @@ public class ApiRoute : TenantEntity
         var method = httpMethod.ToUpperInvariant();
         if (!ValidMethods.Contains(method))
             throw new ArgumentException($"HTTP method must be one of: {string.Join(", ", ValidMethods)}.", nameof(httpMethod));
+        if (rateLimit is not null && (rateLimit.LimitPerWindow <= 0 || rateLimit.Window <= TimeSpan.Zero))
+            throw new ArgumentException("Rate limit must have a positive limit and window.", nameof(rateLimit));
 
         return new ApiRoute
         {
@@ -66,6 +68,7 @@ public class ApiRoute : TenantEntity
 /// algorithms (Modules/Reliability/Domain) — this module only stores the
 /// numbers, Reliability owns the enforcement math.
 /// </summary>
-public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope);
+public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope, RateLimitAlgorithm Algorithm = RateLimitAlgorithm.FixedWindow);
 
 public enum RateLimitScope { Ip, User, ApiKey, Tenant, Endpoint, Global }
+public enum RateLimitAlgorithm { FixedWindow, TokenBucket, SlidingWindow, LeakyBucket }

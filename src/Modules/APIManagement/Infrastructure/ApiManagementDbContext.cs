@@ -23,7 +23,7 @@ public class ApiManagementDbContext : DbContext
         builder.HasDefaultSchema("apimanagement");
 
         var rateLimitConverter = new ValueConverter<RateLimitPolicy?, string?>(
-            v => v == null ? null : $"{v.LimitPerWindow}|{v.Window.Ticks}|{v.Scope}",
+            v => v == null ? null : $"{v.LimitPerWindow}|{v.Window.Ticks}|{v.Scope}|{v.Algorithm}",
             v => v == null ? null : ParseRateLimit(v));
 
         builder.Entity<ApiDefinition>(b =>
@@ -61,6 +61,6 @@ public class ApiManagementDbContext : DbContext
     private static RateLimitPolicy ParseRateLimit(string raw)
     {
         var parts = raw.Split('|');
-        return new RateLimitPolicy(int.Parse(parts[0]), TimeSpan.FromTicks(long.Parse(parts[1])), Enum.Parse<RateLimitScope>(parts[2]));
+        return new RateLimitPolicy(int.Parse(parts[0]), TimeSpan.FromTicks(long.Parse(parts[1])), Enum.Parse<RateLimitScope>(parts[2]), parts.Length > 3 ? Enum.Parse<RateLimitAlgorithm>(parts[3]) : RateLimitAlgorithm.FixedWindow);
     }
 }

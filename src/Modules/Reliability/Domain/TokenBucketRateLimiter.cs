@@ -2,9 +2,8 @@ namespace Atlas.Modules.Reliability.Domain;
 
 /// <summary>
 /// Pure algorithmic token-bucket limiter. The distributed variant
-/// (Atlas.Modules.Reliability.Infrastructure.RedisTokenBucketRateLimiter,
-/// still a TODO) wraps the same math around Atlas.Shared.Contracts.IRateLimitStore
-/// using a Lua script for atomic read-modify-write across nodes.
+/// (Atlas.Modules.Reliability.Infrastructure.RedisRateLimitStore) wraps the
+/// same math with a Lua script for atomic read-modify-write across nodes.
 /// </summary>
 public class TokenBucketRateLimiter
 {

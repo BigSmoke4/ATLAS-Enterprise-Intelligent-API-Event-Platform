@@ -6,4 +6,4 @@ public interface IRoutePolicyProvider
     Task<RoutePolicySnapshot?> FindAsync(Guid? organizationId, string path, string method, CancellationToken ct = default);
 }
 
-public sealed record RoutePolicySnapshot(int LimitPerWindow, TimeSpan Window, string Scope);
+public sealed record RoutePolicySnapshot(int LimitPerWindow, TimeSpan Window, string Scope, string Algorithm);

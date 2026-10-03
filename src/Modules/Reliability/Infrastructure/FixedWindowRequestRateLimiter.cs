@@ -3,22 +3,28 @@ using Atlas.Shared.Contracts;
 
 namespace Atlas.Modules.Reliability.Infrastructure;
 
-/// <summary>
-/// Fixed-window strategy on top of IRateLimitStore.IncrementAsync (atomic
-/// INCR+EXPIRE in Redis — see RedisRateLimitStore). Chosen as the default
-/// live-pipeline limiter for simplicity/cost; TokenBucketRateLimiter and
-/// SlidingWindowCounter (Domain/) remain available for callers that need
-/// smoother or exact-boundary behavior instead.
-/// </summary>
 public class FixedWindowRequestRateLimiter : IRequestRateLimiter
 {
     private readonly IRateLimitStore _store;
     public FixedWindowRequestRateLimiter(IRateLimitStore store) => _store = store;
 
-    public async Task<RateLimitDecision> CheckAsync(string scopeKey, int limitPerWindow, TimeSpan window, CancellationToken ct = default)
+    public async Task<RateLimitDecision> CheckAsync(string scopeKey, int limitPerWindow, TimeSpan window, CancellationToken ct = default, RateLimitAlgorithm algorithm = RateLimitAlgorithm.FixedWindow)
     {
-        var key = $"ratelimit:{scopeKey}:{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / (long)window.TotalSeconds}";
-        var count = await _store.IncrementAsync(key, window, ct);
-        return new RateLimitDecision(count <= limitPerWindow, limitPerWindow, window, count);
+        if (limitPerWindow <= 0) throw new ArgumentOutOfRangeException(nameof(limitPerWindow));
+        if (window <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(window));
+        var key = $"ratelimit:{algorithm}:{scopeKey}";
+        return algorithm switch
+        {
+            RateLimitAlgorithm.FixedWindow => Fixed(key, limitPerWindow, window, await _store.IncrementAsync($"{key}:{DateTimeOffset.UtcNow.ToUnixTimeSeconds() / Math.Max(1, (long)window.TotalSeconds)}", window, ct)),
+            RateLimitAlgorithm.SlidingWindow => Sliding(key, limitPerWindow, window, await _store.IncrementSlidingWindowAsync(key, limitPerWindow, window, ct)),
+            RateLimitAlgorithm.TokenBucket => Token(key, limitPerWindow, window, await _store.TryConsumeTokenBucketAsync(key, limitPerWindow, limitPerWindow / window.TotalSeconds, 1, window, ct)),
+            RateLimitAlgorithm.LeakyBucket => Leaky(key, limitPerWindow, window, await _store.TryConsumeLeakyBucketAsync(key, limitPerWindow, limitPerWindow / window.TotalSeconds, window, ct)),
+            _ => throw new ArgumentOutOfRangeException(nameof(algorithm))
+        };
     }
+
+    private static RateLimitDecision Fixed(string key, int limit, TimeSpan window, long count) => new(count <= limit, limit, window, count);
+    private static RateLimitDecision Sliding(string key, int limit, TimeSpan window, (bool Allowed, long CurrentCount) result) => new(result.Allowed, limit, window, result.CurrentCount);
+    private static RateLimitDecision Leaky(string key, int limit, TimeSpan window, (bool Allowed, long CurrentCount) result) => new(result.Allowed, limit, window, result.CurrentCount);
+    private static RateLimitDecision Token(string key, int limit, TimeSpan window, (bool Allowed, double Level) result) => new(result.Allowed, limit, window, Math.Max(0, limit - (long)Math.Floor(result.Level)));
 }

@@ -15,7 +15,7 @@ public sealed class ApiRoutePolicyProvider : IRoutePolicyProvider
         var normalizedMethod = method.ToUpperInvariant();
         return _db.ApiRoutes.AsNoTracking()
             .Where(route => route.OrganizationId == organizationId.Value && route.Path == path && route.HttpMethod == normalizedMethod && route.RateLimit != null)
-            .Select(route => new RoutePolicySnapshot(route.RateLimit!.LimitPerWindow, route.RateLimit.Window, route.RateLimit.Scope.ToString()))
+            .Select(route => new RoutePolicySnapshot(route.RateLimit!.LimitPerWindow, route.RateLimit.Window, route.RateLimit.Scope.ToString(), route.RateLimit.Algorithm.ToString()))
             .FirstOrDefaultAsync(ct);
     }
 }

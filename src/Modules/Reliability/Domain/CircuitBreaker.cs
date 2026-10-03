@@ -21,6 +21,7 @@ public class CircuitBreaker
 
     public CircuitState State { get; private set; } = CircuitState.Closed;
     private DateTimeOffset _openedAtUtc;
+    private bool _halfOpenTrialInFlight;
 
     public CircuitBreaker(string key, double failureThreshold = 0.5, int minimumRequestVolume = 10,
         TimeSpan? samplingDuration = null, TimeSpan? openDuration = null)
@@ -44,12 +45,14 @@ public class CircuitBreaker
                 if (DateTimeOffset.UtcNow - _openedAtUtc >= OpenDuration)
                 {
                     State = CircuitState.HalfOpen;
-                    return true; // allow a single trial request through
+                    _halfOpenTrialInFlight = true;
+                    return true; // allow one trial request through
                 }
                 return false;
             }
 
-            return true; // Closed or HalfOpen (trial already granted once per open period at app layer)
+            if (State == CircuitState.HalfOpen) return !_halfOpenTrialInFlight;
+            return true;
         }
     }
 
@@ -64,6 +67,7 @@ public class CircuitBreaker
 
             if (State == CircuitState.HalfOpen)
             {
+                _halfOpenTrialInFlight = false;
                 State = success ? CircuitState.Closed : ReOpen(now);
                 return;
             }
