@@ -144,12 +144,14 @@ jobs:
 
       - name: Integration test gate
         if: always()
+        env:
+          AUTH_OUTCOME: ${{ steps.integration_authorization.outcome }}
+          AUDIT_OUTCOME: ${{ steps.integration_audit.outcome }}
+          READINESS_OUTCOME: ${{ steps.integration_readiness.outcome }}
+          REDIS_OUTCOME: ${{ steps.integration_redis.outcome }}
+          KAFKA_OUTCOME: ${{ steps.integration_kafka.outcome }}
         run: |
-          if [[ "${{ steps.integration_authorization.outcome }}" == "failure" || \
-                "${{ steps.integration_audit.outcome }}" == "failure" || \
-                "${{ steps.integration_readiness.outcome }}" == "failure" || \
-                "${{ steps.integration_redis.outcome }}" == "failure" || \
-                "${{ steps.integration_kafka.outcome }}" == "failure" ]]; then
+          if [[ "$AUTH_OUTCOME" == "failure" || "$AUDIT_OUTCOME" == "failure" || "$READINESS_OUTCOME" == "failure" || "$REDIS_OUTCOME" == "failure" || "$KAFKA_OUTCOME" == "failure" ]]; then
             echo "One or more integration test groups failed."
             exit 1
           fi
@@ -160,8 +162,8 @@ jobs:
         with:
           name: integration-test-results
           path: |
-            TestResults/integration
-            integration-test.log
+            TestResults
+            integration-*.log
           if-no-files-found: ignore
 
       - name: Docker build
