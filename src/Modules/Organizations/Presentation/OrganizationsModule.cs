@@ -22,6 +22,8 @@ public class OrganizationsModule : IAtlasModule
         services.AddDbContext<OrganizationsDbContext>(opt =>
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "organizations")));
         services.AddScoped<IOrganizationService, OrganizationService>();
+        if (configuration.GetValue<bool>("Seed:Development"))
+            services.AddHostedService<DevelopmentSeedService>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

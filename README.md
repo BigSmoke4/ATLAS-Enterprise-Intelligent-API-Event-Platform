@@ -49,7 +49,7 @@ dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Releas
 dotnet run --project src/Atlas.Web
 ```
 
-Endpoints: `/health/live` is process liveness; `/health/ready` is reserved for dependency readiness; `/health` is the aggregate health endpoint. REST resources use `/api/v1/...`. Migrations are intentionally not run with `EnsureCreated`; create and apply reviewed EF migrations per module before using PostgreSQL in a deployment.
+Endpoints: `/health/live` is process liveness; `/health/ready` checks PostgreSQL/Redis/Kafka; `/health` is the aggregate health endpoint. REST resources use `/api/v1/...`. Apply reviewed migrations with `scripts/add-migration.sh` and `scripts/migrate.sh`; the application never uses `EnsureCreated`. Set `Seed__Development=true` only for a migrated development database to create the deterministic `atlas-demo` organization.
 
 ## Repository layout
 

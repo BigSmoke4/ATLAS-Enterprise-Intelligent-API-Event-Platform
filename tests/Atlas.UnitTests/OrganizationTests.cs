@@ -14,6 +14,8 @@ public sealed class OrganizationTests
         Assert.True(organization.IsActive);
         Assert.Equal(3, organization.Environments.Count);
         Assert.Contains(organization.Environments, environment => environment.Tier == EnvironmentTier.Production);
+        var repeat = Organization.Create("Payments", "payments", organization.Id);
+        Assert.Equal(organization.Environments.Select(e => e.Id), repeat.Environments.Select(e => e.Id));
     }
 
     [Fact]
