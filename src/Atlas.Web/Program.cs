@@ -16,6 +16,7 @@ using Atlas.Shared.Contracts;
 using Atlas.Shared.Web;
 using Serilog;
 using Atlas.Web.Middleware;
+using Atlas.Web.Hubs;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using OpenTelemetry.Metrics;
@@ -48,6 +49,7 @@ var modules = new List<IAtlasModule>
 };
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
 builder.Services.AddAuthentication(options =>
 {
@@ -112,6 +114,7 @@ app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health");
 app.MapPrometheusScrapingEndpoint("/metrics");
+app.MapHub<IncidentHub>("/hubs/incidents");
 
 app.MapControllerRoute(
     name: "default",

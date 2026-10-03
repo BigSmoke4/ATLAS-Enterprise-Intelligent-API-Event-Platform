@@ -60,10 +60,11 @@ public class Incident : TenantEntity
         return incident;
     }
 
-    public void TransitionTo(IncidentStatus target, string note)
+    public void TransitionTo(IncidentStatus target, string note, Guid? actorUserId = null)
     {
         if (!AllowedTransitions[Status].Contains(target))
             throw new InvalidOperationException($"Cannot transition from {Status} to {target}.");
+        if (string.IsNullOrWhiteSpace(note)) throw new ArgumentException("Transition note is required.", nameof(note));
 
         var now = DateTimeOffset.UtcNow;
         Status = target;
@@ -73,26 +74,29 @@ public class Incident : TenantEntity
             case IncidentStatus.Mitigating: MitigatingAtUtc = now; break;
             case IncidentStatus.Resolved: ResolvedAtUtc = now; break;
         }
-        AddTimelineEntry(note);
+        AddTimelineEntry(note, actorUserId, target.ToString());
         Touch();
     }
 
-    public void RecordRootCause(string rootCause, string mitigation)
+    public void RecordRootCause(string rootCause, string mitigation, Guid? actorUserId = null)
     {
-        RootCause = rootCause;
-        Mitigation = mitigation;
-        AddTimelineEntry($"Root cause recorded: {rootCause}");
+        if (string.IsNullOrWhiteSpace(rootCause) || string.IsNullOrWhiteSpace(mitigation)) throw new ArgumentException("Root cause and mitigation are required.");
+        RootCause = rootCause.Trim();
+        Mitigation = mitigation.Trim();
+        AddTimelineEntry($"Root cause recorded: {RootCause}", actorUserId, "root-cause");
+        Touch();
     }
 
-    public void CompletePostmortem(string postmortemUrl)
+    public void CompletePostmortem(string postmortemUrl, Guid? actorUserId = null)
     {
         if (Status != IncidentStatus.Resolved)
             throw new InvalidOperationException("Postmortem can only be completed after the incident is Resolved.");
-        PostmortemUrl = postmortemUrl;
-        TransitionTo(IncidentStatus.PostmortemComplete, "Postmortem completed.");
+        if (string.IsNullOrWhiteSpace(postmortemUrl)) throw new ArgumentException("Postmortem URL is required.", nameof(postmortemUrl));
+        PostmortemUrl = postmortemUrl.Trim();
+        TransitionTo(IncidentStatus.PostmortemComplete, "Postmortem completed.", actorUserId);
     }
 
-    private void AddTimelineEntry(string note) => _timeline.Add(IncidentTimelineEntry.Create(Id, note));
+    private void AddTimelineEntry(string note, Guid? actorUserId = null, string entryType = "update") => _timeline.Add(IncidentTimelineEntry.Create(Id, note, actorUserId, entryType));
 
     /// <summary>Mean Time To Detect: time from actual incident start to detection. Null until detected (always true here since Detect() sets DetectedAtUtc immediately).</summary>
     public TimeSpan MeanTimeToDetect => DetectedAtUtc - StartedAtUtc;

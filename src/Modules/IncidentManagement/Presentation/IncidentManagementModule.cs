@@ -11,9 +11,10 @@ namespace Atlas.Modules.IncidentManagement.Presentation;
 /// <summary>
 /// STATUS: real state machine (Detected -> Investigating -> Mitigating ->
 /// Resolved -> PostmortemComplete) with illegal transitions rejected, and
-/// MTTD/MTTR computed from timestamps the entity itself records. NOT
-/// implemented: automatic incident creation from alerts/SLO breaches (that
-/// depends on PolicyEngine + Observability integration), REST endpoints.
+/// MTTD/MTTR computed from timestamps the entity itself records. REST
+/// endpoints support filtering, timeline/postmortem operations, and the MVC
+/// host exposes an authorization-protected SignalR incident hub. Automatic
+/// incident creation from alerts/SLO breaches remains PolicyEngine work.
 /// </summary>
 public class IncidentManagementModule : IAtlasModule
 {
