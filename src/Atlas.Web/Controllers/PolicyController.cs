@@ -42,7 +42,7 @@ public class PolicyController : ControllerBase
         if (!CanAccess(organizationId)) return Forbid();
         var result = await _policies.DeactivateAsync(organizationId, policyId, ct);
         if (!result.Success) return NotFound(new ProblemDetails { Title = result.Error });
-        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.deactivated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), afterJson: "{\"active\":false}"), ct);
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.deactivated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), AfterJson: "{\"active\":false}"), ct);
         return NoContent();
     }
 
@@ -53,7 +53,7 @@ public class PolicyController : ControllerBase
         if (!CanAccess(request.OrganizationId)) return Forbid();
         var result = await _policies.CreateVersionAsync(request.OrganizationId, policyId, request.Conditions, request.Action, ct);
         if (!result.Success) return BadRequest(new ProblemDetails { Title = result.Error });
-        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", request.OrganizationId, "policy.version.created", "PolicyRule", result.Value!.Value.ToString(), Guid.NewGuid()), ct);
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", request.OrganizationId, "policy.version.created", "PolicyRule", result.Value.ToString(), Guid.NewGuid()), ct);
         return StatusCode(StatusCodes.Status201Created, new { policyId = result.Value });
     }
 
@@ -64,7 +64,7 @@ public class PolicyController : ControllerBase
         if (!CanAccess(organizationId)) return Forbid();
         var result = await _policies.ActivateAsync(organizationId, policyId, ct);
         if (!result.Success) return NotFound(new ProblemDetails { Title = result.Error });
-        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.activated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), afterJson: "{\"active\":true}"), ct);
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.activated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), AfterJson: "{\"active\":true}"), ct);
         return NoContent();
     }
 
