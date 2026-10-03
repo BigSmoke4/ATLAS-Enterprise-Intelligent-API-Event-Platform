@@ -1,33 +1,28 @@
 # Observability
 
-Target: OpenTelemetry traces/metrics from Gateway → API → Service →
-Database → Kafka → Consumer, Prometheus-scrapeable metrics endpoint,
-structured Serilog logs correlated by trace/correlation ID.
+ATLAS exposes an OpenTelemetry-backed observability surface for traces and
+metrics. It does not invent dashboard values: SLO values are calculated from
+persisted `MetricSample` records.
 
 ## Implemented
 
-- Serilog wired in `Program.cs` (structured logging).
-- OpenTelemetry ASP.NET Core tracing/metrics instrumentation registered
-  (`ObservabilityModule`) — no exporter configured yet (see below).
-- `SloCalculator` — real, pure, unit-tested error-budget/burn-rate math,
-  always derived from recorded `MetricSample` rows.
-- `ISloService.GetSamplesAsync` — the real cross-module read seam
-  `DeploymentIntelligence` uses for regression analysis (Application
-  interface, never `ObservabilityDbContext` directly).
-- ServiceRegistry's `HealthCheckProberService` — a real automated
-  `BackgroundService` that HTTP-probes every registered instance on a
-  timer and feeds results into `ServiceInstance.RecordHealthCheck`,
-  closing the "health only updates when someone calls the API" gap.
+- Serilog structured logging in `Program.cs`.
+- ASP.NET Core, HttpClient, runtime, and SQL Client OpenTelemetry
+  instrumentation.
+- Prometheus scrape endpoint at `/metrics`.
+- Docker Compose Prometheus configuration at `observability/prometheus.yml`
+  and an optional Grafana container.
+- `SloCalculator` real, pure, unit-tested error-budget/burn-rate math.
+- `ISloService.GetSamplesAsync` cross-module read seam for deployment
+  regression analysis.
+- ServiceRegistry background health probing.
 
-## Not yet implemented
+## Deliberate remaining work
 
-- No metrics exporter (Prometheus/OTLP) is configured — traces/metrics are
-  instrumented but have nowhere to go yet; add `.AddPrometheusExporter()`
-  or `.AddOtlpExporter()` in `ObservabilityModule` once a collector target
-  is chosen.
-- No background job automatically populates `MetricSample` rows from real
-  request traffic — `RecordOutcomeAsync`/`RecordLatencyAsync` must be
-  called explicitly today (e.g. from middleware, which isn't wired in yet).
-- The dashboard (`/Dashboard`) intentionally shows "No telemetry
-  available." until the above lands — this is correct behavior per the
-  master prompt's "no fabricated metrics" rule, not a bug.
+Metric samples are currently recorded through the SLO application service;
+request middleware does not yet persist every HTTP outcome because doing so
+without service/tenant attribution would produce misleading data. A future
+aggregation worker should consume request and dependency meters, apply
+retention/rollup rules, and persist only correctly attributed samples.
+Prometheus provides live process/runtime metrics now; Grafana dashboards and
+trace/log export configuration remain deployment-specific.

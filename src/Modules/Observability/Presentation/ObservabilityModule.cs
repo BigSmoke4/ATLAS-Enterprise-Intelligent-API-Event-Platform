@@ -40,8 +40,11 @@ public class ObservabilityModule : IAtlasModule
                 .AddSource("Atlas"))
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
-                .AddMeter("Atlas"));
-        // TODO: .AddOtlpExporter() / Prometheus exporter once an endpoint is decided.
+                .AddHttpClientInstrumentation()
+                .AddSqlClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddMeter("Atlas")
+                .AddPrometheusExporter());
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

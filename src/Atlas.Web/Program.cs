@@ -15,8 +15,10 @@ using Atlas.Modules.TrafficManagement.Presentation;
 using Atlas.Shared.Contracts;
 using Atlas.Shared.Web;
 using Serilog;
+using Atlas.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using OpenTelemetry.Metrics;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -93,7 +95,7 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler();
     app.UseHsts();
 }
 
@@ -103,11 +105,13 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAtlasRateLimiting();
 app.UseAuthentication();
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health");
+app.MapPrometheusScrapingEndpoint("/metrics");
 
 app.MapControllerRoute(
     name: "default",

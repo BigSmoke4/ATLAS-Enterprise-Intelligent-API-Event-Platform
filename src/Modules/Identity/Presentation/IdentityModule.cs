@@ -23,6 +23,9 @@ public class IdentityModule : IAtlasModule
         services.AddDbContext<IdentityDbContext>(opt =>
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "identity")));
 
+        services.AddScoped<IApiKeyService, ApiKeyService>();
+        services.AddScoped<IUserClaimsPrincipalFactory<AtlasUser>, AtlasClaimsPrincipalFactory>();
+
         services.AddIdentityCore<AtlasUser>(options =>
             {
                 options.Password.RequiredLength = 12;
