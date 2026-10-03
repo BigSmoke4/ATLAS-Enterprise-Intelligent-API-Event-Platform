@@ -37,11 +37,14 @@ public class ObservabilityModule : IAtlasModule
         services.AddOpenTelemetry()
             .WithTracing(tracing => tracing
                 .AddAspNetCoreInstrumentation()
+                // Npgsql ships its own ActivitySource — this is how PostgreSQL
+                // statements appear in distributed traces without any
+                // provider-specific instrumentation package.
+                .AddSource("Npgsql")
                 .AddSource("Atlas"))
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
-                .AddSqlClientInstrumentation()
                 .AddRuntimeInstrumentation()
                 .AddMeter("Atlas")
                 .AddPrometheusExporter());
