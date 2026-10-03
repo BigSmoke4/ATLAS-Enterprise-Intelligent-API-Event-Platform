@@ -51,7 +51,7 @@ public class DashboardController : Controller
             model.ServiceUnhealthy = statuses.Count(s => s.AggregateHealth == ServiceHealth.Unhealthy);
             model.ServiceUnavailable = statuses.Count(s => s.AggregateHealth == ServiceHealth.Unavailable);
 
-            var incidents = await _incidents.GetActiveIncidentsAsync(orgId, 1, 10, ct);
+            var incidents = await _incidents.GetActiveIncidentsAsync(orgId, page: 1, pageSize: 10, ct: ct);
             model.ActiveIncidents = incidents
                 .Where(i => i.Status != IncidentStatus.Resolved && i.Status != IncidentStatus.PostmortemComplete)
                 .Select(i => new IncidentSummary(i.Id, i.Title, i.Severity.ToString(), i.Status.ToString(), i.StartedAtUtc))
