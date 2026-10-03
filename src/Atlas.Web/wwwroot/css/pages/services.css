@@ -1,1 +1,1 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+.service-summary { display: flex; gap: 24px; color: var(--atlas-text-dim); font-size: .85rem; margin-bottom: 18px; }

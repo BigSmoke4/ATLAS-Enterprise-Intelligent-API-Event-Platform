@@ -1,1 +1,1 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-gauge { align-items: center; display: flex; gap: 12px; }.atlas-gauge__track { background: var(--atlas-surface-inset); border: 1px solid var(--atlas-border); border-radius: 99px; height: 8px; overflow: hidden; flex: 1; }.atlas-gauge__value { background: var(--atlas-green); height: 100%; transition: width .25s ease; }

@@ -28,6 +28,7 @@ public class AuditModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "audit")));
 
         services.AddScoped<IAuditLogger, AuditLogger>();
+        services.AddScoped<IAuditSink>(sp => sp.GetRequiredService<IAuditLogger>());
         services.AddScoped<IAuditQueryService, AuditQueryService>();
     }
 

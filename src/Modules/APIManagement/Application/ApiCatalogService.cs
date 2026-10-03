@@ -62,7 +62,33 @@ public class ApiCatalogService : IApiCatalogService
         {
             return Result.Failure(ex.Message, "VALIDATION_ERROR");
         }
+        catch (InvalidOperationException ex)
+        {
+            return Result.Failure(ex.Message, "CONFLICT");
+        }
     }
+
+    public async Task<Result> ConfigureRouteAsync(Guid organizationId, Guid routeId, RateLimitPolicy? rateLimit, TimeSpan timeout, int maxRetries, CancellationToken ct = default)
+    {
+        var route = await _db.ApiRoutes.FirstOrDefaultAsync(r => r.Id == routeId && r.OrganizationId == organizationId, ct);
+        if (route is null) return Result.Failure("Route not found.", "NOT_FOUND");
+        try
+        {
+            route.SetRateLimit(rateLimit);
+            route.SetTimeout(timeout);
+            route.SetRetryPolicy(maxRetries);
+            await _db.SaveChangesAsync(ct);
+            return Result.Success();
+        }
+        catch (ArgumentException ex) { return Result.Failure(ex.Message, "VALIDATION_ERROR"); }
+    }
+
+    public async Task<IReadOnlyList<ApiRouteDto>> ListRoutesAsync(Guid organizationId, Guid apiVersionId, CancellationToken ct = default)
+        => await _db.ApiRoutes.AsNoTracking()
+            .Where(r => r.OrganizationId == organizationId && r.ApiVersionId == apiVersionId)
+            .OrderBy(r => r.Path).ThenBy(r => r.HttpMethod)
+            .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries))
+            .ToListAsync(ct);
 
     public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
     {

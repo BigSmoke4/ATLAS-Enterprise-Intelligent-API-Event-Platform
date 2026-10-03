@@ -1,6 +1,6 @@
 namespace Atlas.Modules.TrafficManagement.Domain;
 
-public record RouteTarget(string ServiceInstanceId, int WeightPercent, bool IsHealthy, double AvgLatencyMs, int ActiveConnections);
+public record RouteTarget(string ServiceInstanceId, int WeightPercent, bool IsHealthy, double AvgLatencyMs, int ActiveConnections, int Priority = 0);
 
 /// <summary>
 /// Real routing algorithms operating on actual configured/observed service
@@ -37,6 +37,9 @@ public static class RoutingStrategies
 
     public static RouteTarget LatencyBased(IReadOnlyList<RouteTarget> targets)
         => HealthyOnly(targets).OrderBy(t => t.AvgLatencyMs).First();
+
+    public static RouteTarget Priority(IReadOnlyList<RouteTarget> targets)
+        => HealthyOnly(targets).OrderBy(t => t.Priority).ThenBy(t => t.ServiceInstanceId).First();
 
     private static List<RouteTarget> HealthyOnly(IReadOnlyList<RouteTarget> targets)
     {

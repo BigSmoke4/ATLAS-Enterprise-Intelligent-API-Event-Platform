@@ -32,6 +32,11 @@ public class DeploymentsController : ControllerBase
     }
 
     /// <summary>Real regression check — see IDeploymentRegressionService.AnalyzeRegressionAsync for what's actually computed.</summary>
+    [HttpGet("{deploymentId:guid}/canary-analysis")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<IActionResult> AnalyzeCanary(Guid deploymentId, [FromQuery] Guid organizationId, [FromQuery] int windowMinutes = 15, CancellationToken ct = default)
+        => Ok(await _deployments.AnalyzeCanaryAsync(organizationId, deploymentId, TimeSpan.FromMinutes(Math.Clamp(windowMinutes, 1, 1440)), ct));
+
     [HttpGet("{deploymentId:guid}/regression-analysis")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<IActionResult> AnalyzeRegression(Guid deploymentId, [FromQuery] Guid organizationId,

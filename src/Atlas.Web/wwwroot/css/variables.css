@@ -1,13 +1,17 @@
 :root {
-    --atlas-bg: #1b1e22;
-    --atlas-panel-bg: #24282d;
-    --atlas-panel-border: #34393f;
-    --atlas-metal: linear-gradient(180deg, #3a3f45, #24282d);
-    --atlas-text: #d7dde3;
-    --atlas-text-dim: #8a929b;
-    --atlas-accent: #4fa3ff;
-    --atlas-ok: #38c172;
-    --atlas-warn: #f2b134;
-    --atlas-error: #e0483e;
-    --atlas-radius: 6px;
+  --atlas-bg: #10161b;
+  --atlas-surface: #1b252b;
+  --atlas-surface-raised: #263239;
+  --atlas-surface-inset: #0b1013;
+  --atlas-metal: linear-gradient(145deg, #303c42, #182126);
+  --atlas-border: #42525a;
+  --atlas-border-bright: #647781;
+  --atlas-text: #e4edf0;
+  --atlas-text-dim: #9baeb5;
+  --atlas-green: #55d39a;
+  --atlas-amber: #f0bd63;
+  --atlas-red: #ed6d6d;
+  --atlas-blue: #75b9e8;
+  --atlas-shadow: 0 12px 28px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.05);
+  --atlas-radius: 6px;
 }

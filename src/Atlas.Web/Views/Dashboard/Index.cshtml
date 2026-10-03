@@ -3,24 +3,18 @@
     Layout = "_Layout";
 }
 
-<section class="atlas-panel atlas-panel--inset">
-    <h1>SYSTEM STATUS</h1>
-    <p class="atlas-status-text">No telemetry available.</p>
-    <p class="atlas-note">
-        The Observability module (Phase 5) has not been implemented yet, so
-        this dashboard intentionally does not display request rate, latency,
-        or error-rate numbers here — those would be fabricated. Wire up
-        Atlas.Modules.Observability's OpenTelemetry pipeline and this panel
-        will render real aggregates instead of this message.
-    </p>
+<section class="atlas-toolbar">
+    <div><div class="atlas-kicker">ATLAS / OPERATIONS</div><h1>COMMAND CENTER</h1></div>
+    <span><span class="atlas-lamp atlas-lamp--amber"></span>TELEMETRY STATUS: NO LIVE SAMPLE</span>
 </section>
 
-<section class="atlas-panel">
-    <h2>ACTIVE INCIDENTS</h2>
-    <p class="atlas-status-text">No telemetry available.</p>
-</section>
-
-<section class="atlas-panel">
-    <h2>SLO / ERROR BUDGET</h2>
-    <p class="atlas-status-text">No telemetry available.</p>
+<section class="atlas-dashboard-grid">
+    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">REQUEST RATE</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Awaiting recorded request samples.</div></article>
+    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">P95 LATENCY</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Calculated only from stored samples.</div></article>
+    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">ERROR RATE</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">No synthetic baseline is shown.</div></article>
+    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">SERVICE AVAILABILITY</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Select an organization to inspect health.</div></article>
+    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>LIVE SERVICE TOPOLOGY</h2><span class="atlas-badge">DATABASE RELATIONSHIPS</span></div><p class="atlas-status-text">No topology available.</p><p class="atlas-note">Topology is generated from registered service dependencies. It is intentionally empty until those relationships are stored.</p></article>
+    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>AI OPERATIONS ANALYSIS</h2><span class="atlas-badge">EVIDENCE REQUIRED</span></div><p class="atlas-status-text">Insufficient evidence.</p><p class="atlas-note">ATLAS tools will cite stored health, incident, and SLO evidence. The assistant never invents telemetry or certainty.</p></article>
+    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>ACTIVE INCIDENTS</h2></div><p class="atlas-status-text">No telemetry available.</p><p class="atlas-note">Open the Incidents console with an authorized organization context.</p></article>
+    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>SLO / ERROR BUDGET</h2></div><p class="atlas-status-text">No telemetry available.</p><p class="atlas-note">Compliance and burn rate are derived from MetricSample records; no defaults are presented as fact.</p></article>
 </section>

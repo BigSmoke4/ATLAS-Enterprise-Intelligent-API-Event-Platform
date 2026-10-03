@@ -30,8 +30,9 @@ public class EventPlatformDbContext : DbContext
             b.HasKey(d => d.Id);
             b.Property(d => d.OriginalTopic).HasMaxLength(256).IsRequired();
             b.Property(d => d.EventType).HasMaxLength(256).IsRequired();
+            b.Property(d => d.Version).IsRequired();
             b.Property(d => d.FailureReason).HasMaxLength(2000).IsRequired();
-            b.HasIndex(d => d.OriginalTopic);
+            b.HasIndex(d => new { d.OriginalTopic, d.EventType, d.LastFailedAtUtc });
             b.HasIndex(d => d.EventId);
         });
     }

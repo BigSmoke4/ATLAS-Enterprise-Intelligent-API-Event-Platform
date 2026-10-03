@@ -26,7 +26,7 @@ public class AiOperationsAssistant
         _completionClient = completionClient;
     }
 
-    public async Task<AiAnswer> AnswerAsync(Guid organizationId, string question, IReadOnlyList<string> toolNamesToConsult, CancellationToken ct = default)
+    public async Task<AiAnswer> AnswerAsync(Guid organizationId, string question, IReadOnlyList<string> toolNamesToConsult, IReadOnlyDictionary<string, string>? toolArguments = null, CancellationToken ct = default)
     {
         var evidence = new List<Evidence>();
 
@@ -35,7 +35,7 @@ public class AiOperationsAssistant
             var tool = _readTools.FirstOrDefault(t => t.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase));
             if (tool is null) continue; // unknown tool name is silently skipped, not fabricated
 
-            var result = await tool.InvokeAsync(organizationId, new Dictionary<string, string>(), ct);
+            var result = await tool.InvokeAsync(organizationId, toolArguments ?? new Dictionary<string, string>(), ct);
             if (result.Success && !string.IsNullOrWhiteSpace(result.Summary))
             {
                 evidence.Add(new Evidence(tool.Name, result.Summary, DateTimeOffset.UtcNow));

@@ -18,7 +18,7 @@ cross-module reads go through the owning module's Application interface
 | `GET /api/v1/events/dead-letters`, `POST .../{id}/mark-replayed` | `EventsController` | `IDeadLetterService` |
 | `POST /api/v1/ai/ask` | `AiController` | `AiOperationsAssistant` |
 | `GET/POST /api/v1/policies`, `POST .../{id}/deactivate`, `POST .../evaluate` | `PolicyController` | `IPolicyManagementService` |
-| `GET /api/v1/audit` (read-only) | `AuditController` | `IAuditQueryService` |
+| `GET /api/v1/audit?organizationId=...&resourceType=...&action=...&page=...&pageSize=...` (read-only) | `AuditController` | `IAuditQueryService` |
 | `GET/POST /api/v1/deployments`, `GET .../{id}/regression-analysis` | `DeploymentsController` | `IDeploymentRegressionService` (pulls real Observability samples via `ISloService.GetSamplesAsync`, runs `RegressionAnalyzer`) |
 | `POST /api/v1/traffic/select-instance` | `TrafficController` | `ITrafficRoutingService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms) |
 
@@ -55,8 +55,12 @@ Observability's aggregation job exists.
   fabricated zero values would make every instance look artificially tied.
   Unit-tested, including the refusal path.
 - **Resource-level tenant authorization**: `[Authorize(Policy =
-  "SameOrganization")]` now applied to 7 GET endpoints that take
-  `organizationId` via query string — see docs/security.md.
+  "SameOrganization")]` now applies to organization-scoped GET endpoints,
+  including the security-engineer-only audit trail. Audit queries require an
+  explicit `organizationId` for organization-scoped roles, support
+  resource/action filters, and clamp pagination to 1–200. Platform admins may
+  omit the organization filter for platform-wide/system audit records — see
+  docs/security.md.
 
 ## Honest limitations still open
 

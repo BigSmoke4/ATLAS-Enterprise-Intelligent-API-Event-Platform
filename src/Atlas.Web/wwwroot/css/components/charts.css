@@ -1,1 +1,1 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-sparkline { background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(117,185,232,.08) 19px 20px), var(--atlas-surface-inset); border: 1px solid var(--atlas-border); height: 64px; }

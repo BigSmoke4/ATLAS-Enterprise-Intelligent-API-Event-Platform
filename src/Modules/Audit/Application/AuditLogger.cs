@@ -8,6 +8,10 @@ public class AuditLogger : IAuditLogger
     private readonly AuditDbContext _db;
     public AuditLogger(AuditDbContext db) => _db = db;
 
+    public Task RecordAsync(Atlas.Shared.Contracts.AuditRecord record, CancellationToken ct = default)
+        => RecordAsync(record.ActorUserId, record.ActorDisplay, record.OrganizationId, record.Action, record.ResourceType,
+            record.ResourceId, record.CorrelationId, record.BeforeJson, record.AfterJson, record.IpAddress, ct);
+
     public async Task RecordAsync(Guid? actorUserId, string actorDisplay, Guid? organizationId, string action,
         string resourceType, string resourceId, Guid correlationId,
         string? beforeJson = null, string? afterJson = null, string? ipAddress = null,

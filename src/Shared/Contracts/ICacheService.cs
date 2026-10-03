@@ -25,4 +25,7 @@ public interface IRateLimitStore
     Task<long> IncrementAsync(string key, TimeSpan window, CancellationToken ct = default);
     Task<double> GetTokenBucketLevelAsync(string key, CancellationToken ct = default);
     Task SetTokenBucketLevelAsync(string key, double level, TimeSpan ttl, CancellationToken ct = default);
+    Task<(bool Allowed, long CurrentCount)> IncrementSlidingWindowAsync(string key, int limit, TimeSpan window, CancellationToken ct = default);
+    Task<(bool Allowed, long CurrentCount)> TryConsumeLeakyBucketAsync(string key, int capacity, double leakPerSecond, TimeSpan ttl, CancellationToken ct = default);
+    Task<(bool Allowed, double Level)> TryConsumeTokenBucketAsync(string key, double capacity, double refillPerSecond, double cost, TimeSpan ttl, CancellationToken ct = default);
 }

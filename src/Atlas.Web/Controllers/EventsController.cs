@@ -1,4 +1,6 @@
 using Atlas.Modules.EventPlatform.Application;
+using Atlas.Shared.Contracts;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,12 +13,30 @@ namespace Atlas.Web.Controllers;
 public class EventsController : ControllerBase
 {
     private readonly IDeadLetterService _deadLetters;
-    public EventsController(IDeadLetterService deadLetters) => _deadLetters = deadLetters;
+    private readonly IRawEventPublisher? _rawPublisher;
+    public EventsController(IDeadLetterService deadLetters, IRawEventPublisher? rawPublisher = null) { _deadLetters = deadLetters; _rawPublisher = rawPublisher; }
+
+    public sealed record PublishRequest(string Topic, Guid EventId, string EventType, int Version, DateTimeOffset TimestampUtc, Guid CorrelationId, Guid? CausationId, string Producer, JsonElement Payload);
+
+    [HttpPost("publish")]
+    [Authorize(Policy = "Role:Developer")]
+    public async Task<IActionResult> Publish(PublishRequest request, CancellationToken ct)
+    {
+        if (_rawPublisher is null) return StatusCode(StatusCodes.Status503ServiceUnavailable, new ProblemDetails { Title = "Kafka publisher is not configured." });
+        var payload = JsonSerializer.Serialize(new { request.EventId, request.EventType, request.Version, request.TimestampUtc, request.CorrelationId, request.CausationId, request.Producer, Payload = request.Payload });
+        try
+        {
+            await _rawPublisher.PublishRawAsync(request.Topic, payload, request.EventType, request.Version, request.EventId, request.CorrelationId, request.CausationId, request.Producer, request.TimestampUtc, ct);
+            return Accepted(new { request.EventId, request.Topic });
+        }
+        catch (ArgumentException ex) { return BadRequest(new ProblemDetails { Title = ex.Message }); }
+    }
 
     [HttpGet("dead-letters")]
-    public async Task<IActionResult> ListDeadLetters([FromQuery] string? topic,
+    public async Task<IActionResult> ListDeadLetters([FromQuery] string? topic, [FromQuery] string? eventType,
+        [FromQuery] DateTimeOffset? fromUtc, [FromQuery] DateTimeOffset? toUtc, [FromQuery] Guid? eventId,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _deadLetters.ListAsync(topic, page, pageSize, ct));
+        => Ok(await _deadLetters.ListAsync(topic, page, pageSize, ct, eventType, fromUtc, toUtc, eventId));
 
     /// <summary>Flags as replayed WITHOUT re-publishing (use when the fix was applied out-of-band).</summary>
     [HttpPost("dead-letters/{id:guid}/mark-replayed")]

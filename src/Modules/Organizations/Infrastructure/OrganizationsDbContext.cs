@@ -29,6 +29,7 @@ public class OrganizationsDbContext : DbContext
             b.Property(o => o.Slug).HasMaxLength(128).IsRequired();
             b.HasIndex(o => o.Slug).IsUnique();
             b.Property(o => o.RowVersion).IsRowVersion();
+            b.HasQueryFilter(o => !_tenantContext.HasOrganization || o.Id == _tenantContext.CurrentOrganizationId);
         });
 
         builder.Entity<Team>(b =>

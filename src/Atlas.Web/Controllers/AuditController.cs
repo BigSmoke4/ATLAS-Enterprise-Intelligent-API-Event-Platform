@@ -8,6 +8,7 @@ namespace Atlas.Web.Controllers;
 [ApiController]
 [Route("api/v1/audit")]
 [Authorize(Policy = "Role:SecurityEngineer")]
+[Authorize(Policy = "SameOrganization")]
 public class AuditController : ControllerBase
 {
     private readonly IAuditQueryService _audit;
@@ -15,6 +16,10 @@ public class AuditController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] Guid? organizationId, [FromQuery] string? resourceType,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _audit.ListAsync(organizationId, resourceType, page, pageSize, ct));
+        [FromQuery] string? action, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
+    {
+        if (!organizationId.HasValue && !User.IsInRole("PlatformAdmin"))
+            return BadRequest(new ProblemDetails { Title = "organizationId is required for organization-scoped audit access." });
+        return Ok(await _audit.ListAsync(organizationId, resourceType, action, page, pageSize, ct));
+    }
 }

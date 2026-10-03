@@ -1,6 +1,6 @@
 namespace Atlas.Modules.Audit.Application;
 
-public interface IAuditLogger
+public interface IAuditLogger : Atlas.Shared.Contracts.IAuditSink
 {
     Task RecordAsync(Guid? actorUserId, string actorDisplay, Guid? organizationId, string action,
         string resourceType, string resourceId, Guid correlationId,

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.PolicyEngine.Application;
 using Atlas.Modules.PolicyEngine.Domain;
+using Atlas.Shared.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -12,10 +13,12 @@ namespace Atlas.Web.Controllers;
 public class PolicyController : ControllerBase
 {
     private readonly IPolicyManagementService _policies;
-    public PolicyController(IPolicyManagementService policies) => _policies = policies;
+    private readonly IAuditSink _audit;
+    public PolicyController(IPolicyManagementService policies, IAuditSink audit) { _policies = policies; _audit = audit; }
 
     public record CreatePolicyRequest(Guid OrganizationId, string Name, PolicyCondition[] Conditions, PolicyAction Action);
     public record EvaluateRequest(Guid OrganizationId, Dictionary<string, double> Facts);
+    public record CreatePolicyVersionRequest(Guid OrganizationId, PolicyCondition[] Conditions, PolicyAction Action);
 
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
@@ -36,8 +39,32 @@ public class PolicyController : ControllerBase
     [Authorize(Policy = "Role:PlatformAdmin")]
     public async Task<IActionResult> Deactivate(Guid policyId, [FromQuery] Guid organizationId, CancellationToken ct)
     {
+        if (!CanAccess(organizationId)) return Forbid();
         var result = await _policies.DeactivateAsync(organizationId, policyId, ct);
         if (!result.Success) return NotFound(new ProblemDetails { Title = result.Error });
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.deactivated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), afterJson: "{\"active\":false}"), ct);
+        return NoContent();
+    }
+
+    [HttpPost("{policyId:guid}/versions")]
+    [Authorize(Policy = "Role:PlatformAdmin")]
+    public async Task<IActionResult> CreateVersion(Guid policyId, CreatePolicyVersionRequest request, CancellationToken ct)
+    {
+        if (!CanAccess(request.OrganizationId)) return Forbid();
+        var result = await _policies.CreateVersionAsync(request.OrganizationId, policyId, request.Conditions, request.Action, ct);
+        if (!result.Success) return BadRequest(new ProblemDetails { Title = result.Error });
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", request.OrganizationId, "policy.version.created", "PolicyRule", result.Value!.Value.ToString(), Guid.NewGuid()), ct);
+        return StatusCode(StatusCodes.Status201Created, new { policyId = result.Value });
+    }
+
+    [HttpPost("{policyId:guid}/activate")]
+    [Authorize(Policy = "Role:PlatformAdmin")]
+    public async Task<IActionResult> Activate(Guid policyId, [FromQuery] Guid organizationId, CancellationToken ct)
+    {
+        if (!CanAccess(organizationId)) return Forbid();
+        var result = await _policies.ActivateAsync(organizationId, policyId, ct);
+        if (!result.Success) return NotFound(new ProblemDetails { Title = result.Error });
+        await _audit.RecordAsync(new AuditRecord(UserId(), User.Identity?.Name ?? "unknown", organizationId, "policy.activated", "PolicyRule", policyId.ToString(), Guid.NewGuid(), afterJson: "{\"active\":true}"), ct);
         return NoContent();
     }
 
@@ -45,7 +72,11 @@ public class PolicyController : ControllerBase
     [HttpPost("evaluate")]
     public async Task<IActionResult> Evaluate([FromBody] EvaluateRequest request, CancellationToken ct)
     {
+        if (!CanAccess(request.OrganizationId)) return Forbid();
         var outcomes = await _policies.EvaluateActiveRulesAsync(request.OrganizationId, request.Facts, ct);
-        return Ok(outcomes.Select(o => new { policyId = o.Rule.Id, name = o.Rule.Name, matched = o.Matched, action = o.Rule.Action }));
+        return Ok(outcomes.Select(o => new { policyId = o.Rule.Id, name = o.Rule.Name, version = o.Rule.Version, matched = o.Matched, action = o.Rule.Action }));
     }
+
+    private Guid? UserId() => Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
+    private bool CanAccess(Guid organizationId) => User.IsInRole("PlatformAdmin") || User.FindFirst("org_id")?.Value == organizationId.ToString();
 }

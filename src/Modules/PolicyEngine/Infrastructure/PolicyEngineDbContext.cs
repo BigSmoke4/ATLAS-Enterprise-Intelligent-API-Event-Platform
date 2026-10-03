@@ -38,6 +38,7 @@ public class PolicyEngineDbContext : DbContext
             // an executable expression string. See PolicyCondition for why.
             b.Property(r => r.Conditions).HasConversion(conditionsConverter).HasColumnType("jsonb");
             b.Property(r => r.Action).HasConversion(actionConverter).HasColumnType("jsonb");
+            b.HasIndex(r => new { r.OrganizationId, r.Name, r.Version }).IsUnique();
             b.HasIndex(r => new { r.OrganizationId, r.IsActive });
             b.HasQueryFilter(r => !_tenantContext.HasOrganization || r.OrganizationId == _tenantContext.CurrentOrganizationId);
         });

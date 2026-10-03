@@ -48,6 +48,20 @@ services:
       KAFKA_CLUSTERS_0_NAME: atlas
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    depends_on: [atlas-web]
+    ports: ["9090:9090"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    depends_on: [prometheus]
+    ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
+
   atlas-web:
     build:
       context: .

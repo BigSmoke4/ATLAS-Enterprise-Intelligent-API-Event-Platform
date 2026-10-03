@@ -37,6 +37,8 @@ public class IncidentManagementDbContext : DbContext
             b.ToTable("IncidentTimelineEntries");
             b.HasKey(t => t.Id);
             b.Property(t => t.Note).HasMaxLength(2000).IsRequired();
+            b.Property(t => t.EntryType).HasMaxLength(64).IsRequired();
+            b.HasIndex(t => new { t.IncidentId, t.AtUtc });
         });
     }
 }

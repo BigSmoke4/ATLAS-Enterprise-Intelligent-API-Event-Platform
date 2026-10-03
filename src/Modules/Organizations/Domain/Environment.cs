@@ -11,6 +11,6 @@ public class Environment : TenantEntity
 
     private Environment() { }
 
-    public static Environment Create(Guid organizationId, string name, EnvironmentTier tier)
-        => new() { OrganizationId = organizationId, Name = name, Tier = tier };
+    public static Environment Create(Guid organizationId, string name, EnvironmentTier tier, Guid? id = null)
+        => new() { Id = id ?? Guid.NewGuid(), OrganizationId = organizationId, Name = name, Tier = tier };
 }

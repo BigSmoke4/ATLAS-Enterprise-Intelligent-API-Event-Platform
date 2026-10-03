@@ -15,6 +15,14 @@ using Atlas.Modules.TrafficManagement.Presentation;
 using Atlas.Shared.Contracts;
 using Atlas.Shared.Web;
 using Serilog;
+using Atlas.Web.Middleware;
+using Atlas.Web.Hubs;
+using Atlas.Web.Health;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Identity;
+using OpenTelemetry.Metrics;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -44,7 +52,37 @@ var modules = new List<IAtlasModule>
 };
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddHealthChecks();
+builder.Services.AddSignalR();
+builder.Services.AddProblemDetails();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
+})
+.AddCookie(IdentityConstants.ApplicationScheme, options =>
+{
+    options.Cookie.Name = "atlas.session";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.LoginPath = "/account/login";
+    options.AccessDeniedPath = "/account/denied";
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; }
+        context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; }
+        context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
+    };
+});
+builder.Services.AddHealthChecks()
+    .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })
+    .AddCheck<PostgresHealthCheck>("postgres", tags: new[] { "ready" })
+    .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" })
+    .AddCheck<KafkaHealthCheck>("kafka", tags: new[] { "ready" });
 builder.Services.AddAntiforgery(options =>
 {
     // Real CSRF protection for the Razor pages (Services/Incidents/Dashboard).
@@ -74,23 +112,63 @@ builder.Services.AddHttpClient("downstream-example", client =>
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+// API clients must receive an authentication response rather than an HTML
+// HTTPS redirect when no credentials are present. Authenticated API clients
+// still pass through normal HTTPS enforcement below.
+app.Use(async (context, next) =>
 {
-    app.UseExceptionHandler("/Home/Error");
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Headers.ContainsKey("X-Api-Key") &&
+        !context.Request.IsHttps)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
+
+if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"))
+{
+    app.UseExceptionHandler();
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseHttpsRedirection();
 app.UseAtlasSecurityHeaders();
 app.UseStaticFiles();
 app.UseRouting();
-app.UseAtlasRateLimiting();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        !context.Request.Headers.ContainsKey("X-Api-Key") &&
+        context.User.Identity?.IsAuthenticated != true)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
+app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") && context.User.Identity?.IsAuthenticated != true)
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return;
+    }
+    await next();
+});
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseAtlasRateLimiting();
 app.UseAuthorization();
 
-app.MapHealthChecks("/health/live");
-app.MapHealthChecks("/health/ready");
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = check => check.Tags.Contains("live") });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapHealthChecks("/health");
+app.MapPrometheusScrapingEndpoint("/metrics");
+app.MapHub<IncidentHub>("/hubs/incidents");
 
 app.MapControllerRoute(
     name: "default",

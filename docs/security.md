@@ -5,7 +5,10 @@
 - ASP.NET Core Identity (password policy: 12+ chars, mixed case, symbol;
   account lockout after 5 failed attempts / 15 min).
 - API keys stored as SHA-256 hash + non-secret prefix only — raw key
-  returned exactly once at creation (`ApiKeyHasher`, `ApiKey` entity).
+  returned exactly once at creation (`ApiKeyHasher`, `ApiKey` entity), with
+  registration/login/logout and API-key create/revoke endpoints under
+  `/api/v1/account`. `X-Api-Key` is converted to a tenant-scoped principal
+  by middleware.
 - Tenant isolation via EF global query filters (see database.md).
 - Role set fixed to the 7 roles in the spec (`AtlasRoles`), policies
   registered per role, and now actually **applied**: every controller

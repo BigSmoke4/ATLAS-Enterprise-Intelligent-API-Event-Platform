@@ -45,6 +45,17 @@ public class DeploymentRegressionService : IDeploymentRegressionService
             .AsNoTracking().ToListAsync(ct);
     }
 
+    public async Task<CanaryAnalysisResult> AnalyzeCanaryAsync(Guid organizationId, Guid deploymentId, TimeSpan window, CancellationToken ct = default)
+    {
+        var deployment = await _db.Deployments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deploymentId && d.OrganizationId == organizationId, ct);
+        if (deployment is null) return new CanaryAnalysisResult(false, false, "Insufficient evidence.", 0, 0, 0, 0, 0, 0, new[] { "Deployment not found." });
+        var from = deployment.DeployedAtUtc - window;
+        var to = deployment.DeployedAtUtc + window;
+        var outcomes = await _sloService.GetSamplesAsync(organizationId, deployment.ServiceId, SloMetricType.ErrorRate, from, to, ct);
+        var latency = await _sloService.GetSamplesAsync(organizationId, deployment.ServiceId, SloMetricType.LatencyP95, from, to, ct);
+        return CanaryAnalyzer.Analyze(outcomes.Concat(latency).ToList(), deployment.Version);
+    }
+
     public async Task<RegressionAnalysisOutcome> AnalyzeRegressionAsync(Guid organizationId, Guid deploymentId, TimeSpan window, CancellationToken ct = default)
     {
         var deployment = await _db.Deployments.FirstOrDefaultAsync(d => d.Id == deploymentId && d.OrganizationId == organizationId, ct);

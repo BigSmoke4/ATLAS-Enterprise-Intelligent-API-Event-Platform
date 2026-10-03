@@ -1,26 +1,51 @@
 # Database Design
 
-- PostgreSQL, one physical database, one schema per module
-  (`identity`, `organizations`, ...) to keep module ownership visible even
-  though it's a single monolith database.
-- Every module owns its own `DbContext` and its own EF Core migrations
-  history table (`__EFMigrationsHistory` per schema).
-- `Database.EnsureCreated()` is never used — migrations only.
-- Tenant isolation: every `TenantEntity` carries `OrganizationId`, and
-  `OrganizationsDbContext` applies `HasQueryFilter` so a query without an
-  explicit tenant match returns nothing for entities scoped to a different
-  organization — enforced at the query layer, not only in application code.
-- Optimistic concurrency: `RowVersion` (Postgres `xmin`-backed via EF
-  `IsRowVersion()`) on entities that are updated concurrently (e.g. `ApiKey`,
-  `Organization`).
+- PostgreSQL, one physical database, one schema per module (`identity`,
+  `organizations`, `trafficmanagement`, etc.).
+- Every module owns its own `DbContext` and EF migrations history table.
+- `Database.EnsureCreated()` is never used.
+- Tenant isolation is enforced with `OrganizationId`, EF query filters, and
+  application/resource authorization.
+- Optimistic concurrency uses `RowVersion`/PostgreSQL `xmin` where entities
+  are updated concurrently.
+- High-write and operational query paths have explicit indexes for tenant,
+  service, status, event time, deployment version, and resource lookup.
 
-## Planned (not yet created)
+## Migration workflow
 
-Actual `Migrations/` folders are not included because there is no .NET SDK
-in the environment that generated this repository to run
-`dotnet ef migrations add`. Run:
+The repository provides reviewable scripts:
 
-    dotnet ef migrations add InitialCreate --project src/Modules/Identity --startup-project src/Atlas.Web
-    dotnet ef migrations add InitialCreate --project src/Modules/Organizations --startup-project src/Atlas.Web
+```bash
+# Create a named migration for every module after reviewing model changes.
+scripts/add-migration.sh InitialCreate
 
-after cloning, before first run.
+# Apply the reviewed migrations to the configured database.
+scripts/migrate.sh
+```
+
+The scripts use `dotnet ef` with the Atlas web host and an explicit DbContext;
+they do not call `EnsureCreated`. Connection strings come from normal ASP.NET
+configuration/environment variables. Production should run migrations as a
+controlled release step using a deployment identity with schema permissions,
+then run the application with a restricted runtime identity.
+
+Migration files are generated artifacts and must be committed after review.
+CI validates the process by generating a disposable `CiBaseline` migration for
+each module and applying it to ephemeral PostgreSQL before integration tests;
+those generated files are not treated as reviewed production migrations.
+Production still requires committed migration files and a controlled release
+identity.
+
+## Development seed
+
+Set:
+
+```text
+Seed__Development=true
+```
+
+only after applying migrations to a development database. This enables a
+hosted seed service that creates the deterministic `atlas-demo` organization
+with ID `11111111-1111-1111-1111-111111111111` and deterministic default
+environment IDs. Production does not enable this setting. If the schema is
+not migrated, the seed service logs an error and does not call `EnsureCreated`.

@@ -17,9 +17,9 @@ namespace Atlas.Modules.EventPlatform.Presentation;
 /// BackgroundService whenever Kafka:BootstrapServers + Kafka:Topics are
 /// configured. Modules that want to consume events register a handler via
 /// IEventHandlerRegistry.Register(eventType, handler) in their own
-/// RegisterServices. NOT implemented: operator-driven replay (dry-run vs.
-/// live) of dead-lettered events — DeadLetterService can list and
-/// mark-replayed, but nothing re-publishes a replayed message yet.
+/// RegisterServices. Dead-letter inspection supports topic, event type,
+/// time-window, and event-id filters; dry-run and live replay are both
+/// authorization-gated at the HTTP layer.
 /// </summary>
 public class EventPlatformModule : IAtlasModule
 {
@@ -43,11 +43,13 @@ public class EventPlatformModule : IAtlasModule
         var bootstrapServers = configuration["Kafka:BootstrapServers"];
         if (!string.IsNullOrWhiteSpace(bootstrapServers))
         {
-            services.AddSingleton<IEventPublisher>(sp =>
+            services.AddSingleton<KafkaEventPublisher>(sp =>
                 new KafkaEventPublisher(bootstrapServers, sp.GetRequiredService<ILogger<KafkaEventPublisher>>()));
+            services.AddSingleton<IEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
+            services.AddSingleton<IRawEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
 
             var topics = configuration.GetSection("Kafka:Topics").Get<string[]>() ?? Array.Empty<string>();
-            if (topics.Length > 0)
+            if (topics.Length > 0 && configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
             {
                 services.Configure<KafkaConsumerOptions>(opt =>
                 {

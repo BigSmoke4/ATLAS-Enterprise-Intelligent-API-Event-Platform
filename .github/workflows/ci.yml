@@ -24,6 +24,26 @@ jobs:
       redis:
         image: redis:7
         ports: ["6379:6379"]
+      zookeeper:
+        image: confluentinc/cp-zookeeper:7.6.0
+        env:
+          ZOOKEEPER_CLIENT_PORT: 2181
+        ports: ["2181:2181"]
+      kafka:
+        image: confluentinc/cp-kafka:7.6.0
+        env:
+          KAFKA_BROKER_ID: 1
+          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+          KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        ports: ["9092:9092"]
+        options: >-
+          --health-cmd "kafka-topics --bootstrap-server localhost:9092 --list"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
     steps:
       - uses: actions/checkout@v4
 
@@ -38,14 +58,134 @@ jobs:
       - name: Build
         run: dotnet build ATLAS.sln --no-restore -c Release
 
+      - name: Static analysis
+        run: dotnet build ATLAS.sln --no-restore -c Release -warnaserror
+
       - name: Unit tests
         run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
 
-      - name: Integration tests
-        run: dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release
+      - name: Install EF tooling
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.0.1
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Generate and apply disposable CI schema
+        run: |
+          set -o pipefail
+          scripts/add-migration.sh CiBaseline 2>&1 | tee migration-generation.log
+          scripts/migrate.sh 2>&1 | tee migration-application.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+
+      - name: Architecture tests
+        run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
+
+      - name: Dependency security audit (advisory)
+        continue-on-error: true
+        run: dotnet list ATLAS.sln package --vulnerable --include-transitive
+
+      - name: Wait for integration dependencies
+        run: |
+          set -euo pipefail
+          for endpoint in 6379 9092; do
+            for attempt in $(seq 1 30); do
+              if (echo > /dev/tcp/localhost/$endpoint) >/dev/null 2>&1; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "Dependency port $endpoint did not become reachable."
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+      - name: Integration tests - anonymous protected API rejection
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-api 2>&1 | tee integration-anonymous-api.log
+
+      - name: Integration tests - anonymous liveness
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests.Liveness_is_available_without_authentication" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-liveness 2>&1 | tee integration-anonymous-liveness.log
+
+      - name: Integration tests - authenticated authorization
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthenticatedAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/authenticated-authorization 2>&1 | tee integration-authenticated-authorization.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - audit HTTP
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuditEndpointIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/audit 2>&1 | tee integration-audit.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - readiness
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ReadinessTests" --logger "console;verbosity=detailed" --results-directory TestResults/readiness 2>&1 | tee integration-readiness.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - Redis
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~RedisRateLimitIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/redis 2>&1 | tee integration-redis.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - Kafka
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~KafkaEventIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/kafka 2>&1 | tee integration-kafka.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Upload integration test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: |
+            TestResults
+            integration-*.log
+            migration-*.log
+          if-no-files-found: ignore
 
       - name: Docker build
         run: docker build -t atlas-web:ci .
+
+      - name: Docker smoke test
+        env:
+          POSTGRES_CONNECTION: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+        run: |
+          set -euo pipefail
+          docker run -d --name atlas-web-ci --network host \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e ConnectionStrings__Postgres="$POSTGRES_CONNECTION" \
+            -e ConnectionStrings__Redis=localhost:6379 \
+            -e Kafka__BootstrapServers=localhost:9092 \
+            atlas-web:ci
+          trap 'docker logs atlas-web-ci || true; docker rm -f atlas-web-ci || true' EXIT
+          for attempt in $(seq 1 30); do
+            if ATLAS_BASE_URL=http://localhost:8080 scripts/smoke.sh; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container smoke test did not become healthy in time."
+          exit 1

@@ -9,12 +9,12 @@ namespace Atlas.Modules.EventPlatform.Infrastructure;
 /// Real IEventPublisher backed by Confluent.Kafka. Business logic never
 /// touches Confluent types directly (ADR: "clean Kafka abstraction").
 ///
-/// STATUS: implements publish; does NOT yet implement the consumer side
-/// (consumer groups, retry topics, DLQ routing) — that's
-/// Modules/EventPlatform/Infrastructure/KafkaEventConsumer (planned).
-/// Untested against a real broker in this environment.
+/// KafkaEventConsumer provides the complementary consumer-group, retry, and
+/// DLQ pipeline. This publisher also exposes raw replay publishing so DLQ
+/// replay preserves the original business payload. Untested against a real
+/// broker in this environment.
 /// </summary>
-public class KafkaEventPublisher : IEventPublisher, IAsyncDisposable
+public class KafkaEventPublisher : IEventPublisher, IRawEventPublisher, IAsyncDisposable
 {
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaEventPublisher> _logger;
@@ -36,6 +36,7 @@ public class KafkaEventPublisher : IEventPublisher, IAsyncDisposable
     public async Task PublishAsync<TEvent>(string topic, TEvent @event, CancellationToken ct = default)
         where TEvent : IIntegrationEvent
     {
+        EventContractValidator.Validate(@event);
         var payload = JsonSerializer.Serialize(@event);
         var message = new Message<string, string>
         {
@@ -46,6 +47,10 @@ public class KafkaEventPublisher : IEventPublisher, IAsyncDisposable
                 { "event-type", System.Text.Encoding.UTF8.GetBytes(@event.EventType) },
                 { "event-version", System.Text.Encoding.UTF8.GetBytes(@event.Version.ToString()) },
                 { "producer", System.Text.Encoding.UTF8.GetBytes(@event.Producer) },
+                { "correlation-id", System.Text.Encoding.UTF8.GetBytes(@event.CorrelationId.ToString()) },
+                { "causation-id", System.Text.Encoding.UTF8.GetBytes(@event.CausationId?.ToString() ?? string.Empty) },
+                { "timestamp-utc", System.Text.Encoding.UTF8.GetBytes(@event.TimestampUtc.ToString("O")) },
+                { "schema", System.Text.Encoding.UTF8.GetBytes($"{ @event.EventType }.v{ @event.Version }") },
             }
         };
 
@@ -65,6 +70,25 @@ public class KafkaEventPublisher : IEventPublisher, IAsyncDisposable
             _logger.LogError(ex, "Failed to publish {EventType} {EventId} to {Topic}", @event.EventType, @event.EventId, topic);
             throw;
         }
+    }
+
+    public async Task PublishRawAsync(string topic, string payloadJson, string eventType, int version, Guid eventId, Guid correlationId, Guid? causationId, string producer, DateTimeOffset timestampUtc, CancellationToken ct = default)
+    {
+        EventContractValidator.ValidateJson(payloadJson);
+        var message = new Message<string, string>
+        {
+            Key = correlationId.ToString(), Value = payloadJson,
+            Headers = new Headers
+            {
+                { "event-type", System.Text.Encoding.UTF8.GetBytes(eventType) },
+                { "event-version", System.Text.Encoding.UTF8.GetBytes(version.ToString()) },
+                { "producer", System.Text.Encoding.UTF8.GetBytes(producer) },
+                { "correlation-id", System.Text.Encoding.UTF8.GetBytes(correlationId.ToString()) },
+                { "causation-id", System.Text.Encoding.UTF8.GetBytes(causationId?.ToString() ?? string.Empty) },
+                { "timestamp-utc", System.Text.Encoding.UTF8.GetBytes(timestampUtc.ToString("O")) }
+            }
+        };
+        await _producer.ProduceAsync(topic, message, ct);
     }
 
     public ValueTask DisposeAsync()

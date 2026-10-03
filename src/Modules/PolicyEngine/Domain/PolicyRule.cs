@@ -4,7 +4,7 @@ namespace Atlas.Modules.PolicyEngine.Domain;
 
 public enum PolicyActionType { ActivateCircuitBreaker, RecommendRollback, RaiseAlert }
 
-public record PolicyAction(PolicyActionType Type, string? TargetServiceField = null);
+public record PolicyAction(PolicyActionType Type, string? TargetServiceField = null, string? AlertSeverity = null);
 
 /// <summary>
 /// A rule is: ALL of its Conditions must be true (AND) for its Action to

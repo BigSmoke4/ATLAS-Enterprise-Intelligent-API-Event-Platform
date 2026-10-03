@@ -23,7 +23,10 @@ public class ApiVersion : TenantEntity
 
     public ApiRoute AddRoute(string path, string httpMethod, RateLimitPolicy? rateLimit = null)
     {
-        var route = ApiRoute.Create(OrganizationId, Id, path, httpMethod, rateLimit);
+        var normalizedMethod = httpMethod.ToUpperInvariant();
+        if (_routes.Any(r => r.Path == path && r.HttpMethod == normalizedMethod))
+            throw new InvalidOperationException($"Route {normalizedMethod} {path} already exists.");
+        var route = ApiRoute.Create(OrganizationId, Id, path, normalizedMethod, rateLimit);
         _routes.Add(route);
         return route;
     }

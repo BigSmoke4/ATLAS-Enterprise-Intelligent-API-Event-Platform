@@ -17,6 +17,7 @@ public interface IDeploymentRegressionService
     /// directly) and runs RegressionAnalyzer against them.
     /// </summary>
     Task<RegressionAnalysisOutcome> AnalyzeRegressionAsync(Guid organizationId, Guid deploymentId, TimeSpan window, CancellationToken ct = default);
+    Task<CanaryAnalysisResult> AnalyzeCanaryAsync(Guid organizationId, Guid deploymentId, TimeSpan window, CancellationToken ct = default);
 }
 
 public record Result<T>(bool IsSuccess, T? Value, string? Error)

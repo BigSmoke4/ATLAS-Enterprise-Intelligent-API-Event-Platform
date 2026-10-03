@@ -10,11 +10,9 @@ namespace Atlas.Modules.APIManagement.Presentation;
 
 /// <summary>
 /// STATUS: Domain + Application + Infrastructure are real (API/version/route
-/// registration, tenant-scoped, EF-backed). REST endpoints
-/// (/api/v1/apis, /api/v1/routes) are not yet mapped here — add them once
-/// an ApiManagementController exists in Atlas.Web that calls
-/// IApiCatalogService, so this stays a thin controller over a real use case
-/// rather than a route added ahead of its implementation.
+/// registration, tenant-scoped, EF-backed). REST endpoints are mapped by
+/// Atlas.Web/Controllers/ApiManagementController. This module also exposes
+/// the read-only route-policy contract consumed by Reliability.
 /// </summary>
 public class APIManagementModule : IAtlasModule
 {
@@ -29,6 +27,7 @@ public class APIManagementModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "apimanagement")));
 
         services.AddScoped<IApiCatalogService, ApiCatalogService>();
+        services.AddScoped<IRoutePolicyProvider, ApiRoutePolicyProvider>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

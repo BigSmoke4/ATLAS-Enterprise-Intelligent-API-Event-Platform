@@ -15,4 +15,5 @@ public record RoutingDecision(bool Success, string? SelectedInstance, string? Re
 public interface ITrafficRoutingService
 {
     Task<RoutingDecision> SelectInstanceAsync(Guid organizationId, Guid serviceId, RoutingPolicy policy, int requestSequenceNumber = 0, CancellationToken ct = default);
+    Task<RoutingDecision> SelectConfiguredInstanceAsync(Guid organizationId, Guid serviceId, int requestSequenceNumber = 0, CancellationToken ct = default);
 }

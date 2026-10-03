@@ -23,7 +23,9 @@ public class RegisteredService : TenantEntity
 
     public ServiceInstance RegisterInstance(string hostAndPort)
     {
-        var instance = ServiceInstance.Create(OrganizationId, Id, hostAndPort);
+        if (_instances.Any(i => string.Equals(i.HostAndPort, hostAndPort.Trim(), StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"Instance '{hostAndPort}' is already registered.");
+        var instance = ServiceInstance.Create(OrganizationId, Id, hostAndPort.Trim());
         _instances.Add(instance);
         Touch();
         return instance;

@@ -1,5 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.1" />
   </ItemGroup>
   <ItemGroup>
@@ -7,6 +11,7 @@
     <ProjectReference Include="..\Observability\Atlas.Modules.Observability.csproj" />
     <ProjectReference Include="..\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
     <ProjectReference Include="..\IncidentManagement\Atlas.Modules.IncidentManagement.csproj" />
+    <ProjectReference Include="..\DeploymentIntelligence\Atlas.Modules.DeploymentIntelligence.csproj" />
     <ProjectReference Include="..\PolicyEngine\Atlas.Modules.PolicyEngine.csproj" />
   </ItemGroup>
 </Project>
