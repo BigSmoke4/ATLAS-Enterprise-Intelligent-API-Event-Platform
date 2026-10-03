@@ -7,7 +7,7 @@ namespace Atlas.Web.Controllers;
 /// <summary>Read-only by design — no write action exists here; AuditDbContext itself also rejects any Modified/Deleted state.</summary>
 [ApiController]
 [Route("api/v1/audit")]
-[Authorize(Policy = "Role:SecurityEngineer")]
+[Authorize(Policy = "AuditRead")]
 [Authorize(Policy = "SameOrganization")]
 public class AuditController : ControllerBase
 {

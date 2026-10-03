@@ -53,6 +53,12 @@ public class IdentityModule : IAtlasModule
                 options.AddPolicy($"Role:{role}", policy => policy.RequireRole(role));
             }
 
+            // Composed read policies. PlatformAdmin is the platform-wide
+            // operator and deliberately inherits security-review surface
+            // area that individual roles hold.
+            options.AddPolicy("AuditRead", policy =>
+                policy.RequireRole(AtlasRoles.SecurityEngineer, AtlasRoles.PlatformAdmin));
+
             options.AddPolicy("SameOrganization", policy =>
                 policy.Requirements.Add(new OrganizationAccessRequirement()));
         });
