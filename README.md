@@ -20,7 +20,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 - ASP.NET Core Identity registration/login/logout, RBAC policies, secure password settings, lockout configuration, one-time raw API-key creation/revocation, hashed API-key storage/authentication, and cookie authentication wiring
 - Service registry with persisted instances, normalized dependency edges, health derived from recorded checks, background HTTP health probing, and topology REST reads
 - API/version/route registration use cases with validation, tenant scoping, route policy configuration, and Reliability integration through a shared policy-provider contract
-- Real round-robin and weighted routing over healthy registered instances; unsupported telemetry-dependent strategies refuse safely rather than fabricate results
+- PostgreSQL-backed traffic policies with round-robin, weighted, priority, canary, and blue/green configuration over real healthy registered instances; unsupported telemetry-dependent strategies refuse safely rather than fabricate results
 - Distributed fixed-window rate limiting using an atomic Redis Lua operation, with an explicit fail-open policy documented in the code
 - Outbound circuit breaker state machine and delegating handler
 - Kafka publish/consume abstraction, duplicate protection via a database uniqueness constraint, exponential retry, dead-letter persistence, and replay service

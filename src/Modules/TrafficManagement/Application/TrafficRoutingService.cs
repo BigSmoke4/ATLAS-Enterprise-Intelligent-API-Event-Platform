@@ -7,7 +7,18 @@ namespace Atlas.Modules.TrafficManagement.Application;
 public class TrafficRoutingService : ITrafficRoutingService
 {
     private readonly IServiceHealthService _serviceHealth;
-    public TrafficRoutingService(IServiceHealthService serviceHealth) => _serviceHealth = serviceHealth;
+    private readonly ITrafficPolicyService? _policies;
+    public TrafficRoutingService(IServiceHealthService serviceHealth, ITrafficPolicyService? policies = null) { _serviceHealth = serviceHealth; _policies = policies; }
+
+    public async Task<RoutingDecision> SelectConfiguredInstanceAsync(Guid organizationId, Guid serviceId, int requestSequenceNumber = 0, CancellationToken ct = default)
+    {
+        if (_policies is null) return new RoutingDecision(false, null, "Traffic policy service is not configured.");
+        var configured = await _policies.GetAsync(organizationId, serviceId, ct);
+        if (configured is null) return new RoutingDecision(false, null, "No active traffic policy is configured for this service.");
+        var weights = configured.Targets.ToDictionary(t => t.InstanceId.ToString(), t => t.WeightPercent);
+        var priorities = configured.Targets.ToDictionary(t => t.InstanceId.ToString(), t => t.Priority);
+        return await SelectInstanceAsync(organizationId, serviceId, new RoutingPolicy(configured.Strategy, weights, priorities), requestSequenceNumber, ct);
+    }
 
     public async Task<RoutingDecision> SelectInstanceAsync(Guid organizationId, Guid serviceId, RoutingPolicy policy, int requestSequenceNumber = 0, CancellationToken ct = default)
     {
@@ -32,7 +43,8 @@ public class TrafficRoutingService : ITrafficRoutingService
             WeightPercent: ResolveWeight(policy, i.InstanceId),
             IsHealthy: i.Health == ServiceHealth.Healthy,
             AvgLatencyMs: 0,       // not measured — unused by RoundRobin/Weighted
-            ActiveConnections: 0   // not measured — unused by RoundRobin/Weighted
+            ActiveConnections: 0,  // not measured — unused by RoundRobin/Weighted
+            Priority: policy.Priorities is not null && policy.Priorities.TryGetValue(i.InstanceId.ToString(), out var priority) ? priority : 0
         )).ToList();
 
         try
@@ -40,7 +52,8 @@ public class TrafficRoutingService : ITrafficRoutingService
             var selected = policy.Strategy switch
             {
                 RoutingStrategyType.RoundRobin => RoutingStrategies.RoundRobin(targets, requestSequenceNumber),
-                RoutingStrategyType.Weighted => RoutingStrategies.Weighted(targets, DeterministicRandom(requestSequenceNumber)),
+                RoutingStrategyType.Weighted or RoutingStrategyType.Canary or RoutingStrategyType.BlueGreen => RoutingStrategies.Weighted(targets, DeterministicRandom(requestSequenceNumber)),
+                RoutingStrategyType.Priority => RoutingStrategies.Priority(targets),
                 _ => throw new NotSupportedException($"Unhandled strategy {policy.Strategy}")
             };
 

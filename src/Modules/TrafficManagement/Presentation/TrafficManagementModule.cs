@@ -1,5 +1,7 @@
 using Atlas.Modules.TrafficManagement.Application;
+using Atlas.Modules.TrafficManagement.Infrastructure;
 using Atlas.Shared.Contracts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,11 @@ public class TrafficManagementModule : IAtlasModule
 
     public void RegisterServices(IServiceCollection services, IConfiguration configuration)
     {
+        var connectionString = configuration.GetConnectionString("Postgres")
+            ?? throw new InvalidOperationException("ConnectionStrings:Postgres is not configured.");
+        services.AddDbContext<TrafficManagementDbContext>(options =>
+            options.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "trafficmanagement")));
+        services.AddScoped<ITrafficPolicyService, TrafficPolicyService>();
         services.AddScoped<ITrafficRoutingService, TrafficRoutingService>();
     }
 
