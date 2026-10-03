@@ -71,6 +71,22 @@ jobs:
         continue-on-error: true
         run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
+      - name: Wait for integration dependencies
+        run: |
+          set -euo pipefail
+          for endpoint in 6379 9092; do
+            for attempt in $(seq 1 30); do
+              if (echo > /dev/tcp/localhost/$endpoint) >/dev/null 2>&1; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then
+                echo "Dependency port $endpoint did not become reachable."
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
       - name: Integration tests
         run: |
           set -o pipefail
