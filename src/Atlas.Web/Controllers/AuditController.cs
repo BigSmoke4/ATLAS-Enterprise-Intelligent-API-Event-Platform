@@ -8,13 +8,14 @@ namespace Atlas.Web.Controllers;
 [ApiController]
 [Route("api/v1/audit")]
 [Authorize(Policy = "Role:SecurityEngineer")]
+[Authorize(Policy = "SameOrganization")]
 public class AuditController : ControllerBase
 {
     private readonly IAuditQueryService _audit;
     public AuditController(IAuditQueryService audit) => _audit = audit;
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] Guid? organizationId, [FromQuery] string? resourceType,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _audit.ListAsync(organizationId, resourceType, page, pageSize, ct));
+    public async Task<IActionResult> List([FromQuery] Guid organizationId, [FromQuery] string? resourceType,
+        [FromQuery] string? action, [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
+        => Ok(await _audit.ListAsync(organizationId, resourceType, action, page, pageSize, ct));
 }

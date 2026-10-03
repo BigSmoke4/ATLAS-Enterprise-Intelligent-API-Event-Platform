@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\Modules\DeploymentIntelligence\Atlas.Modules.DeploymentIntelligence.csproj" />
     <ProjectReference Include="..\..\src\Modules\AIOperations\Atlas.Modules.AIOperations.csproj" />
     <ProjectReference Include="..\..\src\Modules\EventPlatform\Atlas.Modules.EventPlatform.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\Atlas.Modules.Audit.csproj" />
     <ProjectReference Include="..\..\src\Shared\Atlas.Shared.csproj" />
   </ItemGroup>
 </Project>

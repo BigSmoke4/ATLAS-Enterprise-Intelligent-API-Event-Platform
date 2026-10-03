@@ -40,6 +40,18 @@ public sealed class AuthenticatedAuthorizationTests : IClassFixture<TestWebAppli
     }
 
     [Fact]
+    public async Task Security_engineer_cannot_read_another_organizations_audit_trail()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/audit?organizationId={OrganizationB}");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "SecurityEngineer");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task SRE_cannot_use_a_different_organization_in_a_body_operation()
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/traffic/select-instance");
