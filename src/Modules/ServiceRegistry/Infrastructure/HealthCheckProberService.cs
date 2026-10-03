@@ -1,5 +1,6 @@
 using Atlas.Modules.Observability.Application;
 using Atlas.Modules.Observability.Domain;
+using Atlas.Modules.ServiceRegistry.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
