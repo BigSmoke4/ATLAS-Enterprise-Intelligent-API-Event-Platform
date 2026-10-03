@@ -15,6 +15,8 @@ using Atlas.Modules.TrafficManagement.Presentation;
 using Atlas.Shared.Contracts;
 using Atlas.Shared.Web;
 using Serilog;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
@@ -44,6 +46,21 @@ var modules = new List<IAtlasModule>
 };
 
 builder.Services.AddControllersWithViews();
+builder.Services.AddProblemDetails();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultChallengeScheme = IdentityConstants.ApplicationScheme;
+})
+.AddCookie(IdentityConstants.ApplicationScheme, options =>
+{
+    options.Cookie.Name = "atlas.session";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.LoginPath = "/account/login";
+    options.AccessDeniedPath = "/account/denied";
+});
 builder.Services.AddHealthChecks();
 builder.Services.AddAntiforgery(options =>
 {

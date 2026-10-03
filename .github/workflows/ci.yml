@@ -38,8 +38,17 @@ jobs:
       - name: Build
         run: dotnet build ATLAS.sln --no-restore -c Release
 
+      - name: Static analysis
+        run: dotnet build ATLAS.sln --no-restore -c Release -warnaserror
+
       - name: Unit tests
         run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
+
+      - name: Architecture tests
+        run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
+
+      - name: Dependency security audit
+        run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
       - name: Integration tests
         run: dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release

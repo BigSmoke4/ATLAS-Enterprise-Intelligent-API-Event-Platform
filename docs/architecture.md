@@ -44,6 +44,13 @@ and run them against real compiled assemblies).
 | PolicyEngine | Real: safe, data-only rule representation (`PolicyCondition`: field/operator/value — no code execution) + `PolicyEvaluator`, unit-tested, versioned rules. Evaluator is read-only/advisory — nothing auto-fires an action yet (by design, pending the AI-safety confirmation flow). |
 | AIOperations | Real for READ evidence-gathering: `AiOperationsAssistant` refuses to answer without tool evidence (returns "Insufficient evidence." otherwise); 3 real tools (`GetServiceHealth`, `GetIncidentHistory`, `GetSLOStatus`) call the actual Application services of their modules; `ActionToolGuard` enforces authorization+confirmation for any future action tool. Not implemented: an `IAiCompletionClient` (no LLM provider wired), so answers are a deterministic evidence summary, not fluent prose; no REST/UI endpoint yet. |
 
+The MVC host now has cookie authentication wiring, centralized ProblemDetails
+support, a reusable control-room asset pipeline, and executable NetArchTest
+rules for the most important boundary constraints. The dashboard renders
+explicit evidence-required states rather than synthetic numbers.
+
 This matches the project's own "No Fake Functionality" rule: rather than
 scaffold every module with canned API responses, unimplemented modules are
-left as documented, empty seams.
+left as documented, empty seams. The authoritative remaining work is listed
+in the repository README; CI runs build, unit, architecture, integration,
+and dependency-audit stages.

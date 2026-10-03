@@ -1,1 +1,1 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-field { display: grid; gap: 6px; }.atlas-field label { color: var(--atlas-text-dim); font-size: .8rem; }.atlas-field input,.atlas-field select { background: var(--atlas-surface-inset); border: 1px solid var(--atlas-border); color: var(--atlas-text); padding: 8px; }

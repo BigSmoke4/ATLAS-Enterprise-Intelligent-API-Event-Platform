@@ -1,1 +1,1 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+.atlas-button { background: #31434b; border: 1px solid var(--atlas-border-bright); border-radius: 4px; color: var(--atlas-text); cursor: pointer; padding: 8px 12px; }.atlas-button:hover { background: #405762; }.atlas-button:focus-visible { outline: 2px solid var(--atlas-blue); outline-offset: 2px; }

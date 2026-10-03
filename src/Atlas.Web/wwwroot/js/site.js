@@ -1,3 +1,4 @@
-// ATLAS shared front-end entry point. Keeps behavior out of Razor views per
-// the master build prompt's "centralized JavaScript" requirement.
-console.info("ATLAS UI shell loaded.");
+import { installKeyboardFocus } from './core/validation.js';
+
+installKeyboardFocus();
+window.ATLAS = Object.freeze({ version: 'v1', evidenceFirst: true });

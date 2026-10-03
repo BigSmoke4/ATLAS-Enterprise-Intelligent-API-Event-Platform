@@ -1,11 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+  <PropertyGroup><IsPackable>false</IsPackable></PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="NetArchTest.Rules" Version="1.3.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Atlas.Web\Atlas.Web.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Identity\Atlas.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Organizations\Atlas.Modules.Organizations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\APIManagement\Atlas.Modules.APIManagement.csproj" />
+    <ProjectReference Include="..\..\src\Modules\ServiceRegistry\Atlas.Modules.ServiceRegistry.csproj" />
+    <ProjectReference Include="..\..\src\Modules\EventPlatform\Atlas.Modules.EventPlatform.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Reliability\Atlas.Modules.Reliability.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Observability\Atlas.Modules.Observability.csproj" />
+    <ProjectReference Include="..\..\src\Modules\IncidentManagement\Atlas.Modules.IncidentManagement.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeploymentIntelligence\Atlas.Modules.DeploymentIntelligence.csproj" />
+    <ProjectReference Include="..\..\src\Modules\PolicyEngine\Atlas.Modules.PolicyEngine.csproj" />
+    <ProjectReference Include="..\..\src\Modules\AIOperations\Atlas.Modules.AIOperations.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Audit\Atlas.Modules.Audit.csproj" />
   </ItemGroup>
 </Project>
