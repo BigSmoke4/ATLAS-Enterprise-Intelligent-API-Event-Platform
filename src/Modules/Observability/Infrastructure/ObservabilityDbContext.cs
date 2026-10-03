@@ -33,8 +33,10 @@ public class ObservabilityDbContext : DbContext
         {
             b.ToTable("MetricSamples");
             b.HasKey(m => m.Id);
+            b.Property(m => m.DeploymentVersion).HasMaxLength(128);
             // High write volume, queried by service+type+time — index accordingly.
             b.HasIndex(m => new { m.OrganizationId, m.ServiceId, m.MetricType, m.RecordedAtUtc });
+            b.HasIndex(m => new { m.OrganizationId, m.ServiceId, m.DeploymentVersion, m.RecordedAtUtc });
             b.HasQueryFilter(m => !_tenantContext.HasOrganization || m.OrganizationId == _tenantContext.CurrentOrganizationId);
         });
     }

@@ -26,15 +26,15 @@ public class SloService : ISloService
         }
     }
 
-    public async Task RecordOutcomeAsync(Guid organizationId, Guid serviceId, SloMetricType metricType, bool success, CancellationToken ct = default)
+    public async Task RecordOutcomeAsync(Guid organizationId, Guid serviceId, SloMetricType metricType, bool success, string? deploymentVersion = null, CancellationToken ct = default)
     {
-        _db.MetricSamples.Add(MetricSample.CreateOutcome(organizationId, serviceId, metricType, success, DateTimeOffset.UtcNow));
+        _db.MetricSamples.Add(MetricSample.CreateOutcome(organizationId, serviceId, metricType, success, DateTimeOffset.UtcNow, deploymentVersion));
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task RecordLatencyAsync(Guid organizationId, Guid serviceId, SloMetricType metricType, double valueMs, CancellationToken ct = default)
+    public async Task RecordLatencyAsync(Guid organizationId, Guid serviceId, SloMetricType metricType, double valueMs, string? deploymentVersion = null, CancellationToken ct = default)
     {
-        _db.MetricSamples.Add(MetricSample.CreateLatency(organizationId, serviceId, metricType, valueMs, DateTimeOffset.UtcNow));
+        _db.MetricSamples.Add(MetricSample.CreateLatency(organizationId, serviceId, metricType, valueMs, DateTimeOffset.UtcNow, deploymentVersion));
         await _db.SaveChangesAsync(ct);
     }
 
@@ -65,7 +65,7 @@ public class SloService : ISloService
         return await _db.MetricSamples.AsNoTracking()
             .Where(m => m.OrganizationId == organizationId && m.ServiceId == serviceId && m.MetricType == metricType
                         && m.RecordedAtUtc >= fromUtc && m.RecordedAtUtc < toUtc)
-            .Select(m => new MetricSampleDto(m.Value, m.Success, m.RecordedAtUtc))
+            .Select(m => new MetricSampleDto(m.Value, m.Success, m.RecordedAtUtc, m.DeploymentVersion))
             .ToListAsync(ct);
     }
 }
