@@ -35,7 +35,10 @@ public sealed class ModuleBoundaryTests
     [Fact]
     public void Controllers_are_not_allowed_to_reference_entity_framework()
     {
-        var web = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "Atlas.Web");
+        // Force the Atlas.Web assembly into the AppDomain — listing loaded
+        // assemblies and matching by name is order-dependent and silently
+        // finds nothing when nothing has yet touched a Web type.
+        var web = typeof(Program).Assembly;
         var result = Types.InAssembly(web).That().ResideInNamespace("Atlas.Web.Controllers")
             .Should().NotHaveDependencyOn("Microsoft.EntityFrameworkCore")
             .GetResult();
