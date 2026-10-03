@@ -49,7 +49,7 @@ public class EventPlatformModule : IAtlasModule
             services.AddSingleton<IRawEventPublisher>(sp => sp.GetRequiredService<KafkaEventPublisher>());
 
             var topics = configuration.GetSection("Kafka:Topics").Get<string[]>() ?? Array.Empty<string>();
-            if (topics.Length > 0)
+            if (topics.Length > 0 && configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
             {
                 services.Configure<KafkaConsumerOptions>(opt =>
                 {
