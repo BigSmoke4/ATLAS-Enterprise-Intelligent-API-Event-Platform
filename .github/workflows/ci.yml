@@ -79,3 +79,24 @@ jobs:
 
       - name: Docker build
         run: docker build -t atlas-web:ci .
+
+      - name: Docker smoke test
+        env:
+          POSTGRES_CONNECTION: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+        run: |
+          set -euo pipefail
+          docker run -d --name atlas-web-ci --network host \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e ConnectionStrings__Postgres="$POSTGRES_CONNECTION" \
+            -e ConnectionStrings__Redis=localhost:6379 \
+            -e Kafka__BootstrapServers=localhost:9092 \
+            atlas-web:ci
+          trap 'docker logs atlas-web-ci || true; docker rm -f atlas-web-ci || true' EXIT
+          for attempt in $(seq 1 30); do
+            if ATLAS_BASE_URL=http://localhost:8080 scripts/smoke.sh; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container smoke test did not become healthy in time."
+          exit 1
