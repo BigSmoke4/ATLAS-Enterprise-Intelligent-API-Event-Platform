@@ -67,6 +67,16 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.LoginPath = "/account/login";
     options.AccessDeniedPath = "/account/denied";
+    options.Events.OnRedirectToLogin = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; }
+        context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; }
+        context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
+    };
 });
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })
