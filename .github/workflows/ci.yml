@@ -195,11 +195,20 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             tail -n 60 "$f" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            # Surface the most relevant lines as check-run annotations so
-            # failures are inspectable through the Checks API. % and CR must
-            # be escaped or the workflow command parser mangles the line.
+            # Surface xunit failure blocks (Error Message + body + first
+            # stack lines) as check-run annotations so the failing
+            # assertion is inspectable through the Checks API without
+            # downloading artifacts. % and CR must be escaped or the
+            # workflow command parser mangles the line.
+            awk '/Error Message:/{f=1;c=0} f{print;c++} c>16{f=0}' "$f" | tail -n 60 \
+              | while IFS= read -r line; do
+                  line="${line//'%'/'%25'}"
+                  line="${line//$'\r'/'%0D'}"
+                  line="${line//'['/}"; line="${line//']'/}"
+                  echo "::error::$f: $line"
+                done
             grep -aEi "error|failed|exception|Expected:|Actual:|Unable|denied|refused|invalid" "$f" \
-              | grep -aEv "0 Warning|0 Error|Passed!" | tail -n 40 \
+              | grep -aEv "0 Warning|0 Error|Passed!" | tail -n 25 \
               | while IFS= read -r line; do
                   line="${line//'%'/'%25'}"
                   line="${line//$'\r'/'%0D'}"
