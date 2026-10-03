@@ -87,10 +87,15 @@ jobs:
             done
           done
 
-      - name: Integration tests - anonymous authorization pipeline
+      - name: Integration tests - anonymous protected API rejection
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests" --logger "console;verbosity=detailed" --results-directory TestResults/authorization-pipeline 2>&1 | tee integration-authorization-pipeline.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests.Protected_api_resources_reject_anonymous_requests" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-api 2>&1 | tee integration-anonymous-api.log
+
+      - name: Integration tests - anonymous liveness
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests.Liveness_is_available_without_authentication" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-liveness 2>&1 | tee integration-anonymous-liveness.log
 
       - name: Integration tests - authenticated authorization
         run: |
