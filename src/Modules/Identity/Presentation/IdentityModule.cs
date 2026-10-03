@@ -1,3 +1,4 @@
+using Atlas.Modules.Identity.Application;
 using Atlas.Modules.Identity.Domain;
 using Atlas.Modules.Identity.Infrastructure;
 using Atlas.Shared.Contracts;

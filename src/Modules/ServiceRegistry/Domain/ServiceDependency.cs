@@ -7,7 +7,6 @@ public sealed class ServiceDependency : TenantEntity
 {
     public Guid ServiceId { get; private set; }
     public Guid DependsOnServiceId { get; private set; }
-    public DateTimeOffset CreatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
 
     private ServiceDependency() { }
 

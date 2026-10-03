@@ -40,7 +40,6 @@ public class Organization : Entity
         var bytes = MD5.HashData(Encoding.UTF8.GetBytes($"atlas:{Id:N}:{value}"));
         return new Guid(bytes);
     }
-    }
 
     public Team AddTeam(string name)
     {

@@ -10,7 +10,6 @@ public sealed class TrafficPolicyConfiguration : TenantEntity
     public RoutingStrategyType Strategy { get; private set; }
     public TrafficPolicyMode Mode { get; private set; }
     public bool IsActive { get; private set; } = true;
-    public DateTimeOffset UpdatedAtUtc { get; private set; } = DateTimeOffset.UtcNow;
 
     private readonly List<TrafficPolicyTarget> _targets = new();
     public IReadOnlyCollection<TrafficPolicyTarget> Targets => _targets.AsReadOnly();
@@ -18,7 +17,11 @@ public sealed class TrafficPolicyConfiguration : TenantEntity
     private TrafficPolicyConfiguration() { }
 
     public static TrafficPolicyConfiguration Create(Guid organizationId, Guid serviceId, RoutingStrategyType strategy, TrafficPolicyMode mode)
-        => new() { OrganizationId = organizationId, ServiceId = serviceId, Strategy = strategy, Mode = mode };
+    {
+        var configuration = new TrafficPolicyConfiguration { OrganizationId = organizationId, ServiceId = serviceId, Strategy = strategy, Mode = mode };
+        configuration.Touch();
+        return configuration;
+    }
 
     public void ReplaceTargets(IEnumerable<(Guid InstanceId, int WeightPercent, int Priority)> targets)
     {
@@ -30,10 +33,10 @@ public sealed class TrafficPolicyConfiguration : TenantEntity
 
         _targets.Clear();
         _targets.AddRange(materialized.Select(t => TrafficPolicyTarget.Create(OrganizationId, Id, t.InstanceId, t.WeightPercent, t.Priority)));
-        UpdatedAtUtc = DateTimeOffset.UtcNow;
+        Touch();
     }
 
-    public void Deactivate() { IsActive = false; UpdatedAtUtc = DateTimeOffset.UtcNow; }
+    public void Deactivate() { IsActive = false; Touch(); }
 }
 
 public sealed class TrafficPolicyTarget : TenantEntity

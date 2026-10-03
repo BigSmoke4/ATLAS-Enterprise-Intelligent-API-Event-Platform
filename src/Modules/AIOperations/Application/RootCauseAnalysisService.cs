@@ -4,6 +4,7 @@ using Atlas.Modules.IncidentManagement.Domain;
 using Atlas.Modules.Observability.Application;
 using Atlas.Modules.Observability.Domain;
 using Atlas.Modules.ServiceRegistry.Application;
+using Atlas.Modules.ServiceRegistry.Domain;
 
 namespace Atlas.Modules.AIOperations.Application;
 
