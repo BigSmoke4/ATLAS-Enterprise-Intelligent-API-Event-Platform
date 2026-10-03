@@ -38,11 +38,13 @@ public class DeadLetterService : IDeadLetterService
 {
     private readonly EventPlatformDbContext _db;
     private readonly IEventPublisher? _publisher; // optional: null if Kafka isn't configured
+    private readonly IAuditSink? _audit;
 
-    public DeadLetterService(EventPlatformDbContext db, IEventPublisher? publisher = null)
+    public DeadLetterService(EventPlatformDbContext db, IEventPublisher? publisher = null, IAuditSink? audit = null)
     {
         _db = db;
         _publisher = publisher;
+        _audit = audit;
     }
 
     public async Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default, int version = 1)
@@ -79,6 +81,7 @@ public class DeadLetterService : IDeadLetterService
         if (entry is null) return DeadLetterOperationResult.Fail("Dead-letter event not found.");
         entry.MarkReplayed();
         await _db.SaveChangesAsync(ct);
+        await RecordAuditAsync("dead_letter.mark_replayed", entry, "marked", ct);
         return DeadLetterOperationResult.Ok();
     }
 
@@ -92,13 +95,20 @@ public class DeadLetterService : IDeadLetterService
         {
             // Real dry-run: validates the entry is replayable without side
             // effects — does not publish, does not mark replayed.
-            return _publisher is null
-                ? DeadLetterOperationResult.Fail("DRY RUN: would fail — no IEventPublisher configured (Kafka:BootstrapServers not set).")
-                : DeadLetterOperationResult.Ok();
+            if (_publisher is null)
+            {
+                await RecordAuditAsync("dead_letter.replay_dry_run", entry, "failed:publisher-not-configured", ct);
+                return DeadLetterOperationResult.Fail("DRY RUN: would fail — no IEventPublisher configured (Kafka:BootstrapServers not set).");
+            }
+            await RecordAuditAsync("dead_letter.replay_dry_run", entry, "validated", ct);
+            return DeadLetterOperationResult.Ok();
         }
 
         if (_publisher is null)
+        {
+            await RecordAuditAsync("dead_letter.replay", entry, "failed:publisher-not-configured", ct);
             return DeadLetterOperationResult.Fail("Cannot replay: no IEventPublisher configured (Kafka:BootstrapServers not set).");
+        }
 
         if (_publisher is IRawEventPublisher rawPublisher)
         {
@@ -113,6 +123,12 @@ public class DeadLetterService : IDeadLetterService
         }
         entry.MarkReplayed();
         await _db.SaveChangesAsync(ct);
+        await RecordAuditAsync("dead_letter.replay", entry, "published", ct);
         return DeadLetterOperationResult.Ok();
     }
+
+    private Task RecordAuditAsync(string action, DeadLetterEvent entry, string outcome, CancellationToken ct)
+        => _audit?.RecordAsync(new AuditRecord(null, "system", null, action, "DeadLetterEvent", entry.Id.ToString(),
+            entry.CorrelationId, AfterJson: $"{{\"outcome\":\"{outcome}\",\"eventId\":\"{entry.EventId}\"}}"), ct)
+           ?? Task.CompletedTask;
 }

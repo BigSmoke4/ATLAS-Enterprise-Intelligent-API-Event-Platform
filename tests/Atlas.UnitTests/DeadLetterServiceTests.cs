@@ -6,6 +6,12 @@ using Xunit;
 
 namespace Atlas.UnitTests;
 
+file class FakeAudit : IAuditSink
+{
+    public List<AuditRecord> Records { get; } = new();
+    public Task RecordAsync(AuditRecord record, CancellationToken ct = default) { Records.Add(record); return Task.CompletedTask; }
+}
+
 file class FakePublisher : IEventPublisher, IRawEventPublisher
 {
     public int PublishCount { get; private set; }
@@ -120,6 +126,26 @@ public class DeadLetterServiceTests
         Assert.True(result.Success);
         Assert.Equal(1, publisher.PublishCount);
         Assert.Empty(await service.ListAsync(null)); // ListAsync filters out replayed entries
+    }
+
+    [Fact]
+    public async Task Replay_and_manual_mark_actions_are_audited_with_outcomes()
+    {
+        using var db = NewDb();
+        var publisher = new FakePublisher();
+        var audit = new FakeAudit();
+        var service = new DeadLetterService(db, publisher, audit);
+        await service.RouteToDeadLetterAsync("orders", Guid.NewGuid(), "OrderCreated", Guid.NewGuid(), "{}", "boom", CancellationToken.None);
+        var first = (await service.ListAsync(null)).Single();
+        Assert.True((await service.ReplayAsync(first.Id, dryRun: true, CancellationToken.None)).Success);
+        Assert.True((await service.ReplayAsync(first.Id, dryRun: false, CancellationToken.None)).Success);
+
+        await service.RouteToDeadLetterAsync("orders", Guid.NewGuid(), "OrderCreated", Guid.NewGuid(), "{}", "boom", CancellationToken.None);
+        var second = (await service.ListAsync(null)).Single();
+        Assert.True((await service.MarkReplayedAsync(second.Id)).Success);
+
+        Assert.Equal(new[] { "dead_letter.replay_dry_run", "dead_letter.replay", "dead_letter.mark_replayed" }, audit.Records.Select(x => x.Action));
+        Assert.Contains("published", audit.Records[1].AfterJson);
     }
 
     [Fact]
