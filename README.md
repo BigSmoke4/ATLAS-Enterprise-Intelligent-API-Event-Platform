@@ -16,7 +16,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 
 ## Implemented capabilities
 
-- Tenant-scoped organizations and environments with EF query filters and resource authorization
+- Tenant-scoped organizations and environments with EF query filters, organization/team REST use cases, and resource authorization
 - ASP.NET Core Identity registration/login/logout, RBAC policies, secure password settings, lockout configuration, one-time raw API-key creation/revocation, hashed API-key storage/authentication, and cookie authentication wiring
 - Service registry with persisted instances and health derived from recorded checks; background HTTP health probing
 - API/version/route registration use cases with validation and tenant scoping
@@ -31,7 +31,7 @@ ATLAS is an evidence-first **ASP.NET Core MVC/Razor modular monolith** for API m
 
 ## Known gaps — not faked
 
-The following are deliberately not represented as complete: production login/register/API-key management endpoints, EF migrations and deterministic demo seeding, Prometheus/Grafana exporters and automatic telemetry aggregation, full API endpoint coverage for every module, dependency topology persistence/visualization, production Kafka schema validation/outbox guarantees, all four distributed limiter algorithms, Prometheus dashboard files, a real LLM provider contract with tenant-safe tool execution, and load/performance results. See `docs/architecture.md`, `docs/database.md`, `docs/observability.md`, and `docs/threat-model.md` for the implementation boundary and next steps.
+The following are deliberately not represented as complete: refresh-token rotation/session revocation and production integration coverage for the new account endpoints, EF migrations and deterministic demo seeding, automatic telemetry aggregation, full API endpoint coverage for every module, dependency topology persistence/visualization, production Kafka schema validation/outbox guarantees, all four distributed limiter algorithms, Grafana dashboard provisioning, a real LLM provider contract with tenant-safe tool execution, and load/performance results. See `docs/architecture.md`, `docs/database.md`, `docs/observability.md`, and `docs/threat-model.md` for the implementation boundary and next steps.
 
 ## Run locally
 

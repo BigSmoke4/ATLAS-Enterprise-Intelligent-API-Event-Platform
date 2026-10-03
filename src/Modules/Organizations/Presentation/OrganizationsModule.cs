@@ -1,4 +1,5 @@
 using Atlas.Shared.Contracts;
+using Atlas.Modules.Organizations.Application;
 using Atlas.Modules.Organizations.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public class OrganizationsModule : IAtlasModule
         services.AddScoped<ITenantContext, HttpTenantContext>();
         services.AddDbContext<OrganizationsDbContext>(opt =>
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "organizations")));
+        services.AddScoped<IOrganizationService, OrganizationService>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

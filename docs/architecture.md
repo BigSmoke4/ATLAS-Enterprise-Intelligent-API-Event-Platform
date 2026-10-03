@@ -31,7 +31,7 @@ and run them against real compiled assemblies).
 | Module | Status |
 |---|---|
 | Identity | Real: ASP.NET Core Identity users/roles, hashed API keys, DbContext |
-| Organizations | Real: Organization/Team/Environment entities, EF tenant query filters via `Atlas.Shared.Contracts.ITenantContext` |
+| Organizations | Real: Organization/Team/Environment entities, application service and REST operations, EF tenant query filters via `Atlas.Shared.Contracts.ITenantContext` |
 | APIManagement | Real: ApiDefinition/ApiVersion/ApiRoute domain + EF persistence + `IApiCatalogService` application layer, tenant-scoped. REST endpoints not yet mapped. |
 | ServiceRegistry | Real: `RegisteredService`/`ServiceInstance` with health *derived* from recorded check history (never assigned directly), EF persistence, `IServiceHealthService`. No automated health-check prober yet — health must be fed in via `RecordHealthCheckAsync`. |
 | EventPlatform | Real: idempotency guard (DB unique index), a Confluent.Kafka-backed `IEventPublisher`, AND now `KafkaEventConsumer` (consumer group + exponential-backoff retry + automatic DLQ routing via `IDeadLetterService`) registered as a `BackgroundService` whenever `Kafka:Topics` is non-empty. Not implemented: operator-driven replay actually re-publishing a dead-lettered message. |
