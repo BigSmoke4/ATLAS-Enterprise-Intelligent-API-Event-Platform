@@ -68,6 +68,7 @@ jobs:
         run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
 
       - name: Dependency security audit (advisory)
+        continue-on-error: true
         run: dotnet list ATLAS.sln package --vulnerable --include-transitive
 
       - name: Wait for integration dependencies
@@ -123,7 +124,6 @@ jobs:
           Kafka__BootstrapServers: "localhost:9092"
 
       - name: Integration tests - Kafka
-        continue-on-error: true
         run: |
           set -o pipefail
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~KafkaEventIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/kafka 2>&1 | tee integration-kafka.log
