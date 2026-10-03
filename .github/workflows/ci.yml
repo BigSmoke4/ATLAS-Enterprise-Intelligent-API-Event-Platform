@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "arena/**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -62,7 +63,9 @@ jobs:
         run: dotnet build ATLAS.sln --no-restore -c Release -warnaserror
 
       - name: Unit tests
-        run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release 2>&1 | tee unit-tests.log
 
       - name: Install EF tooling
         run: |
@@ -75,10 +78,19 @@ jobs:
           scripts/add-migration.sh CiBaseline 2>&1 | tee migration-generation.log
           scripts/migrate.sh 2>&1 | tee migration-application.log
         env:
+          # dotnet-ef boots the full design-time host (Program.cs), so every
+          # module's RegisterServices must find its configuration here:
+          # Postgres for the EF modules, Redis for Reliability, Kafka for
+          # EventPlatform. Without these the host factory throws before EF
+          # tooling can even locate the DbContexts.
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
 
       - name: Architecture tests
-        run: dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release
+        run: |
+          set -o pipefail
+          dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj --no-build -c Release --logger "console;verbosity=detailed" 2>&1 | tee architecture-tests.log
 
       - name: Dependency security audit (advisory)
         continue-on-error: true
@@ -164,7 +176,28 @@ jobs:
             TestResults
             integration-*.log
             migration-*.log
+            unit-tests.log
+            architecture-tests.log
           if-no-files-found: ignore
+
+      - name: CI failure diagnostics
+        if: failure()
+        run: |
+          shopt -s nullglob
+          logs=(unit-tests.log architecture-tests.log migration-generation.log migration-application.log integration-*.log)
+          for f in "${logs[@]}"; do
+            echo "===== $f (tail) =====" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 60 "$f" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            # Also surface the most relevant lines as check-run annotations so
+            # failures are inspectable without downloading artifacts.
+            grep -Ei "error|failed|exception|Expected|Actual" "$f" \
+              | grep -Ev "0 Warning|0 Error|Passed!|warn" | tail -n 25 \
+              | while IFS= read -r line; do
+                  echo "::error::$f: ${line//$'\r'/}"
+                done
+          done
 
       - name: Docker build
         run: docker build -t atlas-web:ci .
