@@ -90,7 +90,7 @@ jobs:
       - name: Integration tests - anonymous protected API rejection
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests.Protected_api_resources_reject_anonymous_requests" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-api 2>&1 | tee integration-anonymous-api.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuthorizationPipelineTests" --logger "console;verbosity=detailed" --results-directory TestResults/anonymous-api 2>&1 | tee integration-anonymous-api.log
 
       - name: Integration tests - anonymous liveness
         run: |
