@@ -65,7 +65,9 @@ jobs:
         run: dotnet test tests/Atlas.UnitTests/Atlas.UnitTests.csproj --no-build -c Release
 
       - name: Install EF tooling
-        run: dotnet tool install --global dotnet-ef --version 9.0.1
+        run: |
+          dotnet tool install --global dotnet-ef --version 9.0.1
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
       - name: Generate and apply disposable CI schema
         run: |
