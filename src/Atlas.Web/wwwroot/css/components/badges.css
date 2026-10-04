@@ -1,1 +1,61 @@
-.atlas-badge { border: 1px solid var(--atlas-border-bright); border-radius: 999px; color: var(--atlas-text-dim); display: inline-block; font-size: .72rem; padding: 3px 9px; }.atlas-badge--healthy { border-color: var(--atlas-green); color: var(--atlas-green); }.atlas-badge--degraded { border-color: var(--atlas-amber); color: var(--atlas-amber); }.atlas-badge--unhealthy,.atlas-badge--unavailable { border-color: var(--atlas-red); color: var(--atlas-red); }
+/* ==========================================================================
+   Badges, pills and status lamps. Colour is a signal, never decoration: each
+   colour maps to one meaning (ok / warn / bad / info / idle).
+   ========================================================================== */
+
+.atlas-badge {
+  align-items: center;
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line);
+  border-radius: 999px;
+  color: var(--atlas-text-dim);
+  display: inline-flex;
+  font-size: 0.64rem;
+  font-weight: 700;
+  gap: 6px;
+  letter-spacing: 0.1em;
+  padding: 3px 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.atlas-badge--ok { background: rgba(85, 201, 141, 0.1); border-color: var(--atlas-green-dim); color: #a9e8c8; }
+.atlas-badge--warn { background: rgba(230, 180, 95, 0.1); border-color: var(--atlas-amber-dim); color: #f0d7a5; }
+.atlas-badge--bad { background: rgba(226, 106, 106, 0.12); border-color: var(--atlas-red-dim); color: #f6c0c0; }
+.atlas-badge--info { background: rgba(111, 176, 218, 0.1); border-color: var(--atlas-blue-dim); color: #bfdff3; }
+.atlas-badge--violet { background: rgba(156, 138, 212, 0.12); border-color: #4a3f70; color: #d5cbf5; }
+.atlas-badge--neutral { color: var(--atlas-text-mute); }
+.atlas-badge--pill-sm { font-size: 0.6rem; padding: 2px 7px; }
+
+.atlas-tag {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  color: var(--atlas-text-dim);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.68rem;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.atlas-severity { align-items: center; display: inline-flex; font-size: 0.68rem; font-weight: 700; gap: 6px; letter-spacing: 0.08em; text-transform: uppercase; }
+.atlas-severity--sev1 { color: #ff9a9a; }
+.atlas-severity--sev2 { color: #f6c0c0; }
+.atlas-severity--sev3 { color: #f0d7a5; }
+.atlas-severity--sev4 { color: #bfdff3; }
+.atlas-severity--sev5 { color: var(--atlas-text-mute); }
+
+.atlas-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.atlas-env {
+  border-left: 2px solid var(--atlas-line-hi);
+  color: var(--atlas-text-mute);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  padding-left: 6px;
+  text-transform: uppercase;
+}
+
+.atlas-env--production { border-color: var(--atlas-red); color: #f0c2c2; }
+.atlas-env--staging { border-color: var(--atlas-amber); color: #f0d7a5; }
+.atlas-env--development { border-color: var(--atlas-blue); color: #bfdff3; }

@@ -34,6 +34,13 @@ public sealed class ApiKeyService : IApiKeyService
         return Result.Success();
     }
 
+    public async Task<IReadOnlyList<ApiKeySummaryDto>> ListAsync(Guid organizationId, CancellationToken ct = default)
+        => await _db.ApiKeys.AsNoTracking()
+            .Where(k => k.OrganizationId == organizationId)
+            .OrderByDescending(k => k.CreatedAtUtc)
+            .Select(k => new ApiKeySummaryDto(k.Id, k.Name, k.Prefix, k.RevokedAtUtc != null, k.CreatedAtUtc, k.ExpiresAtUtc, k.LastUsedAtUtc))
+            .ToListAsync(ct);
+
     public async Task<ApiKeyPrincipal?> AuthenticateAsync(string rawKey, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(rawKey)) return null;

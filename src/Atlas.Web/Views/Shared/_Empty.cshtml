@@ -1,0 +1,13 @@
+@model string
+@{
+    var hint = ViewData["Hint"] as string;
+    var glyph = ViewData["Glyph"] as string ?? "◌";
+}
+<div class="atlas-empty">
+    <span class="atlas-empty__glyph" aria-hidden="true">@glyph</span>
+    <span class="atlas-empty__title">@Model</span>
+    @if (!string.IsNullOrWhiteSpace(hint))
+    {
+        <span class="atlas-empty__hint">@hint</span>
+    }
+</div>

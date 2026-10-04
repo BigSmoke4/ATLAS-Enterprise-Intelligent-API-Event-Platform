@@ -1,1 +1,128 @@
-.atlas-dashboard-grid { display: grid; gap: 16px; grid-template-columns: repeat(4, 1fr); }.atlas-reading { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 1.6rem; margin-top: 8px; }.atlas-reading--muted { color: var(--atlas-text-dim); font-size: 1rem; }.atlas-wide { grid-column: span 2; } @media (max-width: 900px) { .atlas-dashboard-grid { grid-template-columns: repeat(2, 1fr); }.atlas-wide { grid-column: span 2; } } @media (max-width: 520px) { .atlas-dashboard-grid { grid-template-columns: 1fr; }.atlas-wide { grid-column: span 1; } }
+/* ==========================================================================
+   Command Centre — the wall display. Headline readouts first, then topology,
+   incidents, SLOs, deployments and the AI analysis dock.
+   ========================================================================== */
+
+.atlas-command {
+  background: var(--atlas-metal);
+  border: 1px solid var(--atlas-line);
+  border-radius: var(--atlas-radius);
+  box-shadow: var(--atlas-shadow-panel);
+}
+
+.atlas-command__head {
+  align-items: center;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap);
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.atlas-command__readouts {
+  background: var(--atlas-inset);
+  border-bottom: 1px solid var(--atlas-line-soft);
+  box-shadow: var(--atlas-shadow-inset);
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+
+.atlas-command__readout {
+  border-right: 1px solid var(--atlas-line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.atlas-command__readout:last-child { border-right: 0; }
+
+.atlas-status-banner {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap);
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  background: linear-gradient(90deg, rgba(85, 201, 141, 0.05), transparent 60%);
+}
+
+.atlas-status-banner--warn { background: linear-gradient(90deg, rgba(230, 180, 95, 0.07), transparent 60%); }
+.atlas-status-banner--bad { background: linear-gradient(90deg, rgba(226, 106, 106, 0.08), transparent 60%); }
+
+.atlas-status-banner__text {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.atlas-incident-row {
+  align-items: center;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  padding: 9px 0;
+}
+
+.atlas-incident-row:last-child { border-bottom: 0; }
+.atlas-incident-row__title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.atlas-incident-row__meta { color: var(--atlas-text-mute); font-size: 0.7rem; }
+
+.atlas-slo-row {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(120px, 1.3fr) 120px minmax(90px, 1fr) auto;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--atlas-line-soft);
+}
+
+.atlas-slo-row:last-child { border-bottom: 0; }
+.atlas-slo-row__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.atlas-deployment-row {
+  align-items: center;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 8px 0;
+}
+
+.atlas-deployment-row:last-child { border-bottom: 0; }
+.atlas-deployment-row__version { font-family: var(--atlas-font-mono); font-size: 0.76rem; }
+
+.atlas-ai-dock { display: flex; flex-direction: column; gap: var(--atlas-gap-sm); }
+.atlas-ai-dock__answer {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+}
+
+.atlas-ai-dock__evidence { display: flex; flex-direction: column; gap: 6px; }
+.atlas-ai-evidence {
+  background: rgba(111, 176, 218, 0.05);
+  border-left: 2px solid var(--atlas-blue-dim);
+  border-radius: 2px;
+  font-size: 0.75rem;
+  padding: 6px 9px;
+}
+
+.atlas-ai-evidence__source { color: var(--atlas-blue); font-family: var(--atlas-font-mono); font-size: 0.68rem; letter-spacing: 0.06em; }
+
+@media (max-width: 900px) {
+  .atlas-slo-row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+  .atlas-slo-row__bar { grid-column: span 2; }
+}

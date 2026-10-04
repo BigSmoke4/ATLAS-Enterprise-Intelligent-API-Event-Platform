@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Deployment intelligence: history table, recording form, analysis readout.
+   The analysis panel is deliberately the widest element on the page: the
+   regression/canary outcome (including "insufficient evidence" reasons) is the
+   part an operator acting on a rollout actually needs.
+   ========================================================================== */
+
+.atlas-panel[data-analysis-panel] .atlas-inset {
+  align-items: stretch;
+  display: grid;
+  gap: var(--atlas-gap-sm);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+[data-regression-result] .atlas-metric {
+  background: var(--atlas-panel-alt);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  padding: 8px 10px;
+}
+
+[data-regression-result] .atlas-empty { padding: var(--atlas-gap); }
+
+.atlas-deployment-row {
+  align-items: center;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: flex;
+  gap: var(--atlas-gap-sm);
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.atlas-deployment-row:last-child { border-bottom: 0; }
+.atlas-deployment-row__version { font-family: var(--atlas-font-mono); font-weight: 600; }
+
+[data-deployment-form] .atlas-form-actions { align-items: flex-start; }
+[data-deployment-status] { display: block; max-width: 320px; }
+
+[data-regression-window] { max-width: 140px; }

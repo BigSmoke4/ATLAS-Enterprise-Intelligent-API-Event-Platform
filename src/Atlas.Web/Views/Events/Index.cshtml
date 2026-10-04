@@ -1,0 +1,150 @@
+@using Atlas.Modules.EventPlatform.Domain
+@model EventsViewModel
+@{
+    ViewData["Title"] = "Event Pipelines";
+    ViewData["Page"] = "events";
+    Layout = "_Layout";
+    var topic = Context.Request.Query["topic"].ToString();
+    var eventType = Context.Request.Query["eventType"].ToString();
+}
+
+<section data-atlas-command data-cadence="30000">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>Event Pipelines &amp; Dead Letters</h1>
+            <span class="atlas-kicker">
+                Kafka topics, consumer groups and the dead-letter queue · @Model.DeadLetters.Count unreplayed message(s)
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <span class="atlas-freshness">Read <span data-atlas-updated>—</span></span>
+            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
+
+    <div class="atlas-panel atlas-panel--flat">
+        <div class="atlas-panel__head">
+            <span class="atlas-panel__title">Dead-letter queue</span>
+            <span class="atlas-freshness">
+                Replay defaults to <strong>dry run</strong>. Live replay requires PlatformAdmin and is audit-logged;
+                an SRE can mark a message replayed without re-publishing when the fix was applied out of band.
+                @if (!Model.CanReplay)
+                {
+                    <text>Your role can inspect and dry-run, but not replay.</text>
+                }
+            </span>
+        </div>
+        <div class="atlas-panel__body">
+            <div class="atlas-table-toolbar">
+                <label class="atlas-label" for="dlq-topic">Topic</label>
+                <input class="atlas-input atlas-input--sm" id="dlq-topic" name="topic" value="@topic" placeholder="atlas.events.deployments" data-dlq-filter />
+                <label class="atlas-label" for="dlq-event-type">Event type</label>
+                <input class="atlas-input atlas-input--sm" id="dlq-event-type" name="eventType" value="@eventType" placeholder="DeploymentRecorded" data-dlq-filter />
+                <span class="atlas-spacer"></span>
+                <span class="atlas-freshness" data-dlq-status>Filters re-query the API; the table below is the last successful read.</span>
+            </div>
+
+            <div class="atlas-table-wrap">
+                <table class="atlas-table atlas-table--compact atlas-table--zebra" data-atlas-table>
+                    <thead>
+                        <tr>
+                            <th>Failed at (UTC)</th>
+                            <th>Topic</th>
+                            <th>Event type</th>
+                            <th>Version</th>
+                            <th class="atlas-right">Attempts</th>
+                            <th>Reason</th>
+                            <th>Correlation</th>
+                            <th class="atlas-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody data-dlq-body>
+                        @if (Model.DeadLetters.Count == 0)
+                        {
+                            <tr class="atlas-empty-row">
+                                <td colspan="8">No dead-lettered events. Nothing has exhausted its retry budget.</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (DeadLetterEvent item in Model.DeadLetters)
+                            {
+                                <tr data-dead-letter-id="@item.Id">
+                                    <td class="atlas-mono atlas-small">@item.LastFailedAtUtc.ToString("u")</td>
+                                    <td class="atlas-mono atlas-small">@item.OriginalTopic</td>
+                                    <td>@item.EventType</td>
+                                    <td class="atlas-mono">v@item.Version</td>
+                                    <td class="atlas-right is-numeric">@item.RetryCount</td>
+                                    <td class="atlas-truncate" title="@item.FailureReason">@item.FailureReason</td>
+                                    <td class="atlas-mono atlas-small">@item.CorrelationId</td>
+                                    <td class="atlas-right atlas-nowrap">
+                                        <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-dlq-inspect>PAYLOAD</button>
+                                        <button type="button" class="atlas-button atlas-button--sm" data-dlq-replay="dry-run">DRY RUN</button>
+                                        @if (Model.CanReplay)
+                                        {
+                                            <button type="button" class="atlas-button atlas-button--danger atlas-button--sm" data-dlq-replay="live">LIVE REPLAY</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="atlas-inset atlas-inset-soft">
+                <span class="atlas-field__label">Selected payload</span>
+                <pre class="atlas-log-stream" data-dlq-payload>Select PAYLOAD on a row to inspect the stored JSON envelope.</pre>
+            </div>
+        </div>
+    </div>
+
+    <div class="atlas-grid">
+        <div class="atlas-col-6 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head"><span class="atlas-panel__title">Delivery guarantees</span></div>
+            <div class="atlas-panel__body">
+                <ul class="atlas-list">
+                    <li class="atlas-list__item"><span class="atlas-label">Envelope</span><span class="atlas-freshness">event id, type, version, correlation id, causation id, producer, timestamp</span></li>
+                    <li class="atlas-list__item"><span class="atlas-label">Consumers</span><span class="atlas-freshness">idempotent — a duplicate delivery is detected and skipped, proven by integration tests</span></li>
+                    <li class="atlas-list__item"><span class="atlas-label">Ordering</span><span class="atlas-freshness">guaranteed per partition key; retries are bounded with backoff before dead-lettering</span></li>
+                    <li class="atlas-list__item"><span class="atlas-label">Lag</span><span class="atlas-freshness">reported per partition by the live consumer (see Observability) — null until the first commit, never invented</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="atlas-col-6 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head"><span class="atlas-panel__title">Publish an event</span></div>
+            <div class="atlas-panel__body">
+                @if (!Model.CanPublish)
+                {
+                    <p class="atlas-freshness">Publishing requires the Developer or PlatformAdmin role.</p>
+                }
+                else
+                {
+                    <form class="atlas-form-grid" data-dlq-publish>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Topic</span>
+                            <input class="atlas-input atlas-input--mono" name="topic" required placeholder="atlas.events.deployments" />
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Event type</span>
+                            <input class="atlas-input" name="eventType" required placeholder="DeploymentRecorded" />
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Payload (JSON)</span>
+                            <textarea class="atlas-textarea atlas-textarea--mono" name="payloadJson" rows="5" required>{ "serviceId": "@Guid.Empty", "version": "1.0.0" }</textarea>
+                        </label>
+                        <div class="atlas-form-actions">
+                            <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">PUBLISH</button>
+                            <span class="atlas-freshness" data-dlq-publish-status>
+                                Goes through the real Kafka producer. If the broker is unreachable the request reports the outage instead of pretending to succeed.
+                            </span>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<script type="application/json" id="events-bootstrap">@Html.Raw(WebJson.Serialize(new { canReplay = Model.CanReplay, canPublish = Model.CanPublish, organizationId = Model.OrganizationId }))</script>

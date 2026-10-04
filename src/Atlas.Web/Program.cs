@@ -51,7 +51,10 @@ var modules = new List<IAtlasModule>
     new AuditModule(),
 };
 
-builder.Services.AddControllersWithViews();
+// Enums cross the wire as their names, not their ordinals: an operations API
+// that returns "Sev2"/"Resolved" is readable, diffable and safe to reorder.
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
 builder.Services.AddAuthentication(options =>
@@ -98,6 +101,10 @@ builder.Services.AddSingleton(modules as IReadOnlyList<IAtlasModule>);
 // pg_stat_activity / pg_stat_database views (see DatabaseMetricsProbe).
 builder.Services.AddSingleton<Atlas.Web.Observability.IDatabaseMetricsProbe>(
     sp => new Atlas.Web.Observability.DatabaseMetricsProbe(sp.GetRequiredService<IConfiguration>()));
+
+// Presentation-shaped read models that join several modules' application
+// services (see the class docs for why they live in the composition root).
+builder.Services.AddScoped<Atlas.Web.ReadModels.ServiceTopologyReadModel>();
 
 foreach (var module in modules)
 {

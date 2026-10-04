@@ -1,0 +1,164 @@
+@using Atlas.Modules.DeploymentIntelligence.Domain
+@model DeploymentsViewModel
+@{
+    ViewData["Title"] = "Deployments";
+    ViewData["Page"] = "deployments";
+    Layout = "_Layout";
+    var serviceNames = Model.Services.ToDictionary(service => service.ServiceId, service => service.Name);
+}
+
+<section data-atlas-command data-cadence="0">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>Deployment Intelligence</h1>
+            <span class="atlas-kicker">
+                Recorded deployments with regression and canary analysis computed from stored telemetry · @Model.Deployments.Count shown
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <span class="atlas-freshness">Read <span data-atlas-updated>—</span></span>
+            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
+
+    @if (!Model.HasOrganizationContext)
+    {
+        <div class="atlas-panel">
+            <div class="atlas-panel__body">
+                <partial name="_Empty" model="@("No telemetry available.")" view-data='new ViewDataDictionary(ViewData) { { "Hint", "Your account is not scoped to an organization, so no deployments are shown." }, { "Glyph", "↑" } }' />
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="atlas-grid">
+            <div class="atlas-col-8 atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title">Deployment history</span>
+                    <span class="atlas-freshness">Analysis is unavailable — with a reason — when stored telemetry is missing before or after a deployment.</span>
+                </div>
+                <div class="atlas-panel__body">
+                    <div class="atlas-table-wrap">
+                        <table class="atlas-table atlas-table--compact atlas-table--zebra" data-atlas-table>
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Version</th>
+                                    <th>Environment</th>
+                                    <th>Commit</th>
+                                    <th>Author</th>
+                                    <th>Deployed (UTC)</th>
+                                    <th>Status</th>
+                                    <th class="atlas-right">Analysis</th>
+                                </tr>
+                            </thead>
+                            <tbody data-deployments-body>
+                                @if (Model.Deployments.Count == 0)
+                                {
+                                    <tr class="atlas-empty-row">
+                                        <td colspan="8">No deployments recorded.</td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    foreach (Deployment deployment in Model.Deployments)
+                                    {
+                                        var statusTone = deployment.Status switch
+                                        {
+                                            DeploymentStatus.Succeeded => "ok",
+                                            DeploymentStatus.Failed => "bad",
+                                            DeploymentStatus.RolledBack => "warn",
+                                            _ => "info"
+                                        };
+                                        <tr data-deployment-id="@deployment.Id">
+                                            <td>@(serviceNames.TryGetValue(deployment.ServiceId, out var name) ? name : deployment.ServiceId.ToString())</td>
+                                            <td class="atlas-mono">@deployment.Version</td>
+                                            <td><span class="atlas-env atlas-env--@deployment.Environment.ToLowerInvariant()">@deployment.Environment</span></td>
+                                            <td class="atlas-mono atlas-small">@deployment.CommitSha</td>
+                                            <td>@deployment.Author</td>
+                                            <td class="atlas-mono atlas-small">@deployment.DeployedAtUtc.ToString("u")</td>
+                                            <td><span class="atlas-badge atlas-badge--@statusTone">@deployment.Status</span></td>
+                                            <td class="atlas-right atlas-nowrap">REGRESSION / CANARY available once this row is refreshed by the console module.</td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="atlas-col-4 atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head"><span class="atlas-panel__title">Record a deployment</span></div>
+                <div class="atlas-panel__body">
+                    @if (Model.Services.Count == 0)
+                    {
+                        <p class="atlas-freshness">Register a service first — a deployment must target a known service.</p>
+                    }
+                    else
+                    {
+                        <form class="atlas-form-grid" data-deployment-form>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Service</span>
+                                <select class="atlas-select" name="serviceId" required>
+                                    @foreach (var service in Model.Services)
+                                    {
+                                        <option value="@service.ServiceId">@service.Name</option>
+                                    }
+                                </select>
+                            </label>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Version</span>
+                                <input class="atlas-input" name="version" required placeholder="1.8.0" />
+                            </label>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Environment</span>
+                                <select class="atlas-select" name="environment" required>
+                                    <option value="production">production</option>
+                                    <option value="staging">staging</option>
+                                    <option value="development">development</option>
+                                </select>
+                            </label>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Commit SHA</span>
+                                <input class="atlas-input atlas-input--mono" name="commitSha" required placeholder="9f2c1ab" />
+                            </label>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Author</span>
+                                <input class="atlas-input" name="author" required placeholder="name@example.com" />
+                            </label>
+                            <div class="atlas-form-actions">
+                                <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">RECORD</button>
+                                <span class="atlas-freshness" data-deployment-status>Recorded deployments are what canary and regression analysis attribute telemetry to.</span>
+                            </div>
+                        </form>
+                    }
+                </div>
+            </div>
+
+            <div class="atlas-col-12 atlas-panel atlas-panel--flat" data-analysis-panel>
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title" data-analysis-title>Regression &amp; canary analysis</span>
+                    <span class="atlas-freshness">Window is sent with the request; the server decides whether evidence is sufficient.</span>
+                </div>
+                <div class="atlas-panel__body">
+                    <div class="atlas-inset atlas-inset-soft" data-regression-result>
+                        <partial name="_Empty" model="@("Select REGRESSION or CANARY on a deployment row.")" view-data='new ViewDataDictionary(ViewData) { { "Hint", "Telemetry is compared before and after the deployment boundary; when there is not enough recorded data the panel reports the server's reason verbatim." }, { "Glyph", "∆" } }' />
+                    </div>
+                    <div class="atlas-toolbar">
+                        <label class="atlas-label" for="regression-window">Comparison window</label>
+                        <select class="atlas-select atlas-input--sm" id="regression-window" data-regression-window>
+                            <option value="30" selected>30 min</option>
+                            <option value="60">60 min</option>
+                            <option value="180">3 h</option>
+                            <option value="1440">24 h</option>
+                        </select>
+                        <span class="atlas-freshness">Canary compares the deployed version's telemetry against the previous recorded version of the same service.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</section>
+
+<script type="application/json" id="deployments-services">@Html.Raw(WebJson.Serialize(Model.Services.Select(service => new { id = service.ServiceId, name = service.Name })))</script>

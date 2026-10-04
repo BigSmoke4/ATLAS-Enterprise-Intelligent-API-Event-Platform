@@ -82,14 +82,18 @@ public class RedisRateLimitStore : IRateLimitStore
     public async Task<(bool Allowed, long CurrentCount)> TryConsumeLeakyBucketAsync(string key, int capacity, double leakPerSecond, TimeSpan ttl, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var result = (RedisResult[])await _redis.GetDatabase().ScriptEvaluateAsync(LeakyScript, [new RedisKey(key)], [now, leakPerSecond, capacity, Guid.NewGuid().ToString("N"), (long)ttl.TotalMilliseconds]);
+        var raw = await _redis.GetDatabase().ScriptEvaluateAsync(LeakyScript, [new RedisKey(key)], [now, leakPerSecond, capacity, Guid.NewGuid().ToString("N"), (long)ttl.TotalMilliseconds]);
+        var result = raw as RedisResult[] ?? throw new InvalidOperationException("Unexpected response from the leaky-bucket script.");
+        if (result.Length < 2) throw new InvalidOperationException("Incomplete response from the leaky-bucket script.");
         return ((long)result[0] == 1, (long)result[1]);
     }
 
     public async Task<(bool Allowed, double Level)> TryConsumeTokenBucketAsync(string key, double capacity, double refillPerSecond, double cost, TimeSpan ttl, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var result = (RedisResult[])await _redis.GetDatabase().ScriptEvaluateAsync(TokenScript, [new RedisKey(key)], [now, capacity, refillPerSecond, cost, (long)ttl.TotalMilliseconds]);
+        var raw = await _redis.GetDatabase().ScriptEvaluateAsync(TokenScript, [new RedisKey(key)], [now, capacity, refillPerSecond, cost, (long)ttl.TotalMilliseconds]);
+        var result = raw as RedisResult[] ?? throw new InvalidOperationException("Unexpected response from the token-bucket script.");
+        if (result.Length < 2) throw new InvalidOperationException("Incomplete response from the token-bucket script.");
         return ((long)result[0] == 1, (double)result[1]);
     }
 }

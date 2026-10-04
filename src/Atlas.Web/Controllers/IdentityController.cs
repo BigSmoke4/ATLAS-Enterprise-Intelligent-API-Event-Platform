@@ -58,6 +58,13 @@ public sealed class IdentityController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, result.Value);
     }
 
+    [Authorize(Policy = "Role:OrganizationAdmin"), HttpGet("api-keys")]
+    public async Task<IActionResult> ListApiKeys([FromQuery] Guid organizationId, CancellationToken ct)
+    {
+        if (!CanAccess(organizationId)) return Forbid();
+        return Ok(await _apiKeys.ListAsync(organizationId, ct));
+    }
+
     [Authorize(Policy = "Role:OrganizationAdmin"), HttpPost("api-keys/{apiKeyId:guid}/revoke")]
     public async Task<IActionResult> RevokeApiKey(Guid apiKeyId, [FromQuery] Guid organizationId, CancellationToken ct)
     {

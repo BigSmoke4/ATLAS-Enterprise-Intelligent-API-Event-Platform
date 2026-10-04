@@ -2,34 +2,142 @@
 @model IReadOnlyList<Incident>
 @{
     ViewData["Title"] = "Incidents";
+    ViewData["Page"] = "incidents";
     Layout = "_Layout";
+    var canDeclare = User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.SRE)
+        || User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.PlatformAdmin)
+        || User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.OrganizationAdmin);
+    var active = Model.Where(incident => incident.Status != IncidentStatus.Resolved && incident.Status != IncidentStatus.PostmortemComplete).ToList();
 }
 
-<section class="atlas-panel">
-    <h1>ACTIVE INCIDENTS</h1>
+<section data-atlas-command data-cadence="30000">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>Incident Board</h1>
+            <span class="atlas-kicker">
+                Detected → Investigating → Mitigating → Resolved → Postmortem · MTTD and MTTR are computed from the timestamps the domain records
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <span class="atlas-freshness">Read <span data-atlas-updated>—</span></span>
+            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
 
-    @if (Model.Count == 0)
-    {
-        <p class="atlas-status-text">No telemetry available. No active incidents for your organization — declare one via POST /api/v1/incidents (Role: SRE).</p>
-    }
-    else
-    {
-        <table class="atlas-table">
-            <thead>
-                <tr><th>Title</th><th>Severity</th><th>Status</th><th>Detected</th><th>MTTD</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var i in Model)
-            {
-                <tr>
-                    <td>@i.Title</td>
-                    <td>@i.Severity</td>
-                    <td><span class="atlas-badge">@i.Status</span></td>
-                    <td>@i.DetectedAtUtc.ToString("u")</td>
-                    <td>@i.MeanTimeToDetect.ToString(@"hh\:mm\:ss")</td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    }
+    <div class="atlas-grid">
+        <div class="atlas-col-8">
+            <div class="atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title">Incidents (@active.Count active / @Model.Count total)</span>
+                    <span class="atlas-freshness">Live updates arrive over SignalR; a reconnect falls back to polling rather than showing stale state as current.</span>
+                </div>
+                <div class="atlas-panel__body">
+                    <div class="atlas-incident-board" data-incident-board-list>
+                        @if (Model.Count == 0)
+                        {
+                            <div class="atlas-empty">
+                                <span class="atlas-empty__glyph">0</span>
+                                <span class="atlas-empty__title">No incidents on record</span>
+                                <span class="atlas-empty__hint">Incidents raised by the policy engine, alert sinks or operators appear here.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            foreach (var incident in Model)
+                            {
+                                var severityClass = incident.Severity.ToString().ToLowerInvariant();
+                                var isClosed = incident.Status is IncidentStatus.Resolved or IncidentStatus.PostmortemComplete;
+                                <article class="atlas-incident-card atlas-incident-card--@severityClass" data-incident-id="@incident.Id">
+                                    <div class="atlas-incident-card__head">
+                                        <div class="atlas-incident-card__title">@incident.Title</div>
+                                        <span class="atlas-badge atlas-badge--@(isClosed ? "ok" : "bad")">@incident.Status</span>
+                                    </div>
+                                    <div class="atlas-incident-card__meta">
+                                        @incident.Severity · started @incident.StartedAtUtc.ToString("u") · detected @incident.DetectedAtUtc.ToString("u")
+                                        @if (incident.MeanTimeToResolve.HasValue)
+                                        {
+                                            <text>· MTTR @incident.MeanTimeToResolve.Value.ToString(@"hh\:mm\:ss")</text>
+                                        }
+                                    </div>
+                                    <div class="atlas-stage-rail">
+                                        @foreach (var stage in new[] { "Detected", "Investigating", "Mitigating", "Resolved", "PostmortemComplete" })
+                                        {
+                                            var stageIndex = Array.IndexOf(new[] { "Detected", "Investigating", "Mitigating", "Resolved", "PostmortemComplete" }, stage);
+                                            var currentIndex = Array.IndexOf(new[] { "Detected", "Investigating", "Mitigating", "Resolved", "PostmortemComplete" }, incident.Status.ToString());
+                                            var cssClass = stageIndex == currentIndex ? "atlas-stage atlas-stage--current" : stageIndex < currentIndex ? "atlas-stage atlas-stage--done" : "atlas-stage";
+                                            <span class="@cssClass">@stage</span>
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(incident.RootCause))
+                                    {
+                                        <div class="atlas-ai-evidence">Root cause: @incident.RootCause</div>
+                                    }
+                                </article>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="atlas-panel atlas-panel--flat" data-incident-detail>
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title" data-analysis-title>Root-cause analysis</span>
+                    <span class="atlas-freshness">Explainable correlation with a confidence score; says "Insufficient evidence." when nothing supports a conclusion.</span>
+                </div>
+                <div class="atlas-panel__body">
+                    <div class="atlas-inset atlas-inset--grid">
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">Conclusion</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-analysis-conclusion>Select ROOT CAUSE on an incident.</span>
+                        </div>
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">Confidence</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-analysis-confidence>—</span>
+                        </div>
+                    </div>
+                    <div class="atlas-ai-evidence-list" data-analysis-evidence></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="atlas-col-4 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head"><span class="atlas-panel__title">Declare an incident</span></div>
+            <div class="atlas-panel__body">
+                <form class="atlas-form-grid" data-incident-form>
+                    <label class="atlas-field">
+                        <span class="atlas-field__label">Title</span>
+                        <input class="atlas-input" name="title" required placeholder="Checkout latency above SLO" />
+                    </label>
+                    <label class="atlas-field">
+                        <span class="atlas-field__label">Severity</span>
+                        <select class="atlas-select" name="severity" required>
+                            <option value="Sev1">Sev1 — critical</option>
+                            <option value="Sev2" selected>Sev2 — major</option>
+                            <option value="Sev3">Sev3 — minor</option>
+                            <option value="Sev4">Sev4 — low</option>
+                        </select>
+                    </label>
+                    <div class="atlas-form-actions">
+                        <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm" data-incident-declare>DECLARE</button>
+                        <span class="atlas-freshness">
+                            @if (canDeclare)
+                            {
+                                <text>Declaring requires the SRE role and is written to the audit trail with your identity.</text>
+                            }
+                            else
+                            {
+                                <text>Your role cannot declare incidents — the request will be rejected by the API with 403.</text>
+                            }
+                        </span>
+                    </div>
+                </form>
+                <p class="atlas-freshness">
+                    Transitions are enforced by the domain: you cannot skip a stage or move backwards. Each transition records a note in the
+                    incident timeline, which is what MTTD/MTTR are derived from.
+                </p>
+            </div>
+        </div>
+    </div>
 </section>
+
+<script type="application/json" id="incidents-bootstrap">@Html.Raw(WebJson.Serialize(new { canDeclare }))</script>

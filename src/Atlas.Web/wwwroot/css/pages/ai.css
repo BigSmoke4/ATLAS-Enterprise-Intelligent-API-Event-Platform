@@ -1,0 +1,33 @@
+/* ==========================================================================
+   AI operations: question dock, tool selection, evidence list, action panel.
+   Evidence is presented as primary content (each citation shows its tool and
+   observation time) so an answer can always be traced back to a source.
+   ========================================================================== */
+
+.atlas-ai-evidence-list { display: flex; flex-direction: column; gap: 6px; margin-top: var(--atlas-gap-sm); }
+
+.atlas-ai-evidence {
+  background: var(--atlas-inset-soft);
+  border-left: 2px solid var(--atlas-blue-dim);
+  border-radius: 0 var(--atlas-radius-sm) var(--atlas-radius-sm) 0;
+  font-size: 0.74rem;
+  padding: 7px 10px;
+}
+
+.atlas-ai-evidence__source {
+  color: var(--atlas-blue);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-tool-select] { accent-color: var(--atlas-blue); }
+
+[data-action-arguments] { display: flex; flex-direction: column; gap: var(--atlas-gap-sm); }
+
+[data-action-status] { display: block; max-width: 360px; }
+
+.atlas-list__item .atlas-field--inline { align-items: center; display: flex; gap: 8px; }
+
+.atlas-alert { line-height: 1.55; }

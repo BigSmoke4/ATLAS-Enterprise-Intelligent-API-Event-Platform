@@ -84,7 +84,11 @@ public class ApiRoute : TenantEntity
 /// algorithms (Modules/Reliability/Domain) — this module only stores the
 /// numbers, Reliability owns the enforcement math.
 /// </summary>
-public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope, RateLimitAlgorithm Algorithm = RateLimitAlgorithm.FixedWindow);
+public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope, RateLimitAlgorithm Algorithm = RateLimitAlgorithm.FixedWindow)
+{
+    /// <summary>Window in whole seconds — the unit the console and the Redis limiter both speak.</summary>
+    public int WindowSeconds => (int)Math.Round(Window.TotalSeconds);
+}
 
 public enum RateLimitScope { Ip, User, ApiKey, Tenant, Endpoint, Global }
 public enum RateLimitAlgorithm { FixedWindow, TokenBucket, SlidingWindow, LeakyBucket }

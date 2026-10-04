@@ -1,53 +1,97 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var page = ViewData["Page"] as string ?? "dashboard";
+    var organizationId = User.FindFirst("org_id")?.Value ?? string.Empty;
+    var windowMinutes = ViewData["WindowMinutes"] as int? ?? 60;
+    var currentPath = Context.Request.Path.Value ?? "/";
+
+    bool IsActive(string href) => href == "/Dashboard"
+        ? currentPath.Equals("/Dashboard", StringComparison.OrdinalIgnoreCase) || currentPath == "/"
+        : currentPath.StartsWith(href, StringComparison.OrdinalIgnoreCase);
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>@ViewData["Title"] - ATLAS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken" />
+    <title>@ViewData["Title"] · ATLAS</title>
     <link rel="stylesheet" href="~/css/variables.css" />
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/layout.css" />
     <link rel="stylesheet" href="~/css/components/panels.css" />
-    <link rel="stylesheet" href="~/css/components/forms.css" />
+    <link rel="stylesheet" href="~/css/components/gauges.css" />
     <link rel="stylesheet" href="~/css/components/buttons.css" />
+    <link rel="stylesheet" href="~/css/components/forms.css" />
     <link rel="stylesheet" href="~/css/components/tables.css" />
     <link rel="stylesheet" href="~/css/components/badges.css" />
     <link rel="stylesheet" href="~/css/components/status-indicators.css" />
     <link rel="stylesheet" href="~/css/components/alerts.css" />
-    <link rel="stylesheet" href="~/css/components/gauges.css" />
-    <link rel="stylesheet" href="~/css/pages/api-management.css" />
+    <link rel="stylesheet" href="~/css/components/charts.css" />
     <link rel="stylesheet" href="~/css/pages/dashboard.css" />
     <link rel="stylesheet" href="~/css/pages/services.css" />
     <link rel="stylesheet" href="~/css/pages/incidents.css" />
     <link rel="stylesheet" href="~/css/pages/observability.css" />
+    <link rel="stylesheet" href="~/css/pages/api-management.css" />
+    <link rel="stylesheet" href="~/css/pages/events.css" />
+    <link rel="stylesheet" href="~/css/pages/deployments.css" />
+    <link rel="stylesheet" href="~/css/pages/policies.css" />
+    <link rel="stylesheet" href="~/css/pages/ai.css" />
+    <link rel="stylesheet" href="~/css/pages/audit.css" />
+    <link rel="stylesheet" href="~/css/pages/traffic.css" />
+    <link rel="stylesheet" href="~/css/pages/reliability.css" />
 </head>
-<body>
-    <header class="atlas-panel atlas-topbar">
-        <span class="atlas-brand">ATLAS</span>
+<body data-page="@page" data-organization-id="@organizationId" data-window-minutes="@windowMinutes">
+    <header class="atlas-topbar">
+        <span class="atlas-brand"><span class="atlas-brand__lamp" aria-hidden="true"></span>ATLAS</span>
         <span class="atlas-subbrand">Enterprise Intelligent API &amp; Event Platform</span>
-        <nav class="atlas-nav">
-            <a href="/Dashboard">Command Center</a>
-            <a href="/Apis">APIs</a>
-            <a href="/Services">Services</a>
-            <a href="/Incidents">Incidents</a>
-            <a href="/Observability">Observability</a>
-            @if (User.Identity?.IsAuthenticated == true)
-            {
-                <span class="atlas-note">@User.Identity.Name</span>
-                <form asp-action="Logout" asp-controller="Account" method="post" class="atlas-inline-form">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="atlas-button">SIGN OUT</button>
-                </form>
-            }
-            else
-            {
-                <a href="/Account/Login">Sign in</a>
-            }
+        <nav class="atlas-nav" aria-label="Primary">
+            <a class="atlas-nav__link" href="/Dashboard" aria-current="@(IsActive("/Dashboard") ? "page" : null)">Command Centre</a>
+            <a class="atlas-nav__link" href="/Services" aria-current="@(IsActive("/Services") ? "page" : null)">Services</a>
+            <a class="atlas-nav__link" href="/Apis" aria-current="@(IsActive("/Apis") ? "page" : null)">APIs</a>
+            <a class="atlas-nav__link" href="/Incidents" aria-current="@(IsActive("/Incidents") ? "page" : null)">Incidents</a>
+            <a class="atlas-nav__link" href="/Observability" aria-current="@(IsActive("/Observability") ? "page" : null)">Observability</a>
+            <a class="atlas-nav__link" href="/Events" aria-current="@(IsActive("/Events") ? "page" : null)">Event Pipelines</a>
+            <a class="atlas-nav__link" href="/Deployments" aria-current="@(IsActive("/Deployments") ? "page" : null)">Deployments</a>
+            <a class="atlas-nav__link" href="/Policies" aria-current="@(IsActive("/Policies") ? "page" : null)">Policies</a>
+            <a class="atlas-nav__link" href="/Reliability" aria-current="@(IsActive("/Reliability") ? "page" : null)">Reliability</a>
+            <a class="atlas-nav__link" href="/AiOps" aria-current="@(IsActive("/AiOps") ? "page" : null)">AI Ops</a>
+            <a class="atlas-nav__link" href="/Audit" aria-current="@(IsActive("/Audit") ? "page" : null)">Audit</a>
         </nav>
+        <span class="atlas-live" data-atlas-live data-state="connecting" title="Live operational updates">
+            <span class="atlas-live__beacon" aria-hidden="true"></span>
+            <span data-atlas-live-label>CONNECTING</span>
+        </span>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <span class="atlas-note atlas-small">@User.Identity.Name</span>
+            <form asp-action="Logout" asp-controller="Account" method="post" class="atlas-inline-form">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="atlas-button atlas-button--ghost atlas-button--sm">SIGN OUT</button>
+            </form>
+        }
+        else
+        {
+            <a class="atlas-button atlas-button--sm" href="/Account/Login">SIGN IN</a>
+        }
     </header>
+
     <main class="atlas-shell">
         @RenderBody()
     </main>
-    <script src="~/js/site.js"></script>
-    @RenderSection("Scripts", required: false)
+
+    <footer class="atlas-footer">
+        ATLAS · modular monolith · evidence-first telemetry ·
+        <span class="atlas-mono">/health</span> ·
+        <span class="atlas-mono">/metrics</span> ·
+        <span class="atlas-mono">/api/v1</span>
+    </footer>
+
+    @* SignalR browser client (official distribution). When the CDN is
+       unreachable the client module falls back to bounded polling and the
+       header beacon shows POLLING instead of pretending to be live. *@
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js" defer crossorigin="anonymous"></script>
+    <script type="module" src="~/js/site.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -124,6 +124,13 @@ public class ApiCatalogService : IApiCatalogService
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ApiVersionDto>> ListVersionsAsync(Guid organizationId, Guid apiDefinitionId, CancellationToken ct = default)
+        => await _db.ApiVersions.AsNoTracking()
+            .Where(v => v.OrganizationId == organizationId && v.ApiDefinitionId == apiDefinitionId)
+            .OrderByDescending(v => v.VersionNumber)
+            .Select(v => new ApiVersionDto(v.Id, v.VersionNumber, v.Status.ToString(), v.Routes.Count))
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);

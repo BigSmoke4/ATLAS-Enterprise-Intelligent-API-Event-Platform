@@ -1,4 +1,5 @@
 using Atlas.Modules.Observability.Domain;
+using Atlas.Modules.Observability.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace Atlas.Modules.Observability.Application;

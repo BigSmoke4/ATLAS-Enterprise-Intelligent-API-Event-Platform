@@ -45,6 +45,44 @@ public class SloController : ControllerBase
         return Accepted();
     }
 
+    /// <summary>SLO catalog for the organization: definitions only — compliance is fetched per SLO so a slow window never blocks the list.</summary>
+    [HttpGet]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<IReadOnlyList<SloDefinitionDto>>> List([FromQuery] Guid organizationId, CancellationToken ct = default)
+        => Ok(await _slo.ListSlosAsync(organizationId, ct));
+
+    /// <summary>Compliance + error budget for every SLO of the organization, using live request telemetry where it exists.</summary>
+    [HttpGet("compliance")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<IActionResult> Compliance([FromQuery] Guid organizationId, CancellationToken ct = default)
+    {
+        var definitions = await _slo.ListSlosAsync(organizationId, ct);
+        var results = new List<object>(definitions.Count);
+
+        foreach (var definition in definitions.Take(50))
+        {
+            var compliance = await _slo.GetComplianceAsync(organizationId, definition.SloId, ct);
+            results.Add(new
+            {
+                definition.SloId,
+                definition.ServiceId,
+                definition.Name,
+                metricType = definition.MetricType.ToString(),
+                definition.TargetValue,
+                windowMinutes = definition.WindowDuration.TotalMinutes,
+                hasData = compliance?.HasData ?? false,
+                evidenceSource = compliance?.EvidenceSource ?? "none",
+                currentValue = compliance?.CurrentValue,
+                isCompliant = compliance?.IsCompliant,
+                errorBudgetRemainingPercent = compliance?.ErrorBudgetRemainingPercent,
+                burnRatePerHour = compliance?.BurnRatePerHour,
+                sampleCount = compliance?.SampleCount ?? 0
+            });
+        }
+
+        return Ok(results);
+    }
+
     [HttpGet("{sloId:guid}")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<SloComplianceResult>> GetCompliance(Guid sloId, [FromQuery] Guid organizationId, CancellationToken ct)

@@ -1,17 +1,69 @@
+/* ==========================================================================
+   ATLAS design tokens — enterprise control-room instrumentation surface.
+   One place to change the visual language: palette, depth, spacing, type.
+   ========================================================================== */
+
 :root {
-  --atlas-bg: #10161b;
-  --atlas-surface: #1b252b;
-  --atlas-surface-raised: #263239;
-  --atlas-surface-inset: #0b1013;
-  --atlas-metal: linear-gradient(145deg, #303c42, #182126);
-  --atlas-border: #42525a;
-  --atlas-border-bright: #647781;
-  --atlas-text: #e4edf0;
-  --atlas-text-dim: #9baeb5;
-  --atlas-green: #55d39a;
-  --atlas-amber: #f0bd63;
-  --atlas-red: #ed6d6d;
-  --atlas-blue: #75b9e8;
-  --atlas-shadow: 0 12px 28px rgba(0,0,0,.32), inset 0 1px rgba(255,255,255,.05);
-  --atlas-radius: 6px;
+  /* Surfaces: deep charcoal rack panels, not flat dashboard cards. */
+  --atlas-bg: #0c1116;
+  --atlas-bg-raised: #111922;
+  --atlas-panel: #19232b;
+  --atlas-panel-alt: #1e2a33;
+  --atlas-panel-hi: #24313a;
+  --atlas-inset: #080d10;
+  --atlas-inset-soft: #0f171c;
+
+  /* Brushed-metal / enamel panel gradients (skeuomorphic depth). */
+  --atlas-metal: linear-gradient(180deg, #2c3941 0%, #1d2830 46%, #161f26 100%);
+  --atlas-metal-raised: linear-gradient(180deg, #33424c 0%, #202c34 60%, #1a232a 100%);
+  --atlas-metal-button: linear-gradient(180deg, #35444e 0%, #232f37 52%, #1a242b 100%);
+  --atlas-metal-button-active: linear-gradient(180deg, #16202640 0%, #0b121680 100%);
+
+  /* Lines and edges. */
+  --atlas-line: #31414a;
+  --atlas-line-soft: #263239;
+  --atlas-line-hi: #516673;
+  --atlas-engrave: rgba(255, 255, 255, 0.07);
+  --atlas-engrave-deep: rgba(0, 0, 0, 0.55);
+
+  /* Type: cool light text on dark metal. */
+  --atlas-text: #e2ecf1;
+  --atlas-text-dim: #9db0ba;
+  --atlas-text-mute: #6f818c;
+
+  /* Signal colours — restrained, instrument-panel, never neon. */
+  --atlas-green: #55c98d;
+  --atlas-green-dim: #2d6b4c;
+  --atlas-amber: #e6b45f;
+  --atlas-amber-dim: #7a5c26;
+  --atlas-red: #e26a6a;
+  --atlas-red-dim: #7a3232;
+  --atlas-blue: #6fb0da;
+  --atlas-blue-dim: #2d5c78;
+  --atlas-violet: #9c8ad4;
+  --atlas-cyan: #63c7c7;
+
+  /* Depth. */
+  --atlas-shadow-panel: 0 14px 30px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  --atlas-shadow-card: 0 8px 18px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  --atlas-shadow-inset: inset 0 3px 10px rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.03);
+  --atlas-shadow-button: 0 2px 0 rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --atlas-shadow-lamp: 0 0 6px currentColor, 0 0 1px rgba(0, 0, 0, 0.9) inset;
+
+  --atlas-radius: 7px;
+  --atlas-radius-sm: 4px;
+  --atlas-gap: 16px;
+  --atlas-gap-sm: 10px;
+  --atlas-gap-lg: 24px;
+  --atlas-shell-max: 1680px;
+
+  --atlas-font: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --atlas-font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", "Consolas", monospace;
+
+  --atlas-label-spacing: 0.16em;
+  --atlas-transition: 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --atlas-transition: 0ms; }
 }

@@ -1,0 +1,159 @@
+@model AiOpsViewModel
+@{
+    ViewData["Title"] = "AI Operations";
+    ViewData["Page"] = "ai";
+    Layout = "_Layout";
+    var readTools = Model.Tools.Where(tool => tool.Kind == "Read").ToList();
+    var actionTools = Model.Tools.Where(tool => tool.Kind == "Action").ToList();
+    var canExecute = User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.PlatformAdmin);
+}
+
+<section>
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>AI Operations</h1>
+            <span class="atlas-kicker">
+                Tool-calling assistant grounded in ATLAS data · read and write capabilities are separated and independently authorised
+            </span>
+        </div>
+        <div class="atlas-action-bar"></div>
+    </div>
+
+    <div class="atlas-alert atlas-alert--info">
+        <strong>No fabricated answers.</strong> The assistant answers only from the evidence returned by the read tools you select. When no tool
+        returns usable evidence it replies <span class="atlas-mono">Insufficient evidence.</span> — it never speculates.
+        @if (!Model.CompletionProviderConfigured)
+        {
+            <text>
+                No language-model provider is configured in this deployment, so answers are the deterministic composition of tool evidence
+                itself (see <span class="atlas-mono">IAiCompletionClient</span>, planned). The evidence and the refusal behaviour are identical;
+                only the prose differs.
+            </text>
+        }
+    </div>
+
+    @if (actionTools.Count > 0)
+    {
+        <div class="atlas-alert @(canExecute ? "atlas-alert--warn" : "atlas-alert--bad")">
+            <strong>Action tools change platform state.</strong>
+            @if (canExecute)
+            {
+                <text>You hold PlatformAdmin. Actions require an explicit confirmation here and are re-checked server-side by ActionToolGuard; every attempt is audit-logged.</text>
+            }
+            else
+            {
+                <text>Running action tools requires the PlatformAdmin role. The panel below will be refused by the API with 403 if attempted.</text>
+            }
+        </div>
+    }
+
+    <div class="atlas-grid">
+        <div class="atlas-col-7 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Ask the assistant</span>
+                <span class="atlas-freshness">Answers cite the tool and the observation timestamp.</span>
+            </div>
+            <div class="atlas-panel__body">
+                @if (!Model.HasOrganizationContext)
+                {
+                    <partial name="_Empty" model="@("No telemetry available.")" view-data='new ViewDataDictionary(ViewData) { { "Hint", "Your account is not scoped to an organization, so no tools can be consulted." }, { "Glyph", "✦" } }' />
+                }
+                else
+                {
+                    <div class="atlas-ai-dock">
+                        <form class="atlas-row" data-ai-form>
+                            <input class="atlas-input" name="question" placeholder="e.g. Which services are unhealthy and why?" aria-label="Ask the AI operations assistant" />
+                            <button type="submit" class="atlas-button atlas-button--primary">ASK</button>
+                        </form>
+                        <div class="atlas-chip-row">
+                            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-ai-prompt="Summarise current service health for this organization.">HEALTH SUMMARY</button>
+                            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-ai-prompt="Which SLOs are at risk of breaching their error budget?">SLO RISK</button>
+                            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-ai-prompt="What has happened in recent incidents?">INCIDENT HISTORY</button>
+                        </div>
+                        <div class="atlas-ai-dock__answer" data-ai-answer>Ask a question — the answer lists the evidence it was built from.</div>
+                        <div class="atlas-ai-dock__evidence" data-ai-evidence></div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="atlas-col-5">
+            <div class="atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title">Read tools</span>
+                    <span class="atlas-freshness">Selected tools are consulted in order; each one is tenant-scoped.</span>
+                </div>
+                <div class="atlas-panel__body">
+                    @if (readTools.Count == 0)
+                    {
+                        <p class="atlas-freshness">No read tools are registered for this deployment.</p>
+                    }
+                    else
+                    {
+                        <ul class="atlas-list">
+                            @foreach (var tool in readTools)
+                            {
+                                <li class="atlas-list__item">
+                                    <label class="atlas-field atlas-field--inline">
+                                        <input type="checkbox" data-tool-select value="@tool.Name" checked />
+                                        <span class="atlas-mono">@tool.Name</span>
+                                    </label>
+                                    <span class="atlas-freshness">@tool.Description</span>
+                                </li>
+                            }
+                        </ul>
+                        <p class="atlas-freshness">
+                            Deselecting every tool falls back to consulting all read tools — an empty selection is treated as "no preference",
+                            never as "answer without evidence".
+                        </p>
+                    }
+                </div>
+            </div>
+
+            <div class="atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title">Action tools</span>
+                </div>
+                <div class="atlas-panel__body">
+                    @if (actionTools.Count == 0)
+                    {
+                        <p class="atlas-freshness">No action tools are registered.</p>
+                    }
+                    else
+                    {
+                        <form class="atlas-form-grid" data-action-form>
+                            <label class="atlas-field">
+                                <span class="atlas-field__label">Tool</span>
+                                <select class="atlas-select" name="toolName" data-action-tool>
+                                    @foreach (var tool in actionTools)
+                                    {
+                                        <option value="@tool.Name">@tool.Name</option>
+                                    }
+                                </select>
+                            </label>
+                            <div data-action-arguments></div>
+                            <div class="atlas-form-actions">
+                                <button type="submit" class="atlas-button atlas-button--danger atlas-button--sm">RUN ACTION</button>
+                                <span class="atlas-freshness" data-action-status>Requires PlatformAdmin and an explicit confirmation.</span>
+                            </div>
+                        </form>
+                        <ul class="atlas-list">
+                            @foreach (var tool in actionTools)
+                            {
+                                <li class="atlas-list__item"><span class="atlas-mono atlas-small">@tool.Name</span><span class="atlas-freshness">@tool.Description</span></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script type="application/json" id="ai-bootstrap">@Html.Raw(WebJson.Serialize(new
+{
+    organizationId = Model.OrganizationId,
+    canExecuteActions = canExecute,
+    completionProviderConfigured = Model.CompletionProviderConfigured,
+    tools = Model.Tools.Select(tool => new { name = tool.Name, description = tool.Description, kind = tool.Kind })
+}))</script>

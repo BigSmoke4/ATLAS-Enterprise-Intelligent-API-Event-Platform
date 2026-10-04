@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Event pipelines: dead-letter queue, payload inspection, publisher dock.
+   The DLQ is an operator surface — failure reason and correlation id must be
+   readable at a glance, so the table keeps the reason column wide and pads the
+   remaining columns tightly.
+   ========================================================================== */
+
+.atlas-table-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap-sm);
+  margin-bottom: var(--atlas-gap);
+}
+
+.atlas-table-toolbar .atlas-input { max-width: 220px; }
+
+[data-dlq-body] td.atlas-truncate {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-dlq-status] { max-width: 420px; }
+
+[data-dlq-payload] {
+  background: var(--atlas-inset);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  color: var(--atlas-text-dim);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 300px;
+  overflow: auto;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+[data-dlq-publish] textarea { min-height: 96px; }
+
+.atlas-pipeline-plate {
+  background: linear-gradient(180deg, var(--atlas-panel-hi), var(--atlas-panel));
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-card);
+  padding: 12px 14px;
+}

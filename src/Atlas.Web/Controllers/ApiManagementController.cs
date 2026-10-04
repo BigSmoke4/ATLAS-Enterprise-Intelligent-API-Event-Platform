@@ -49,6 +49,12 @@ public class ApiManagementController : ControllerBase
         return Ok(new { versionId = result.Value });
     }
 
+    /// <summary>Versions of one API definition (newest first) — drives the console's version picker.</summary>
+    [HttpGet("{apiId:guid}/versions")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<IReadOnlyList<ApiVersionDto>>> ListVersions(Guid apiId, [FromQuery] Guid organizationId, CancellationToken ct)
+        => Ok(await _catalog.ListVersionsAsync(organizationId, apiId, ct));
+
     [HttpGet("versions/{apiVersionId:guid}/routes")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<ApiRouteDto>>> ListRoutes(Guid apiVersionId, [FromQuery] Guid organizationId, CancellationToken ct)

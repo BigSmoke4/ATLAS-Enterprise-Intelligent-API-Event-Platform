@@ -1,0 +1,25 @@
+/* ==========================================================================
+   Traffic management: routing strategy, target weighting and policy targets.
+   Weights and priorities are the only per-instance knobs ATLAS measures real
+   state for (plus health), so they are the only inputs offered here.
+   ========================================================================== */
+
+[data-traffic-targets] { display: flex; flex-direction: column; gap: 6px; }
+[data-target-list] { display: flex; flex-direction: column; gap: 4px; }
+
+.atlas-traffic-target {
+  align-items: center;
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  display: flex;
+  gap: 6px;
+  padding: 5px 8px;
+}
+
+.atlas-traffic-target .atlas-instance__host { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.atlas-traffic-target input[name="weight"] { flex: 0 0 76px; }
+.atlas-traffic-target input[name="priority"] { flex: 0 0 68px; }
+
+[data-traffic-status] { display: block; max-width: 400px; }
+[data-traffic-form] .atlas-select { max-width: 320px; }

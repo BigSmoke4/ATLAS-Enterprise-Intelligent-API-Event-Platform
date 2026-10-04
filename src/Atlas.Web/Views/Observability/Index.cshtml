@@ -1,60 +1,194 @@
-@model Atlas.Web.Models.ObservabilityViewModel
 @{
     ViewData["Title"] = "Observability";
+    ViewData["Page"] = "observability";
+    ViewData["WindowMinutes"] = 60;
     Layout = "_Layout";
-
-    string UnitFor(string metricType) => metricType.StartsWith("Latency", System.StringComparison.Ordinal) ? "ms" : "%";
-    string FormatValue(double? value, string metricType) =>
-        value is { } v ? $"{v:F2} {UnitFor(metricType)}" : "No telemetry available.";
-    string FormatWindow(System.TimeSpan window) =>
-        window.TotalDays >= 1 ? $"{window.TotalDays:0.#}d" : window.TotalHours >= 1 ? $"{window.TotalHours:0.#}h" : $"{window.TotalMinutes:0}m";
 }
 
-<section class="atlas-panel atlas-observability">
-    <h1>SLO COMPLIANCE &amp; ERROR BUDGETS</h1>
+<section data-atlas-command data-cadence="30000">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>Observability</h1>
+            <span class="atlas-kicker">
+                Request telemetry recorded by the platform's own middleware · latency percentiles are histogram bucket boundaries, not estimates
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <label class="atlas-label" for="window">Window</label>
+            <select class="atlas-select atlas-input--sm" id="window" data-window-select>
+                <option value="15">15 min</option>
+                <option value="60" selected>60 min</option>
+                <option value="240">4 h</option>
+                <option value="1440">24 h</option>
+            </select>
+            <span class="atlas-freshness">Updated <span data-atlas-updated>—</span></span>
+            <button type="button" class="atlas-button atlas-button--primary atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
 
-    @if (!Model.HasOrganizationContext)
-    {
-        <p class="atlas-status-text">No telemetry available. Your account has no organization context.</p>
-    }
-    else if (Model.Slos.Count == 0)
-    {
-        <p class="atlas-status-text">No telemetry available. No SLOs are defined for your organization yet — define one via POST /api/v1/slo.</p>
-    }
-    else
-    {
-        <table class="atlas-table">
-            <thead>
-                <tr><th>SLO</th><th>Metric</th><th>Target</th><th>Window</th><th>Current</th><th>Samples</th><th>Error Budget Left</th><th>State</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var slo in Model.Slos)
-            {
-                <tr>
-                    <td>@slo.Name</td>
-                    <td>@slo.MetricType</td>
-                    <td>@($"{slo.TargetValue:F2} {UnitFor(slo.MetricType)}")</td>
-                    <td>@FormatWindow(slo.WindowDuration)</td>
-                    <td>@FormatValue(slo.CurrentValue, slo.MetricType)</td>
-                    <td>@slo.SampleCount.ToString("N0")</td>
-                    <td>@(slo.ErrorBudgetRemainingPercent is { } budget ? $"{budget:F1}%" : "No telemetry available.")</td>
-                    <td>
-                        @if (slo.IsCompliant is true)
-                        {
-                            <span class="atlas-badge atlas-badge--healthy">Compliant</span>
-                        }
-                        else if (slo.IsCompliant is false)
-                        {
-                            <span class="atlas-badge atlas-badge--unavailable">Breached</span>
-                        }
-                        else
-                        {
-                            <span class="atlas-badge">No data</span>
-                        }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    }
+    <div class="atlas-percentile-strip">
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Requests</span>
+            <span class="atlas-metric__value" data-obs="requests">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Requests/s</span>
+            <span class="atlas-metric__value" data-obs="rps">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Error rate (5xx)</span>
+            <span class="atlas-metric__value" data-obs="errorRate">—</span>
+            <div class="atlas-meter" data-obs-meter="errorRate" data-atlas-meter></div>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">P50</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="p50">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">P95</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="p95">—</span>
+            <div class="atlas-meter" data-obs-meter="p95" data-atlas-meter></div>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">P99</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="p99">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Max</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="max">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">4xx</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="clientErrors">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Services seen</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="services">—</span>
+        </div>
+        <div class="atlas-percentile atlas-metric">
+            <span class="atlas-metric__label">Routes seen</span>
+            <span class="atlas-metric__value atlas-metric__value--small" data-obs="routes">—</span>
+        </div>
+    </div>
+
+    <p class="atlas-freshness" data-obs="state">No telemetry available.</p>
+
+    <div class="atlas-panel atlas-panel--flat">
+        <div class="atlas-panel__head">
+            <span class="atlas-panel__title">Traffic · requests, errors and 5xx over time</span>
+            <span class="atlas-freshness">Gaps are drawn as gaps — an empty bucket means no request was recorded, not zero traffic.</span>
+        </div>
+        <div class="atlas-panel__body">
+            <div class="atlas-chart" data-atlas-chart="observability-traffic">
+                <div class="atlas-chart__plot">
+                    <canvas role="img" aria-label="Requests, client errors and server errors over time"></canvas>
+                    <div class="atlas-chart__tooltip"></div>
+                </div>
+                <div class="atlas-chart__meta">
+                    <span class="atlas-legend">
+                        <span class="atlas-legend__item"><span class="atlas-legend__swatch atlas-legend__swatch--info"></span>requests</span>
+                        <span class="atlas-legend__item"><span class="atlas-legend__swatch atlas-legend__swatch--bad"></span>server errors</span>
+                        <span class="atlas-legend__item"><span class="atlas-legend__swatch atlas-legend__swatch--neutral"></span>client errors</span>
+                    </span>
+                    <span class="atlas-chart__readout" data-chart-readout>Hover a bucket for the exact reading.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="atlas-grid">
+        <div class="atlas-col-7 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Busiest routes</span>
+                <span class="atlas-freshness">Route templates, not raw paths — identifiers are normalised at capture time.</span>
+            </div>
+            <div class="atlas-panel__body">
+                <div class="atlas-table-wrap">
+                    <table class="atlas-table atlas-table--compact atlas-table--zebra" data-atlas-table>
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Method</th>
+                                <th class="atlas-right">Requests</th>
+                                <th class="atlas-right">5xx</th>
+                                <th class="atlas-right">Error rate</th>
+                                <th class="atlas-right">P95</th>
+                            </tr>
+                        </thead>
+                        <tbody data-route-metrics-body>
+                            <tr class="atlas-empty-row"><td colspan="6">No telemetry available.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="atlas-col-5 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Infrastructure</span>
+                <span class="atlas-freshness">Read from the live dependencies, not from a mock.</span>
+            </div>
+            <div class="atlas-panel__body">
+                <div class="atlas-infra-plate">
+                    <span class="atlas-label">PostgreSQL</span>
+                    <div class="atlas-metric-strip">
+                        <div class="atlas-metric"><span class="atlas-metric__label">Connections</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-connections">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Active</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-active">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Longest query</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-longest">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Commits</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-commits">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Rollbacks</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-rollbacks">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Buffer hit ratio</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-hit-ratio">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Deadlocks</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="db-deadlocks">—</span></div>
+                    </div>
+                    <div class="atlas-meter" data-infra-meter="db-utilisation" data-atlas-meter></div>
+                </div>
+
+                <div class="atlas-infra-plate">
+                    <span class="atlas-label">Redis cache</span>
+                    <div class="atlas-metric-strip">
+                        <div class="atlas-metric"><span class="atlas-metric__label">Hit rate</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="cache-hit-rate">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Lookups</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="cache-lookups">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Invalidations</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="cache-invalidations">—</span></div>
+                    </div>
+                    <div class="atlas-bar" data-infra-bar="cache-hit-rate" data-atlas-bar></div>
+                </div>
+
+                <div class="atlas-infra-plate">
+                    <span class="atlas-label">Telemetry pipeline</span>
+                    <div class="atlas-metric-strip">
+                        <div class="atlas-metric"><span class="atlas-metric__label">Accepted</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="telemetry-accepted">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Persisted</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="telemetry-processed">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Dropped</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="telemetry-dropped">—</span></div>
+                        <div class="atlas-metric"><span class="atlas-metric__label">Buffered</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="telemetry-buffered">—</span></div>
+                    </div>
+                    <span class="atlas-freshness">
+                        Requests are buffered in-process and flushed every 5 seconds. If the buffer fills, samples are dropped and counted —
+                        the drop counter is visible here so the reading above is never silently understated.
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="atlas-col-12 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Kafka consumer lag</span>
+                <span class="atlas-freshness" data-infra="lag-reason">—</span>
+            </div>
+            <div class="atlas-panel__body">
+                <div class="atlas-metric-strip">
+                    <div class="atlas-metric"><span class="atlas-metric__label">Total lag</span><span class="atlas-metric__value atlas-metric__value--small" data-infra="lag-total">—</span></div>
+                </div>
+                <div class="atlas-table-wrap">
+                    <table class="atlas-table atlas-table--compact" data-atlas-table>
+                        <thead>
+                            <tr><th>Topic</th><th class="atlas-right">Partition</th><th class="atlas-right">Committed offset</th><th class="atlas-right">Lag</th></tr>
+                        </thead>
+                        <tbody data-lag-body>
+                            <tr class="atlas-empty-row"><td colspan="4">No consumer lag reported.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
