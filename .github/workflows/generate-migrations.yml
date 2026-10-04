@@ -1,0 +1,63 @@
+name: Generate EF migrations
+
+# Migrations are generated artefacts: they are produced by the EF tooling from
+# the current model, reviewed, and committed — never hand-written. This workflow
+# exists so the reviewed baseline can be regenerated on a machine that has the
+# .NET SDK and `dotnet-ef`, and pushed straight back to the branch that asked
+# for it. It is manual by design: it never runs on a push, and it never touches
+# a branch other than the one it was dispatched from.
+on:
+  workflow_dispatch:
+    inputs:
+      migration_name:
+        description: Migration name to generate once per DbContext
+        required: true
+        default: InitialSchema
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the branch this workflow was dispatched from
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore ATLAS.sln
+
+      - name: Install EF tooling
+        run: dotnet tool install --global dotnet-ef --version 9.*
+
+      - name: Generate migrations for every module DbContext
+        run: scripts/add-migration.sh "${{ inputs.migration_name }}"
+        env:
+          # The design-time host boots Program.cs, so each module must find the
+          # configuration keys it requires. No server needs to be reachable:
+          # `migrations add` builds the model, it does not open a connection.
+          ConnectionStrings__Postgres: "Host=localhost;Database=atlas_design;Username=atlas;Password=atlas_design"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Commit and push the generated migrations
+        run: |
+          set -euo pipefail
+          git config user.name "atlas-migrations[bot]"
+          git config user.email "atlas-migrations[bot]@users.noreply.github.com"
+          git add 'src/Modules/*/Infrastructure/Migrations'
+          if git diff --cached --quiet; then
+            echo "No migration files were produced — nothing to commit."
+            exit 0
+          fi
+          git commit -m "Add generated EF Core migrations (${{ inputs.migration_name }})"
+          git push origin "HEAD:${{ github.ref_name }}"
+          echo "Committed:"
+          git show --stat --oneline HEAD
