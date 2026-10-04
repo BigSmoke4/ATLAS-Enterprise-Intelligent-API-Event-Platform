@@ -94,6 +94,11 @@ builder.Services.AddAntiforgery(options =>
 });
 builder.Services.AddSingleton(modules as IReadOnlyList<IAtlasModule>);
 
+// PostgreSQL connection/query statistics come from the server's own
+// pg_stat_activity / pg_stat_database views (see DatabaseMetricsProbe).
+builder.Services.AddSingleton<Atlas.Web.Observability.IDatabaseMetricsProbe>(
+    sp => new Atlas.Web.Observability.DatabaseMetricsProbe(sp.GetRequiredService<IConfiguration>()));
+
 foreach (var module in modules)
 {
     module.RegisterServices(builder.Services, builder.Configuration);
@@ -151,6 +156,11 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+// Request telemetry sits after authentication (so org/service attribution is
+// possible) and before the rate limiter (so 429s are recorded too). Skipped in
+// the Testing environment, where the integration host has no telemetry schema.
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseAtlasRequestTelemetry();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api") && context.User.Identity?.IsAuthenticated != true)

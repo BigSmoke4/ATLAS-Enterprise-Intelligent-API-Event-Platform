@@ -5,22 +5,29 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using OpenTelemetry.Trace;
+using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace Atlas.Modules.Observability.Presentation;
 
 /// <summary>
-/// STATUS: SLO/error-budget math is real, pure, and unit-testable
-/// (Domain/SloCalculator) — compliance is always derived from recorded
-/// MetricSample rows, never a fabricated number. OpenTelemetry ASP.NET Core
-/// auto-instrumentation is wired for tracing; OTLP span export activates
-/// when OpenTelemetry:Otlp:Endpoint is configured. Metrics export to
-/// Prometheus via /metrics. NOT implemented: log/trace correlation-ID
-/// propagation
-/// helpers, and the background aggregation job that would populate
-/// MetricSamples automatically from live request traffic (right now
-/// RecordOutcomeAsync/RecordLatencyAsync must be called explicitly).
+/// STATUS: real end-to-end.
+///
+/// * SLO / error-budget math is pure and unit-tested (Domain/SloCalculator),
+///   and compliance is now derived from two real sources: live request
+///   telemetry (RequestTelemetryMiddleware -> TelemetryIngestBuffer ->
+///   TelemetryAggregationService -> one-minute RequestTelemetryAggregate
+///   buckets) and explicitly recorded MetricSamples (probed availability plus
+///   pushed samples).
+/// * OpenTelemetry ASP.NET Core/HttpClient/runtime instrumentation feeds
+///   Prometheus via /metrics; ATLAS-defined instruments live in
+///   Atlas.Shared.Observability.AtlasMetrics on the "Atlas" meter.
+/// * OTLP span export activates when OpenTelemetry:Otlp:Endpoint is set.
+///
+/// Deliberately NOT implemented (documented in docs/observability.md): log
+/// export to an external collector (Serilog console/file sinks are wired in
+/// Atlas.Web) and long-term metric storage beyond PostgreSQL retention.
 /// </summary>
 public class ObservabilityModule : IAtlasModule
 {
@@ -35,6 +42,23 @@ public class ObservabilityModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "observability")));
 
         services.AddScoped<ISloService, SloService>();
+        services.AddScoped<ITelemetryQueryService, TelemetryQueryService>();
+
+        // Telemetry ingest: one bounded buffer instance shared by the request
+        // path (writer) and the aggregation background service (reader).
+        services.AddSingleton<TelemetryIngestBuffer>();
+        services.AddSingleton<ITelemetryIngestService>(sp => sp.GetRequiredService<TelemetryIngestBuffer>());
+        services.Configure<TelemetryAggregationOptions>(configuration.GetSection("Telemetry"));
+
+        // The Testing environment runs the aggregation service only when a
+        // PostgreSQL connection is explicitly provided; the integration test
+        // host otherwise has no schema to write telemetry into.
+        var isTesting = string.Equals(configuration["ASPNETCORE_ENVIRONMENT"], "Testing", StringComparison.OrdinalIgnoreCase);
+        var hasDatabase = !string.IsNullOrWhiteSpace(configuration.GetConnectionString("Postgres"));
+        if (!isTesting || hasDatabase)
+        {
+            services.AddHostedService<TelemetryAggregationService>();
+        }
 
         services.AddOpenTelemetry()
             .WithTracing(tracing =>
@@ -48,9 +72,8 @@ public class ObservabilityModule : IAtlasModule
                     .AddSource("Atlas");
 
                 // Optional OTLP export: set OpenTelemetry:Otlp:Endpoint (e.g.
-                // http://otel-collector:4317) to ship spans to any
-                // OpenTelemetry Protocol collector. Unset = tracing stays
-                // in-process only, with zero behavior change.
+                // http://otel-collector:4317) to ship spans to any OpenTelemetry
+                // Protocol collector. Unset = in-process only, zero behavior change.
                 var otlpEndpoint = configuration["OpenTelemetry:Otlp:Endpoint"];
                 if (!string.IsNullOrWhiteSpace(otlpEndpoint))
                     tracing.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
@@ -59,12 +82,14 @@ public class ObservabilityModule : IAtlasModule
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation()
-                .AddMeter("Atlas")
+                .AddMeter(Atlas.Shared.Observability.AtlasMetrics.MeterName)
                 .AddPrometheusExporter());
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: /api/v1/slo (compliance/error-budget read endpoints).
+        // Telemetry and SLO read endpoints are mapped by Atlas.Web controllers:
+        // /api/v1/metrics/* (MetricsController) and /api/v1/slo/* (SloController).
+        // The telemetry middleware itself is installed by Program.cs.
     }
 }

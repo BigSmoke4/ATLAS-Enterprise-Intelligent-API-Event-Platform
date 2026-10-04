@@ -38,15 +38,21 @@ public class KafkaConsumerOptions
 /// </summary>
 public class KafkaEventConsumer : BackgroundService
 {
+    private static readonly TimeSpan LagReportInterval = TimeSpan.FromSeconds(15);
+
     private readonly KafkaConsumerOptions _options;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<KafkaEventConsumer> _logger;
+    private readonly IConsumerLagReporter? _lagReporter;
+    private DateTimeOffset _nextLagReportAtUtc = DateTimeOffset.UtcNow;
 
-    public KafkaEventConsumer(IOptions<KafkaConsumerOptions> options, IServiceScopeFactory scopeFactory, ILogger<KafkaEventConsumer> logger)
+    public KafkaEventConsumer(IOptions<KafkaConsumerOptions> options, IServiceScopeFactory scopeFactory,
+        ILogger<KafkaEventConsumer> logger, IConsumerLagReporter? lagReporter = null)
     {
         _options = options.Value;
         _scopeFactory = scopeFactory;
         _logger = logger;
+        _lagReporter = lagReporter;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -78,6 +84,7 @@ public class KafkaEventConsumer : BackgroundService
 
                 await ProcessWithRetryAsync(result, stoppingToken);
                 consumer.Commit(result);
+                ReportLag(consumer);
             }
             catch (ConsumeException ex)
             {
@@ -95,6 +102,47 @@ public class KafkaEventConsumer : BackgroundService
         }
 
         consumer.Close();
+    }
+
+    /// <summary>
+    /// Publishes committed-offset vs high-watermark lag for the partitions this
+    /// consumer actually owns. Never throws: a lag-reporting failure must not
+    /// interrupt consumption.
+    /// </summary>
+    private void ReportLag(IConsumer<string, string> consumer)
+    {
+        if (_lagReporter is null || DateTimeOffset.UtcNow < _nextLagReportAtUtc) return;
+        _nextLagReportAtUtc = DateTimeOffset.UtcNow + LagReportInterval;
+
+        try
+        {
+            var assignment = consumer.Assignment;
+            if (assignment.Count == 0)
+            {
+                _lagReporter.Report(Array.Empty<PartitionLag>());
+                return;
+            }
+
+            var committed = consumer.Committed(assignment, TimeSpan.FromSeconds(2));
+            var partitions = new List<PartitionLag>(committed.Count);
+
+            foreach (var topicPartitionOffset in committed)
+            {
+                var watermark = consumer.QueryWatermarkOffsets(topicPartitionOffset.TopicPartition, TimeSpan.FromSeconds(1));
+                partitions.Add(new PartitionLag(
+                    topicPartitionOffset.Topic,
+                    topicPartitionOffset.Partition.Value,
+                    topicPartitionOffset.Offset.Value,
+                    watermark.High.Value,
+                    _options.ConsumerGroup));
+            }
+
+            _lagReporter.Report(partitions);
+        }
+        catch (Exception ex) when (ex is KafkaException or TimeoutException or InvalidOperationException)
+        {
+            _logger.LogDebug(ex, "Consumer lag reporting skipped for this interval.");
+        }
     }
 
     private async Task ProcessWithRetryAsync(ConsumeResult<string, string> result, CancellationToken ct)

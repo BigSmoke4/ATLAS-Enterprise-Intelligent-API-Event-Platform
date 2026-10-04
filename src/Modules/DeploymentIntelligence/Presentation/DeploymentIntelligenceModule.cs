@@ -29,6 +29,11 @@ public class DeploymentIntelligenceModule : IAtlasModule
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "deploymentintelligence")));
 
         services.AddScoped<IDeploymentRegressionService, DeploymentRegressionService>();
+
+        // Telemetry attribution seam: stamps every one-minute request bucket
+        // with the service version that was live when it was recorded, so
+        // deployment-vs-error-rate correlation is computed from real data.
+        services.AddScoped<IActiveDeploymentVersionProvider, ActiveDeploymentVersionProvider>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)

@@ -40,6 +40,14 @@ public class EventPlatformModule : IAtlasModule
         services.AddSingleton<IEventHandlerRegistry>(dispatcher);
         services.AddSingleton<IEventHandlerDispatcher>(dispatcher);
 
+        // Consumer-lag registry: always registered so the metrics endpoint can
+        // answer honestly ("no consumer running") instead of 404/500 when Kafka
+        // is not configured.
+        var consumerGroupName = configuration["Kafka:ConsumerGroup"] ?? "atlas-default";
+        services.AddSingleton(new ConsumerLagRegistry(consumerGroupName));
+        services.AddSingleton<IConsumerLagReporter>(sp => sp.GetRequiredService<ConsumerLagRegistry>());
+        services.AddSingleton<IConsumerLagService>(sp => sp.GetRequiredService<ConsumerLagRegistry>());
+
         var bootstrapServers = configuration["Kafka:BootstrapServers"];
         if (!string.IsNullOrWhiteSpace(bootstrapServers))
         {
@@ -54,7 +62,7 @@ public class EventPlatformModule : IAtlasModule
                 services.Configure<KafkaConsumerOptions>(opt =>
                 {
                     opt.BootstrapServers = bootstrapServers;
-                    opt.ConsumerGroup = configuration["Kafka:ConsumerGroup"] ?? "atlas-default";
+                    opt.ConsumerGroup = consumerGroupName;
                     opt.Topics = topics;
                 });
                 services.AddHostedService<KafkaEventConsumer>();

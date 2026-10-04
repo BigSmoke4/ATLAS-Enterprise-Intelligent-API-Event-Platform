@@ -1,5 +1,6 @@
 using Atlas.Modules.Reliability.Application;
 using Atlas.Shared.Contracts;
+using Atlas.Shared.Observability;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -67,6 +68,8 @@ public class RateLimitingMiddleware
         }
         var limit = routePolicy?.LimitPerWindow ?? DefaultLimitPerWindow;
         var window = routePolicy?.Window ?? DefaultWindow;
+        if (limit <= 0) limit = DefaultLimitPerWindow;
+        if (window <= TimeSpan.Zero) window = DefaultWindow;
         var scope = routePolicy?.Scope ?? "Ip";
         var algorithm = Enum.TryParse<RateLimitAlgorithm>(routePolicy?.Algorithm, true, out var parsedAlgorithm) ? parsedAlgorithm : RateLimitAlgorithm.FixedWindow;
         var scopeKey = ResolveScopeKey(context, scope, organizationId);
@@ -83,6 +86,7 @@ public class RateLimitingMiddleware
             // store is briefly unreachable. This is a deliberate trade-off —
             // see docs/security.md for why fail-open was chosen here.
             _logger.LogWarning(ex, "Rate limit store unavailable; allowing request for {ScopeKey} (fail-open).", scopeKey);
+            AtlasMetrics.RateLimitStoreFailures.Add(1);
             await _next(context);
             return;
         }
@@ -92,6 +96,9 @@ public class RateLimitingMiddleware
 
         if (!decision.Allowed)
         {
+            AtlasMetrics.RateLimitRejections.Add(1,
+                new KeyValuePair<string, object?>("scope", scope),
+                new KeyValuePair<string, object?>("algorithm", algorithm.ToString()));
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             context.Response.Headers["Retry-After"] = ((int)decision.Window.TotalSeconds).ToString();
             await context.Response.WriteAsJsonAsync(new

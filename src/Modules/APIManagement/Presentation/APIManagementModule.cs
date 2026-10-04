@@ -26,6 +26,11 @@ public class APIManagementModule : IAtlasModule
         services.AddDbContext<ApiManagementDbContext>(opt =>
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "apimanagement")));
 
+        // The route policy provider memoizes lookups per request, so it needs
+        // access to the current HttpContext (one lookup shared by rate
+        // limiting, telemetry attribution and timeout/retry resolution).
+        services.AddHttpContextAccessor();
+
         services.AddScoped<IApiCatalogService, ApiCatalogService>();
         services.AddScoped<IRoutePolicyProvider, ApiRoutePolicyProvider>();
     }

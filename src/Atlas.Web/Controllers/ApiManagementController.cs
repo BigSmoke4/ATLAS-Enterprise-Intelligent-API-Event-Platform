@@ -21,8 +21,9 @@ public class ApiManagementController : ControllerBase
 
     public record RegisterApiRequest(Guid OrganizationId, string Name, string BasePath);
     public record AddVersionRequest(Guid OrganizationId, int VersionNumber);
-    public record AddRouteRequest(Guid OrganizationId, string Path, string HttpMethod);
+    public record AddRouteRequest(Guid OrganizationId, string Path, string HttpMethod, Guid? TargetServiceId = null);
     public record ConfigureRouteRequest(Guid OrganizationId, RateLimitPolicy? RateLimit, TimeSpan Timeout, int MaxRetries);
+    public record SetRouteTargetServiceRequest(Guid OrganizationId, Guid? ServiceId);
 
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
@@ -66,10 +67,31 @@ public class ApiManagementController : ControllerBase
     [Authorize(Policy = "Role:OrganizationAdmin")]
     public async Task<IActionResult> AddRoute(Guid apiVersionId, [FromBody] AddRouteRequest request, CancellationToken ct)
     {
-        var result = await _catalog.AddRouteAsync(request.OrganizationId, apiVersionId, request.Path, request.HttpMethod, ct);
+        var result = await _catalog.AddRouteAsync(request.OrganizationId, apiVersionId, request.Path, request.HttpMethod, request.TargetServiceId, ct);
         if (!result.IsSuccess) return ToProblem(result.Error!, result.ErrorCode!);
         return NoContent();
     }
+
+    /// <summary>
+    /// Points a route at the registered service that serves it. This is what
+    /// lets request telemetry, traffic routing and deployment regression
+    /// analysis attribute activity to a specific service instead of "unknown".
+    /// </summary>
+    [HttpPut("routes/{routeId:guid}/target-service")]
+    [Authorize(Policy = "Role:OrganizationAdmin")]
+    public async Task<IActionResult> SetRouteTargetService(Guid routeId, [FromBody] SetRouteTargetServiceRequest request, CancellationToken ct)
+    {
+        var result = await _catalog.SetRouteTargetServiceAsync(request.OrganizationId, routeId, request.ServiceId, ct);
+        if (!result.IsSuccess) return result.ErrorCode == "NOT_FOUND" ? NotFound(new ProblemDetails { Title = result.Error }) : BadRequest(new ProblemDetails { Title = result.Error });
+        return NoContent();
+    }
+
+    /// <summary>Route inventory across every API version for the organization.</summary>
+    [HttpGet("routes")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<IReadOnlyList<ApiRouteDto>>> ListAllRoutes([FromQuery] Guid organizationId,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 200, CancellationToken ct = default)
+        => Ok(await _catalog.ListAllRoutesAsync(organizationId, page, pageSize, ct));
 
     private IActionResult ToProblem(string error, string code) => code switch
     {
