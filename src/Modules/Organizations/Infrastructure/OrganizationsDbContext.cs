@@ -25,10 +25,13 @@ public class OrganizationsDbContext : DbContext
         {
             b.ToTable("Organizations");
             b.HasKey(o => o.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(o => o.Name).HasMaxLength(256).IsRequired();
             b.Property(o => o.Slug).HasMaxLength(128).IsRequired();
             b.HasIndex(o => o.Slug).IsUnique();
-            b.Property(o => o.RowVersion).IsRowVersion();
+            // Optimistic concurrency for tenants: an edit based on a stale read
+            // (e.g. two admins renaming the same organization) is rejected with
+            // 409 instead of silently overwriting the other change.
             b.HasQueryFilter(o => !_tenantContext.HasOrganization || o.Id == _tenantContext.CurrentOrganizationId);
         });
 
@@ -36,6 +39,7 @@ public class OrganizationsDbContext : DbContext
         {
             b.ToTable("Teams");
             b.HasKey(t => t.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(t => t.Name).HasMaxLength(256).IsRequired();
             b.HasIndex(t => t.OrganizationId);
             // Tenant isolation enforced at the query layer, not just in application code:
@@ -46,6 +50,7 @@ public class OrganizationsDbContext : DbContext
         {
             b.ToTable("Environments");
             b.HasKey(e => e.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(e => e.Name).HasMaxLength(128).IsRequired();
             b.HasIndex(e => e.OrganizationId);
             b.HasQueryFilter(e => !_tenantContext.HasOrganization || e.OrganizationId == _tenantContext.CurrentOrganizationId);

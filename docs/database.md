@@ -6,8 +6,9 @@
 - `Database.EnsureCreated()` is never used.
 - Tenant isolation is enforced with `OrganizationId`, EF query filters, and
   application/resource authorization.
-- Optimistic concurrency uses `RowVersion`/PostgreSQL `xmin` where entities
-  are updated concurrently.
+- Optimistic concurrency uses PostgreSQL's `xmin` system column on every
+  mutable aggregate — see "Optimistic concurrency" below for the mapping, the
+  deliberately immutable tables, and how a conflict reaches the caller.
 - High-write and operational query paths have explicit indexes for tenant,
   service, status, event time, deployment version, and resource lookup.
 
@@ -43,6 +44,45 @@ fails the pipeline instead of silently producing an unreviewed schema. The
 application never migrates itself at startup: a deployment applies the review
 step above with a schema-scoped identity, then runs the app with a restricted
 runtime identity.
+
+## Optimistic concurrency
+
+`Atlas.Shared.Domain.Entity.RowVersion` is a `uint` configured with
+`IsRowVersion()`. Npgsql maps that property to PostgreSQL's `xmin` system
+column: no table column is created, the value changes on every update, and EF
+Core adds `AND xmin = @original` to every `UPDATE`/`DELETE`, so a write based on
+a stale read affects zero rows and raises `DbUpdateConcurrencyException`
+(verified by `ConcurrencyTokenConfigurationTests`, which sweeps every module's
+model).
+
+- **Tokens:** `Organization`, `Team`, `Environment`, `ApiDefinition`,
+  `ApiVersion`, `ApiRoute`, `ApiKey`, `RegisteredService`, `ServiceInstance`,
+  `DeadLetterEvent`, `ServiceLevelObjective`, `RequestTelemetryAggregate`,
+  `Incident`, `Deployment`, `PolicyRule`, `TrafficPolicyConfiguration`,
+  `TrafficPolicyTarget` (17 aggregates, asserted by that test). `AtlasUser` is
+  an `IdentityUser<Guid>` and keeps ASP.NET Identity's own `ConcurrencyStamp`.
+- **Deliberately immutable rows have no token:** `AuditEntry` (append-only — the
+  `DbContext` rejects Modified/Deleted states), `IncidentTimelineEntry`,
+  `MetricSample`, `IdempotencyRecord`, `ServiceDependency`. They are inserted
+  and read, never updated, so a token would only add noise.
+- **What the caller sees:** `ConcurrencyConflictExceptionHandler`
+  (`Atlas.Shared.Web`, registered in `Program.cs`) turns the exception into
+  `409 Conflict` with a ProblemDetails body (`code: CONCURRENCY_CONFLICT` and
+  the conflicting entity names) instead of a 500. It is part of the exception
+  pipeline, so a request rejected earlier by authentication, anti-forgery or
+  validation still receives its own status code; Development and Testing hosts
+  keep the developer exception page. A conflict is not retried automatically —
+  retrying a stale write would silently overwrite the newer data, which is the
+  exact failure the token exists to prevent.
+- **Provider caveat, handled deliberately:** the Npgsql migration generator
+  emits an `AddColumn<uint>("xmin", "xid", rowVersion: true, …)` for these
+  properties, and PostgreSQL rejects it at apply time (`42701: column name
+  "xmin" conflicts with a system column name` — npgsql/efcore.pg#3854, open at
+  the time of writing). The reviewed `MapXminConcurrencyToken` migrations
+  therefore contain a comment where that operation was removed: the token works
+  through the system column, and only the obsolete `bytea` `"RowVersion"`
+  columns are dropped. **A future regeneration of migrations must repeat that
+  edit** (see the comment in `src/Modules/*/Infrastructure/Migrations/*MapXminConcurrencyToken.cs`).
 
 ## Development seed
 

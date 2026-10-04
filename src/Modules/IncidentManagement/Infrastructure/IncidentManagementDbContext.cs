@@ -24,6 +24,7 @@ public class IncidentManagementDbContext : DbContext
         {
             b.ToTable("Incidents");
             b.HasKey(i => i.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(i => i.Title).HasMaxLength(512).IsRequired();
             b.Property(i => i.RootCause).HasMaxLength(4000);
             b.Property(i => i.Mitigation).HasMaxLength(4000);
@@ -36,6 +37,7 @@ public class IncidentManagementDbContext : DbContext
         {
             b.ToTable("IncidentTimelineEntries");
             b.HasKey(t => t.Id);
+            b.Ignore(x => x.RowVersion);
             b.Property(t => t.Note).HasMaxLength(2000).IsRequired();
             b.Property(t => t.EntryType).HasMaxLength(64).IsRequired();
             b.HasIndex(t => new { t.IncidentId, t.AtUtc });

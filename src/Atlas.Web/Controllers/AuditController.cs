@@ -23,6 +23,7 @@ public class AuditController : ControllerBase
         if (!organizationId.HasValue && !User.IsInRole("PlatformAdmin"))
             return BadRequest(new ProblemDetails { Title = "organizationId is required for organization-scoped audit access." });
         if (!SortQuery.TryResolve(AuditSorting.Entries, sortBy, sortDirection, out var direction, out var error)) return error!;
-        return Ok(await _audit.ListAsync(organizationId, resourceType, action, page, pageSize, ct, sortBy, direction));
+        var entries = await _audit.ListAsync(organizationId, resourceType, action, page, pageSize, ct, sortBy, direction);
+        return Ok(entries.Select(AuditEntryDto.From).ToArray());
     }
 }

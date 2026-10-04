@@ -27,6 +27,7 @@ public class ObservabilityDbContext : DbContext
         {
             b.ToTable("ServiceLevelObjectives");
             b.HasKey(s => s.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(s => s.Name).HasMaxLength(256).IsRequired();
             b.HasIndex(s => new { s.OrganizationId, s.ServiceId });
             b.HasQueryFilter(s => !_tenantContext.HasOrganization || s.OrganizationId == _tenantContext.CurrentOrganizationId);
@@ -36,6 +37,7 @@ public class ObservabilityDbContext : DbContext
         {
             b.ToTable("RequestTelemetryAggregates");
             b.HasKey(a => a.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(a => a.Route).HasMaxLength(512).IsRequired();
             b.Property(a => a.HttpMethod).HasMaxLength(10).IsRequired();
             b.Property(a => a.DeploymentVersion).HasMaxLength(128).IsRequired();
@@ -52,6 +54,7 @@ public class ObservabilityDbContext : DbContext
         {
             b.ToTable("MetricSamples");
             b.HasKey(m => m.Id);
+            b.Ignore(x => x.RowVersion);
             b.Property(m => m.DeploymentVersion).HasMaxLength(128);
             // High write volume, queried by service+type+time — index accordingly.
             b.HasIndex(m => new { m.OrganizationId, m.ServiceId, m.MetricType, m.RecordedAtUtc });

@@ -67,6 +67,10 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddScoped<ValidateAntiforgeryForCookieAuthFilter>();
 builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
+// A stale write must be reported as 409 Conflict, not 500: every mutable
+// aggregate carries a concurrency token (PostgreSQL xmin), and this handler
+// translates the resulting DbUpdateConcurrencyException into ProblemDetails.
+builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;

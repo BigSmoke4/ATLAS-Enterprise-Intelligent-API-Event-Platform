@@ -10,9 +10,6 @@ public class RegisteredService : TenantEntity
     private readonly List<ServiceInstance> _instances = new();
     public IReadOnlyCollection<ServiceInstance> Instances => _instances.AsReadOnly();
 
-    private readonly List<Guid> _dependsOnServiceIds = new();
-    public IReadOnlyCollection<Guid> DependsOnServiceIds => _dependsOnServiceIds.AsReadOnly();
-
     private RegisteredService() { }
 
     public static RegisteredService Create(Guid organizationId, Guid environmentId, string name)
@@ -29,12 +26,6 @@ public class RegisteredService : TenantEntity
         _instances.Add(instance);
         Touch();
         return instance;
-    }
-
-    public void AddDependency(Guid dependsOnServiceId)
-    {
-        if (dependsOnServiceId == Id) throw new InvalidOperationException("A service cannot depend on itself.");
-        if (!_dependsOnServiceIds.Contains(dependsOnServiceId)) _dependsOnServiceIds.Add(dependsOnServiceId);
     }
 
     /// <summary>

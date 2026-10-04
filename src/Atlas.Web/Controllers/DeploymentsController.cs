@@ -23,7 +23,8 @@ public class DeploymentsController : ControllerBase
         [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
     {
         if (!SortQuery.TryResolve(DeploymentSorting.Deployments, sortBy, sortDirection, out var direction, out var error)) return error!;
-        return Ok(await _deployments.ListAsync(organizationId, serviceId, page, pageSize, ct, sortBy, direction));
+        var deployments = await _deployments.ListAsync(organizationId, serviceId, page, pageSize, ct, sortBy, direction);
+        return Ok(deployments.Select(DeploymentDto.From).ToArray());
     }
 
     [HttpPost]

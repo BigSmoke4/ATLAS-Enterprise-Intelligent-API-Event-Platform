@@ -23,6 +23,7 @@ public class DeploymentIntelligenceDbContext : DbContext
         {
             b.ToTable("Deployments");
             b.HasKey(d => d.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(d => d.Version).HasMaxLength(128).IsRequired();
             b.Property(d => d.Environment).HasMaxLength(64).IsRequired();
             b.Property(d => d.CommitSha).HasMaxLength(64).IsRequired();

@@ -34,13 +34,14 @@ public class IncidentsController : Controller
 
     [HttpGet("/api/v1/incidents")]
     [Authorize(Policy = "SameOrganization")]
-    public async Task<ActionResult<IReadOnlyList<Incident>>> ListJson([FromQuery] Guid organizationId,
+    public async Task<ActionResult<IReadOnlyList<IncidentDto>>> ListJson([FromQuery] Guid organizationId,
         [FromQuery] IncidentStatus? status = null, [FromQuery] IncidentSeverity? severity = null,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
         [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
     {
         if (!SortQuery.TryResolve(IncidentSorting.Incidents, sortBy, sortDirection, out var direction, out var error)) return error!;
-        return Ok(await _incidents.GetActiveIncidentsAsync(organizationId, page, pageSize, status, severity, ct, sortBy, direction));
+        var incidents = await _incidents.GetActiveIncidentsAsync(organizationId, page, pageSize, status, severity, ct, sortBy, direction);
+        return Ok(incidents.Select(IncidentDto.From).ToArray());
     }
 
     [HttpGet("/api/v1/incidents/{incidentId:guid}")]
@@ -48,7 +49,7 @@ public class IncidentsController : Controller
     public async Task<IActionResult> Get(Guid incidentId, [FromQuery] Guid organizationId, CancellationToken ct)
     {
         var incident = await _incidents.GetAsync(organizationId, incidentId, ct);
-        return incident is null ? NotFound(new ProblemDetails { Title = "Incident not found." }) : Ok(incident);
+        return incident is null ? NotFound(new ProblemDetails { Title = "Incident not found." }) : Ok(IncidentDto.From(incident));
     }
 
     [HttpPost("/api/v1/incidents")]

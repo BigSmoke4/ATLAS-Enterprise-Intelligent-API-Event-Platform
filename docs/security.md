@@ -58,6 +58,19 @@
   message instead of being ignored, and a complete one logs loudly that
   external sign-in is still disabled. The OpenIdConnect handler itself is a
   marked extension point — see [OAuth/OIDC extension point](#oauthoidc-extension-point).
+- **Append-only audit trail at the database level.** `AuditDbContext` rejects
+  `Modified`/`Deleted` entries in `SaveChanges` (and `docs/architecture.md`
+  records the callers), but the deployment role can still issue raw SQL. The
+  operational hardening step — run once per environment — is a grant change
+  against the audit schema:
+
+  ```sql
+  REVOKE UPDATE, DELETE ON audit."AuditEntries" FROM atlas_app;
+  ```
+
+  Nothing in the application performs those statements, so this is safe to
+  apply; it is listed here rather than assumed, because a bug in the DbContext
+  guard would otherwise be the only line of defence.
 - **Secret-scanning in CI.** The pipeline fails on committed credentials only
   through the advisory dependency scan; a dedicated secret scanner (or branch
   protection with a pre-commit hook) is an operator-side control.

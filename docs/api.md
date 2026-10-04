@@ -79,6 +79,24 @@ zero. Additional routes since the first cut of this document:
   sub-collections (an API's versions, one version's routes) keep their fixed
   newest-first/path order. Covered by `SortSpecTests` (unit) and
   `ListEndpointSortingTests` (HTTP, seeded through the real pipeline).
+- **Application DTOs on the read endpoints.** The five endpoints that used to
+  serialize EF aggregates (`GET /api/v1/incidents` and `…/{id}`,
+  `/api/v1/deployments`, `/api/v1/events/dead-letters`, `/api/v1/audit`,
+  `/api/v1/policies`) now publish `IncidentDto`, `DeploymentDto`,
+  `DeadLetterEventDto`, `AuditEntryDto` and `PolicyRuleDto` from their module's
+  Application layer. The wire format keeps the same field names, but an
+  aggregate's persistence state (`rowVersion`), its domain-event collector
+  (`domainEvents`) and its tenant column can no longer leak onto the wire or
+  change a published contract as a side effect of a mapping change.
+  `ResponseDtoContractTests` fails the build if a DTO member is ever an entity
+  or an EF Core type, and `ReadEndpointContractTests` asserts the JSON shape
+  through the real pipeline.
+- **Optimistic concurrency is a documented HTTP contract.** Every mutable
+  aggregate carries PostgreSQL's `xmin` as its concurrency token, so a write
+  based on a stale read is rejected with `409 Conflict` and a ProblemDetails
+  body (`code: CONCURRENCY_CONFLICT`, plus the conflicting entity names) instead
+  of a 500 or a silent overwrite. A 409 means "re-read, then retry"; a 400
+  keeps meaning "this request was invalid". Details in docs/database.md.
 - **`[Authorize]`** on every controller (an anonymous request to any
   `/api/**` route returns `401`, never an HTML redirect; every Razor page
   challenges to sign-in), with state-changing actions further restricted to a
@@ -113,6 +131,14 @@ zero. Additional routes since the first cut of this document:
 
 - **No API versioning beyond `v1`** — nothing to version yet; the routing
   and controller layout leaves space for a `v2` without breaking `v1`.
+- **The 409 path is proven at the handler level, not through an HTTP
+  request.** Every write path re-reads its aggregate inside the same request, so
+  a conflict only occurs when two writes genuinely interleave; that is not
+  deterministically reproducible from a test client without a fault-injection
+  hook. `ConcurrencyConflictExceptionHandlerTests` covers the mapping, and
+  `ReadEndpointContractTests` covers the other half — a real
+  read-then-update cycle (detect an incident, then transition it) still
+  succeeds against PostgreSQL with the token in place.
 - **PolicyController's `evaluate` endpoint is read-only/advisory** by
   design — a matched rule's `Action` is returned in the response but
   nothing auto-executes it outside the explicit `/api/v1/ai/actions` path.

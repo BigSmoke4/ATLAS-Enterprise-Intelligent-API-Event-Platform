@@ -23,6 +23,9 @@ public class IdentityDbContext : IdentityDbContext<AtlasUser, AtlasRole, Guid>
         builder.Entity<AtlasUser>(b =>
         {
             b.ToTable("Users", "identity");
+            // Users carry no xmin token: AtlasUser is an IdentityUser<Guid>, and
+            // ASP.NET Identity already performs its own optimistic concurrency
+            // check on every UserManager write via ConcurrencyStamp.
             b.Property(u => u.DisplayName).HasMaxLength(256).IsRequired();
         });
         builder.Entity<AtlasRole>(b => b.ToTable("Roles", "identity"));
@@ -36,11 +39,11 @@ public class IdentityDbContext : IdentityDbContext<AtlasUser, AtlasRole, Guid>
         {
             b.ToTable("ApiKeys", "identity");
             b.HasKey(k => k.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(k => k.HashedKey).HasMaxLength(128).IsRequired();
             b.HasIndex(k => k.HashedKey).IsUnique();
             b.Property(k => k.Prefix).HasMaxLength(16).IsRequired();
             b.Property(k => k.Name).HasMaxLength(128).IsRequired();
-            b.Property(k => k.RowVersion).IsRowVersion();
             b.HasIndex(k => k.OrganizationId);
         });
     }

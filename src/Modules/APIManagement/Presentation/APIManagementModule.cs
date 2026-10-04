@@ -37,6 +37,9 @@ public class APIManagementModule : IAtlasModule
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: map /api/v1/apis via a real MVC/minimal-API controller.
+        // Nothing to map here by design. The module's HTTP surface is
+        // ApiManagementController in Atlas.Web (a thin [ApiController] over
+        // IApiCatalogService); modules expose behaviour through their
+        // application services and registration, not through routes.
     }
 }

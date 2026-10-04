@@ -28,7 +28,8 @@ public class PolicyController : ControllerBase
         [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
     {
         if (!SortQuery.TryResolve(PolicySorting.Rules, sortBy, sortDirection, out var direction, out var error)) return error!;
-        return Ok(await _policies.ListAsync(organizationId, page, pageSize, ct, sortBy, direction));
+        var rules = await _policies.ListAsync(organizationId, page, pageSize, ct, sortBy, direction);
+        return Ok(rules.Select(PolicyRuleDto.From).ToArray());
     }
 
     [HttpPost]

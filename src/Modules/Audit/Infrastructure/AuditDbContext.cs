@@ -17,6 +17,7 @@ public class AuditDbContext : DbContext
         {
             b.ToTable("AuditEntries");
             b.HasKey(a => a.Id);
+            b.Ignore(x => x.RowVersion);
             b.Property(a => a.ActorDisplay).HasMaxLength(256).IsRequired();
             b.Property(a => a.Action).HasMaxLength(256).IsRequired();
             b.Property(a => a.ResourceType).HasMaxLength(128).IsRequired();
@@ -34,7 +35,8 @@ public class AuditDbContext : DbContext
     /// a bug elsewhere in the app. This is a real guard, not just a missing
     /// setter — though a superuser issuing raw SQL against Postgres directly
     /// bypasses it, which is why production Postgres role grants should also
-    /// deny UPDATE/DELETE on the audit.AuditEntries table (see docs/security.md TODO).
+    /// deny UPDATE/DELETE on the audit table (see "Append-only audit trail" in
+    /// docs/security.md for the exact statements).
     /// </summary>
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

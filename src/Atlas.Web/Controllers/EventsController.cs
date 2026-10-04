@@ -40,7 +40,8 @@ public class EventsController : ControllerBase
         [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
     {
         if (!SortQuery.TryResolve(DeadLetterSorting.DeadLetters, sortBy, sortDirection, out var direction, out var error)) return error!;
-        return Ok(await _deadLetters.ListAsync(topic, page, pageSize, ct, eventType, fromUtc, toUtc, eventId, sortBy, direction));
+        var deadLetters = await _deadLetters.ListAsync(topic, page, pageSize, ct, eventType, fromUtc, toUtc, eventId, sortBy, direction);
+        return Ok(deadLetters.Select(DeadLetterEventDto.From).ToArray());
     }
 
     /// <summary>Flags as replayed WITHOUT re-publishing (use when the fix was applied out-of-band).</summary>

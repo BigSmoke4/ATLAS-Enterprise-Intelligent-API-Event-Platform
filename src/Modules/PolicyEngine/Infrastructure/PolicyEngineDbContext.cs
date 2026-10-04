@@ -33,6 +33,7 @@ public class PolicyEngineDbContext : DbContext
         {
             b.ToTable("PolicyRules");
             b.HasKey(r => r.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(r => r.Name).HasMaxLength(256).IsRequired();
             // Conditions/Action are stored as JSON — still pure data, never
             // an executable expression string. See PolicyCondition for why.

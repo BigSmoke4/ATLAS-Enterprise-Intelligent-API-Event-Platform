@@ -17,6 +17,7 @@ public sealed class TrafficManagementDbContext : DbContext
         builder.Entity<TrafficPolicyConfiguration>(b =>
         {
             b.ToTable("TrafficPolicies"); b.HasKey(p => p.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.HasIndex(p => new { p.OrganizationId, p.ServiceId }).IsUnique();
             b.Property(p => p.Strategy).HasConversion<string>().HasMaxLength(32);
             b.Property(p => p.Mode).HasConversion<string>().HasMaxLength(32);
@@ -26,6 +27,7 @@ public sealed class TrafficManagementDbContext : DbContext
         builder.Entity<TrafficPolicyTarget>(b =>
         {
             b.ToTable("TrafficPolicyTargets"); b.HasKey(t => t.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.HasIndex(t => new { t.PolicyId, t.InstanceId }).IsUnique();
             b.HasQueryFilter(t => !_tenant.HasOrganization || t.OrganizationId == _tenant.CurrentOrganizationId);
         });
