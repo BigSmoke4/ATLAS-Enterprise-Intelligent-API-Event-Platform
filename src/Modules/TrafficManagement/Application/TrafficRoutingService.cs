@@ -73,6 +73,8 @@ public class TrafficRoutingService : ITrafficRoutingService
                 RoutingStrategyType.RoundRobin => RoutingStrategies.RoundRobin(targets, requestSequenceNumber),
                 RoutingStrategyType.Weighted or RoutingStrategyType.Canary or RoutingStrategyType.BlueGreen => RoutingStrategies.Weighted(targets, DeterministicRandom(requestSequenceNumber)),
                 RoutingStrategyType.Priority => RoutingStrategies.Priority(targets),
+                RoutingStrategyType.LeastConnections => RoutingStrategies.LeastConnections(targets),
+                RoutingStrategyType.LatencyBased => RoutingStrategies.LatencyBased(targets),
                 _ => throw new NotSupportedException($"Unhandled strategy {policy.Strategy}")
             };
 
