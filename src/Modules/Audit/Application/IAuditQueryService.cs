@@ -1,4 +1,5 @@
 using Atlas.Modules.Audit.Domain;
+using Atlas.Shared.Application;
 
 namespace Atlas.Modules.Audit.Application;
 

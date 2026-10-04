@@ -32,8 +32,11 @@ public sealed class OidcOptions
     /// <summary>Label shown on the (future) external sign-in entry point.</summary>
     public string DisplayName { get; init; } = "Single sign-on";
 
-    /// <summary>Requested scopes; must include <c>openid</c> because this is OpenID Connect, not plain OAuth 2.0.</summary>
-    public string[] Scopes { get; init; } = { "openid", "profile", "email" };
+    /// <summary>
+    /// Requested scopes; must include <c>openid</c> because this is OpenID Connect, not plain OAuth 2.0.
+    /// Nullable because configuration binding can materialise an explicit JSON null.
+    /// </summary>
+    public string[]? Scopes { get; init; } = new[] { "openid", "profile", "email" };
 
     /// <summary>Reject non-HTTPS metadata endpoints (leave true outside local experiments).</summary>
     public bool RequireHttpsMetadata { get; init; } = true;
@@ -73,7 +76,8 @@ public sealed class OidcOptions
         if (string.IsNullOrWhiteSpace(ClientId))
             errors.Add("Oidc:ClientId is required once any Oidc setting is present.");
 
-        if (Scopes.Length == 0 || !Scopes.Any(scope => string.Equals(scope, "openid", StringComparison.OrdinalIgnoreCase)))
+        var scopes = Scopes ?? Array.Empty<string>();
+        if (scopes.Length == 0 || !scopes.Any(scope => string.Equals(scope, "openid", StringComparison.OrdinalIgnoreCase)))
             errors.Add("Oidc:Scopes must include \"openid\" — this is an OpenID Connect sign-in, not plain OAuth 2.0.");
 
         return errors;

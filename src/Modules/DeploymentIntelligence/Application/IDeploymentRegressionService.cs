@@ -1,4 +1,5 @@
 using Atlas.Modules.DeploymentIntelligence.Domain;
+using Atlas.Shared.Application;
 
 namespace Atlas.Modules.DeploymentIntelligence.Application;
 

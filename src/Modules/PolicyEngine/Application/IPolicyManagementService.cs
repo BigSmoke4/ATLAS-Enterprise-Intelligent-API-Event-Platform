@@ -1,4 +1,5 @@
 using Atlas.Modules.PolicyEngine.Domain;
+using Atlas.Shared.Application;
 
 namespace Atlas.Modules.PolicyEngine.Application;
 
