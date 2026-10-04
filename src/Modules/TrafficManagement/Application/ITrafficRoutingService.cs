@@ -7,10 +7,11 @@ public record RoutingDecision(bool Success, string? SelectedInstance, string? Re
 /// <summary>
 /// Combines a configured RoutingPolicy with REAL current service/instance
 /// health from ServiceRegistry (via IServiceHealthService — an Application
-/// interface, never ServiceRegistry's DbContext directly) and the pure
-/// RoutingStrategies algorithms to pick a target. This is what the master
-/// prompt means by "routing decisions must be based on actual configured
-/// service state" — no hard-coded routing results.
+/// interface, never ServiceRegistry's DbContext directly), REPORTED
+/// per-instance gauges (active connections / average latency via
+/// IInstanceTelemetryService — only reports inside the staleness window
+/// qualify an instance), and the pure RoutingStrategies algorithms to pick
+/// a target. No hard-coded routing results, no fabricated telemetry.
 /// </summary>
 public interface ITrafficRoutingService
 {

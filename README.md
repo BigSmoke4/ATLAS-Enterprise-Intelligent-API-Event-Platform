@@ -11,7 +11,7 @@ The platform's defining rule is the **No Fake Functionality** contract: metrics,
 The full delivery pipeline is green and verifies the application end-to-end on every push:
 
 - **Restore + Build + Static analysis** (`dotnet build -warnaserror`) — nullable-enabled C# across 18 projects.
-- **104 unit tests** — routing strategies, sliding/token-bucket/leaky-bucket + fixed-window rate limiting, circuit-breaker state machine, policy evaluator + versioning, SLO/error-budget math, canary/regression analyzers, root-cause scoring, incident state machine + MTTD/MTTR, organizations/tenant rules, API-key hashing, webhook HMAC verification, event contract validation, event dispatcher/coordinator, dead-letter service, audit query service, organization-access handler.
+- **115 unit tests** — routing strategies incl. telemetry-driven selection and staleness, sliding/token-bucket/leaky-bucket + fixed-window rate limiting, circuit-breaker state machine, policy evaluator + versioning, SLO/error-budget math, canary/regression analyzers, root-cause scoring, incident state machine + MTTD/MTTR, organizations/tenant rules, API-key hashing, webhook HMAC verification, event contract validation, event dispatcher/coordinator, dead-letter service, audit query service, organization-access handler.
 - **EF Core migrations generated and applied** against a real PostgreSQL 16 in CI (11 module schemas; `EnsureCreated` is never used).
 - **Architecture tests** (NetArchTest) — Domain/Application layers of one module may not depend on another module's Infrastructure; MVC controllers cannot reference EF Core.
 - **Integration tests** (WebApplicationFactory + real PostgreSQL/Redis/Kafka): anonymous rejection with 401, unauthenticated liveness, organization isolation (403 for cross-tenant reads), role enforcement (403 for non-admin policy operations), tenant-scoped audit reads, dependency-aware readiness, atomic Redis rate-limit counters under concurrency, Kafka publisher headers/payload round-trip.
@@ -47,7 +47,7 @@ Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManage
 
 **API & traffic management, reliability**
 - API/version/route catalog with tenant scoping and route policy configuration (rate limit scope/algorithm/window/timeout), consumed by enforcement through the `IRoutePolicyProvider` contract.
-- Traffic policies (round-robin, weighted, priority, canary, blue/green) routing across **real healthy registered instances**; latency/connection-based strategies are refused with explicit reasons rather than fed fabricated inputs.
+- Traffic policies (round-robin, weighted, priority, least-connections, latency-based, canary, blue/green) routing across **real healthy registered instances**; least-connections and latency-based strategies run on per-instance gauges reported via `POST /api/v1/traffic/telemetry` (active connections / average latency), trusted only inside a staleness window — instances with stale or missing reports are excluded, never fed fabricated inputs.
 - Distributed rate limiting on the live pipeline (fixed window default; token bucket, sliding window, and leaky bucket algorithms implemented against the Redis store with atomic Lua increments; concurrency verified by integration test). Fail-open on Redis outage is a deliberate, documented trade-off.
 - Circuit breaker: CLOSED → OPEN → HALF-OPEN state machine enforced by a DelegatingHandler on outbound HTTP clients, state observable via `GET /api/v1/reliability/circuit-breakers`.
 
@@ -87,7 +87,7 @@ Health probes: `/health/live` (process), `/health/ready` (PostgreSQL+Redis+Kafka
 
 Cookie session for browsers, `X-Api-Key` for machines; all anonymous calls to `/api/**` get `401` (never an HTML redirect). Public contracts are versioned under `/api/v1/...`:
 
-`/api/v1/account` · `/api/v1/organizations` · `/api/v1/apis` (+route config) · `/api/v1/services` (+instances, dependencies, health-check) · `/api/v1/traffic` (policies, select-instance) · `/api/v1/reliability/circuit-breakers` · `/api/v1/events` (publish, dead-letters, replay) · `/api/v1/incidents` (+transition, root-cause, postmortem, root-cause-analysis) · `/api/v1/deployments` (+canary-analysis, regression-analysis) · `/api/v1/slo` (+samples/outcome, samples/latency, compliance) · `/api/v1/policies` (+versions, activate/deactivate, evaluate) · `/api/v1/audit` · `/api/v1/ai` (ask, actions)
+`/api/v1/account` · `/api/v1/organizations` · `/api/v1/apis` (+route config) · `/api/v1/services` (+instances, dependencies, health-check) · `/api/v1/traffic` (policies, select-instance, telemetry) · `/api/v1/reliability/circuit-breakers` · `/api/v1/events` (publish, dead-letters, replay) · `/api/v1/incidents` (+transition, root-cause, postmortem, root-cause-analysis) · `/api/v1/deployments` (+canary-analysis, regression-analysis) · `/api/v1/slo` (+samples/outcome, samples/latency, compliance) · `/api/v1/policies` (+versions, activate/deactivate, evaluate) · `/api/v1/audit` · `/api/v1/ai` (ask, actions)
 
 Full details: `docs/api.md`.
 
@@ -107,7 +107,7 @@ Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6) — run it
 - Refresh-token rotation/session revocation, OAuth/OIDC federation: planned (cookie + API-key flows are implemented and verified today).
 - Kafka stays optional: with no broker configured the publisher seam is absent rather than silently no-op; production schema registry/outbox hardening is documented in `docs/event-driven-architecture.md`.
 - Automatic request-level telemetry ingestion is intentionally scoped to probed availability + explicit sample pushes until service/tenant attribution of middleware sampling is unambiguous (`docs/observability.md`).
-- Latency/connection-count routing strategies, Grafana panels for Kafka/PostgreSQL internals (need their exporters), and browser pages beyond Command Center/APIs/Services/Incidents/Observability/Account remain roadmap items listed in `docs/architecture.md`.
+- Grafana panels for Kafka/PostgreSQL internals (need their exporters) and browser pages beyond Command Center/APIs/Services/Incidents/Observability/Account remain roadmap items listed in `docs/architecture.md`.
 
 ## Repository layout
 

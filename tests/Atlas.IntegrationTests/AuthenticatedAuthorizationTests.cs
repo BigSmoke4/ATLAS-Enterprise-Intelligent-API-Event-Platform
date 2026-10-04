@@ -66,4 +66,34 @@ public sealed class AuthenticatedAuthorizationTests : IClassFixture<TestWebAppli
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task SRE_cannot_report_instance_telemetry_for_a_foreign_organization()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/traffic/telemetry");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "SRE");
+        request.Content = new StringContent(
+            $"{{\"organizationId\":\"{OrganizationB}\",\"serviceId\":\"{Guid.NewGuid()}\",\"instances\":[{{\"instanceId\":\"{Guid.NewGuid()}\",\"activeConnections\":3,\"avgLatencyMs\":12.5}}]}}",
+            System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SRE_can_report_instance_telemetry_for_their_own_organization()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/traffic/telemetry");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "SRE");
+        request.Content = new StringContent(
+            $"{{\"organizationId\":\"{OrganizationA}\",\"serviceId\":\"{Guid.NewGuid()}\",\"instances\":[{{\"instanceId\":\"{Guid.NewGuid()}\",\"activeConnections\":3,\"avgLatencyMs\":12.5}}]}}",
+            System.Text.Encoding.UTF8, "application/json");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }
