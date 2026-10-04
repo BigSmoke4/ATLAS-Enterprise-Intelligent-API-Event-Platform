@@ -78,11 +78,11 @@ model).
   emits an `AddColumn<uint>("xmin", "xid", rowVersion: true, …)` for these
   properties, and PostgreSQL rejects it at apply time (`42701: column name
   "xmin" conflicts with a system column name` — npgsql/efcore.pg#3854, open at
-  the time of writing). The reviewed `MapXminConcurrencyToken` migrations
-  therefore contain a comment where that operation was removed: the token works
-  through the system column, and only the obsolete `bytea` `"RowVersion"`
-  columns are dropped. **A future regeneration of migrations must repeat that
-  edit** (see the comment in `src/Modules/*/Infrastructure/Migrations/*MapXminConcurrencyToken.cs`).
+  the time of writing). The reviewed `ModelSync` migrations therefore contain a
+  comment where that operation was removed: the token works through the system
+  column, and only the obsolete `bytea` `"RowVersion"` columns are dropped.
+  **A future regeneration of migrations must repeat that edit** (see the
+  comment in `src/Modules/*/Infrastructure/Migrations/*_ModelSync.cs`).
 
 ## Development seed
 

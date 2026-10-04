@@ -20,7 +20,7 @@ on:
       migration_name:
         description: Migration name to generate once per DbContext
         required: true
-        default: InitialSchema
+        default: ModelSync
 
 permissions:
   contents: write
@@ -46,7 +46,9 @@ jobs:
         run: dotnet tool install --global dotnet-ef --version 9.*
 
       - name: Generate migrations for every module DbContext
-        run: scripts/add-migration.sh "${{ inputs.migration_name || 'InitialSchema' }}"
+        # The fallback is the name a path-triggered run (the one that regenerates
+        # a reviewed model delta) uses; a dispatch can override it.
+        run: scripts/add-migration.sh "${{ inputs.migration_name || 'ModelSync' }}"
         env:
           # The design-time host boots Program.cs, so each module must find the
           # configuration keys it requires. No server needs to be reachable:
