@@ -2,6 +2,7 @@ using Atlas.Shared.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using Xunit;
@@ -22,9 +23,10 @@ public class ConcurrencyConflictExceptionHandlerTests
     {
         var context = new DefaultHttpContext
         {
-            // HttpResults resolve JSON options through RequestServices; an empty
-            // container keeps the test host faithful to a real request.
-            RequestServices = new ServiceCollection().BuildServiceProvider()
+            // HttpResults resolve JSON options and a logger factory through
+            // RequestServices; the container keeps the test host faithful to a
+            // real request without pulling in the full web host.
+            RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider()
         };
         context.Request.Method = method;
         context.Request.Path = path;

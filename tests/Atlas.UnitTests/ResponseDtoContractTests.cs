@@ -71,8 +71,13 @@ public class ResponseDtoContractTests
         Assert.Equal(incident.Status, dto.Status);
         Assert.Single(dto.AffectedServiceIds);
         // The timeline is an entity collection in the model and a value on the wire.
-        Assert.Single(dto.Timeline);
-        Assert.Contains("acknowledged", dto.Timeline[0].Note);
+        // Detect() records the detection entry, so an acknowledged incident carries
+        // both that entry and the transition note.
+        Assert.Equal(2, dto.Timeline.Count);
+        var acknowledgement = dto.Timeline.Single(entry =>
+            entry.Note.Contains("acknowledged", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(nameof(Atlas.Modules.IncidentManagement.Domain.IncidentStatus.Investigating),
+            acknowledgement.EntryType);
         // MTTD/MTTR are derived from recorded timestamps, so an open incident
         // reports a null MTTR rather than a placeholder.
         Assert.True(dto.MeanTimeToDetect > TimeSpan.Zero);
