@@ -66,33 +66,55 @@ jobs:
           git config user.name "atlas-migrations[bot]"
           git config user.email "atlas-migrations[bot]@users.noreply.github.com"
 
-          # Diagnostics first: the runner log is the only channel available to a
-          # maintainer without write access, so report what was generated before
-          # doing anything that can fail.
+          # The runner log is the only channel available to a maintainer without
+          # write access to the repository, and only workflow commands
+          # (::warning:: / ::error::) survive as annotations. Every command that
+          # can fail therefore reports its own exit code and output, aggregated
+          # into a single annotation so a failure is diagnosable from the run page.
           GENERATED=$(find src/Modules -path '*Migrations*' -name '*.cs' | wc -l)
           echo "::warning::generated migration files: ${GENERATED}"
-          find src/Modules -path '*Migrations*' -name '*.cs' | head -5 | while IFS= read -r file; do echo "::warning::generated: ${file}"; done
           if [ "${GENERATED}" -eq 0 ]; then
             echo "::error::the generation step produced no migration files"
             exit 1
           fi
 
-          git add -A src/Modules 2>add.log || { sed -n '1,10p' add.log | while IFS= read -r line; do echo "::error::add: $line"; done; exit 1; }
-          git status --short | head -20 | while IFS= read -r line; do echo "::warning::staged: ${line}"; done
-          if git diff --cached --quiet; then
-            echo "::warning::nothing was staged — migration files already match the working tree?"
-            exit 0
-          fi
-          git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'InitialSchema' }})"
-          echo "::notice::generated $(git show --stat --oneline HEAD | head -1)"
-          # The branch can move while a generation run is in flight, so replay
-          # the commit on top of the newest tip before pushing.
-          if ! git pull --rebase origin "${BRANCH}" > pull.log 2>&1; then
-            sed -n '1,20p' pull.log | while IFS= read -r line; do echo "::error::pull-rebase: $line"; done
+          git add -A src/Modules; ADD_EXIT=$?
+          echo "::warning::git add exit ${ADD_EXIT}: $(git status --porcelain src/Modules | head -40 | tr '\n' ';' | cut -c1-1200)"
+          if [ "${ADD_EXIT}" -ne 0 ]; then
+            echo "::error::git add failed with exit code ${ADD_EXIT}"
             exit 1
           fi
-          if ! git push origin "HEAD:${BRANCH}" > push.log 2>&1; then
-            sed -n '1,20p' push.log | while IFS= read -r line; do echo "::error::push: $line"; done
+
+          if git diff --cached --quiet; then
+            echo "::warning::nothing was staged -- the working tree already matches the committed migrations"
+            exit 0
+          fi
+
+          git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'ModelSync' }})"; COMMIT_EXIT=$?
+          echo "::warning::git commit exit ${COMMIT_EXIT}: $(git log --oneline -1)"
+          if [ "${COMMIT_EXIT}" -ne 0 ]; then
+            echo "::error::git commit failed with exit code ${COMMIT_EXIT}"
+            exit 1
+          fi
+
+          # The branch can move while a generation run is in flight, so replay
+          # the commit on top of the newest tip before pushing.
+          git fetch origin "${BRANCH}"; FETCH_EXIT=$?
+          if [ "${FETCH_EXIT}" -ne 0 ]; then
+            echo "::error::git fetch of ${BRANCH} failed with exit code ${FETCH_EXIT}"
+            exit 1
+          fi
+
+          git rebase "origin/${BRANCH}"; REBASE_EXIT=$?
+          if [ "${REBASE_EXIT}" -ne 0 ]; then
+            git rebase --abort >/dev/null 2>&1 || true
+            echo "::error::git rebase onto origin/${BRANCH} failed with exit code ${REBASE_EXIT}"
+            exit 1
+          fi
+
+          git push origin "HEAD:${BRANCH}"; PUSH_EXIT=$?
+          if [ "${PUSH_EXIT}" -ne 0 ]; then
+            echo "::error::git push to ${BRANCH} failed with exit code ${PUSH_EXIT}"
             exit 1
           fi
           echo "::notice::pushed $(git rev-parse --short HEAD) to ${BRANCH}"

@@ -37,11 +37,7 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
 
         // Names only — enough to tell an operator which aggregate conflicted,
         // without copying row data (which may be tenant-scoped) into logs.
-        var entityTypes = conflict.Entries
-            .Select(entry => entry.Metadata.ClrType.Name)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(name => name, StringComparer.Ordinal)
-            .ToArray();
+        var entityTypes = ConflictingEntityTypes(conflict.Entries.Select(entry => entry.Metadata.ClrType));
 
         _logger.LogWarning(conflict,
             "Optimistic concurrency conflict on {Method} {Path}: {EntityTypes} changed after the request read them.",
@@ -62,4 +58,18 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
 
         return true;
     }
+
+    /// <summary>
+    /// Distinct, ordinally sorted type names for the entries involved in a conflict.
+    /// Public because it is the part of this handler worth pinning in a unit test:
+    /// EF's entries-taking exception constructor is internal, so a test cannot build
+    /// a real conflict — it supplies the types explicitly while the handler feeds in
+    /// the failed entries' metadata.
+    /// </summary>
+    public static string[] ConflictingEntityTypes(IEnumerable<Type> entityTypes) =>
+        entityTypes
+            .Select(type => type.Name)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
 }

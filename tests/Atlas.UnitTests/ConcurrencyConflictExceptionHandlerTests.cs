@@ -61,25 +61,19 @@ public class ConcurrencyConflictExceptionHandlerTests
     }
 
     [Fact]
-    public async Task The_conflict_names_the_aggregate_that_changed_so_an_operator_can_act()
+    public void The_conflict_names_the_aggregate_that_changed_so_an_operator_can_act()
     {
-        // A real EF entry, so the handler's metadata handling is exercised rather
-        // than a hand-built stub.
-        using var db = new Atlas.Modules.EventPlatform.Infrastructure.EventPlatformDbContext(
-            new DbContextOptionsBuilder<Atlas.Modules.EventPlatform.Infrastructure.EventPlatformDbContext>()
-                .UseInMemoryDatabase($"conflict-{Guid.NewGuid()}")
-                .Options);
-        var entry = db.Entry(Atlas.Modules.EventPlatform.Domain.DeadLetterEvent.Create(
-            "orders", Guid.NewGuid(), "OrderCreated", Guid.NewGuid(), "{}", "boom"));
-        var context = Context("POST", "/api/v1/events/dead-letters/1/replay");
+        // EF's entries-taking exception constructor is internal, so the naming
+        // logic is pinned directly; the handler feeds it the failed entries'
+        // metadata. Duplicates collapse and the order is stable.
+        var names = ConcurrencyConflictExceptionHandler.ConflictingEntityTypes(new[]
+        {
+            typeof(Atlas.Modules.EventPlatform.Domain.DeadLetterEvent),
+            typeof(Atlas.Modules.EventPlatform.Domain.DeadLetterEvent),
+            typeof(Atlas.Modules.IncidentManagement.Domain.Incident)
+        });
 
-        var handled = await Handler().TryHandleAsync(
-            context, new DbUpdateConcurrencyException("conflict", new[] { entry }), CancellationToken.None);
-
-        Assert.True(handled);
-        var body = await BodyAsync(context);
-        var entities = Property(body, "conflictingEntities").EnumerateArray().Select(e => e.GetString()).ToArray();
-        Assert.Equal(new[] { nameof(Atlas.Modules.EventPlatform.Domain.DeadLetterEvent) }, entities);
+        Assert.Equal(new[] { "DeadLetterEvent", "Incident" }, names);
     }
 
     [Fact]
