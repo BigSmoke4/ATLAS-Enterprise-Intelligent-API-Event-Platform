@@ -39,7 +39,6 @@ public sealed class TelemetryAggregationService : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TelemetryAggregationService> _logger;
     private readonly TelemetryAggregationOptions _options;
-    private readonly IActiveDeploymentVersionProvider? _deployments;
 
     private readonly Dictionary<PendingKey, PendingBucket> _pending = new();
     private readonly object _gate = new();
@@ -49,20 +48,21 @@ public sealed class TelemetryAggregationService : BackgroundService
         TelemetryIngestBuffer buffer,
         IServiceScopeFactory scopeFactory,
         IOptions<TelemetryAggregationOptions> options,
-        ILogger<TelemetryAggregationService> logger,
-        IActiveDeploymentVersionProvider? deployments = null)
+        ILogger<TelemetryAggregationService> logger)
     {
         _buffer = buffer;
         _scopeFactory = scopeFactory;
         _logger = logger;
         _options = options.Value;
-        _deployments = deployments;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Telemetry aggregation started (flush every {FlushInterval}, retention {Retention}, deployment attribution: {Attribution}).",
-            _options.FlushInterval, _options.Retention, _deployments is null ? "not available" : "enabled");
+        // Deployment attribution is resolved per flush scope: the provider is a
+        // scoped service (it reads the deployment module's DbContext) and this
+        // background service is a singleton, so it must never be captured here.
+        _logger.LogInformation("Telemetry aggregation started (flush every {FlushInterval}, retention {Retention}, deployment attribution: per-scope).",
+            _options.FlushInterval, _options.Retention);
 
         var flushDeadline = DateTimeOffset.UtcNow + _options.FlushInterval;
         var cleanupDeadline = DateTimeOffset.UtcNow + TimeSpan.FromHours(1);
@@ -144,6 +144,7 @@ public sealed class TelemetryAggregationService : BackgroundService
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ObservabilityDbContext>();
+            var deploymentVersions = scope.ServiceProvider.GetService<IActiveDeploymentVersionProvider>();
 
             var from = batch.Keys.Min(k => k.WindowStartUtc);
             var to = batch.Keys.Max(k => k.WindowStartUtc);
@@ -161,7 +162,7 @@ public sealed class TelemetryAggregationService : BackgroundService
 
             foreach (var (key, bucket) in batch)
             {
-                var version = await ResolveDeploymentVersionAsync(key, versionCache, ct);
+                var version = await ResolveDeploymentVersionAsync(deploymentVersions, key, versionCache, ct);
 
                 var row = existing.FirstOrDefault(a =>
                     a.OrganizationId == key.OrganizationId &&
@@ -224,9 +225,13 @@ public sealed class TelemetryAggregationService : BackgroundService
         }
     }
 
-    private async Task<string> ResolveDeploymentVersionAsync(PendingKey key, Dictionary<(Guid, Guid), string> cache, CancellationToken ct)
+    private async Task<string> ResolveDeploymentVersionAsync(
+        IActiveDeploymentVersionProvider? services,
+        PendingKey key,
+        Dictionary<(Guid, Guid), string> cache,
+        CancellationToken ct)
     {
-        if (_deployments is null || !key.ServiceId.HasValue) return string.Empty;
+        if (services is null || !key.ServiceId.HasValue) return string.Empty;
 
         var cacheKey = (key.OrganizationId, key.ServiceId.Value);
         if (cache.TryGetValue(cacheKey, out var cached)) return cached;
@@ -234,7 +239,7 @@ public sealed class TelemetryAggregationService : BackgroundService
         string version;
         try
         {
-            version = await _deployments.GetActiveVersionAsync(key.OrganizationId, key.ServiceId.Value, key.WindowStartUtc, ct) ?? string.Empty;
+            version = await services.GetActiveVersionAsync(key.OrganizationId, key.ServiceId.Value, key.WindowStartUtc, ct) ?? string.Empty;
         }
         catch (Exception ex)
         {
