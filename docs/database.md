@@ -29,12 +29,20 @@ configuration/environment variables. Production should run migrations as a
 controlled release step using a deployment identity with schema permissions,
 then run the application with a restricted runtime identity.
 
-Migration files are generated artifacts and must be committed after review.
-CI validates the process by generating a disposable `CiBaseline` migration for
-each module and applying it to ephemeral PostgreSQL before integration tests;
-those generated files are not treated as reviewed production migrations.
-Production still requires committed migration files and a controlled release
-identity.
+Migration files are generated artifacts and are committed after review. The
+repository ships one reviewed `InitialSchema` migration plus a model snapshot
+per module (`src/Modules/*/Infrastructure/Migrations`); the *Generate EF
+migrations* workflow exists so the next one can be produced on a machine that
+has the SDK and `dotnet-ef` and committed back to the branch, and
+`scripts/add-migration.sh <Name>` does the same locally.
+
+CI applies those committed migrations to ephemeral PostgreSQL before the
+integration tests, and additionally runs `dotnet ef migrations add` to prove
+the model still matches the checked-in snapshot — a drift between the two
+fails the pipeline instead of silently producing an unreviewed schema. The
+application never migrates itself at startup: a deployment applies the review
+step above with a schema-scoped identity, then runs the app with a restricted
+runtime identity.
 
 ## Development seed
 

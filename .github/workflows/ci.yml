@@ -89,6 +89,26 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
+      - name: Model drift check (checked-in migrations match the EF model)
+        run: |
+          set -o pipefail
+          # `migrations add` always succeeds: if the model matches the committed
+          # snapshot the new migration is empty. An empty migration is the pass
+          # condition — any schema operation means the committed migration (and
+          # its snapshot) is behind the model, which must fail the build rather
+          # than ship an unreviewed schema.
+          drift=0
+          for file in $(find src/Modules -path '*Migrations*' -name '*_CiBaseline.cs'); do
+            if grep -q 'migrationBuilder\.' "$file"; then
+              echo "::error file=$file::contains schema operations — the checked-in migration/snapshot is behind the model"
+              drift=1
+            else
+              echo "no drift: $file"
+            fi
+          done
+          if [ "$drift" -ne 0 ]; then exit 1; fi
+          echo "All eleven module models match their checked-in migrations."
+
       - name: Architecture tests
         run: |
           set -o pipefail
