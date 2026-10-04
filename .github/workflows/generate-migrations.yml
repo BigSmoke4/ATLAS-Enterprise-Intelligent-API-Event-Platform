@@ -7,6 +7,14 @@ name: Generate EF migrations
 # for it. It is manual by design: it never runs on a push, and it never touches
 # a branch other than the one it was dispatched from.
 on:
+  # Dispatching by name requires the workflow to exist on the default branch.
+  # Until this file lands on `main`, a push that changes it on any other branch
+  # runs it for that branch — which is exactly what a first-generation pass
+  # needs. The path filter keeps later pushes (for example the commit this job
+  # itself creates) from re-triggering it.
+  push:
+    paths:
+      - '.github/workflows/generate-migrations.yml'
   workflow_dispatch:
     inputs:
       migration_name:
@@ -38,7 +46,7 @@ jobs:
         run: dotnet tool install --global dotnet-ef --version 9.*
 
       - name: Generate migrations for every module DbContext
-        run: scripts/add-migration.sh "${{ inputs.migration_name }}"
+        run: scripts/add-migration.sh "${{ inputs.migration_name || 'InitialSchema' }}"
         env:
           # The design-time host boots Program.cs, so each module must find the
           # configuration keys it requires. No server needs to be reachable:
@@ -57,7 +65,7 @@ jobs:
             echo "No migration files were produced — nothing to commit."
             exit 0
           fi
-          git commit -m "Add generated EF Core migrations (${{ inputs.migration_name }})"
+          git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'InitialSchema' }})"
           git push origin "HEAD:${{ github.ref_name }}"
           echo "Committed:"
           git show --stat --oneline HEAD
