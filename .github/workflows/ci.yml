@@ -171,10 +171,10 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
-      - name: Integration tests - MVC page authorization
+      - name: Integration tests - MVC page authorization and CSRF filter
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~MvcPageAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/mvc-pages 2>&1 | tee integration-mvc-pages.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~MvcPageAuthorizationTests|FullyQualifiedName~AntiforgeryFilterTests" --logger "console;verbosity=detailed" --results-directory TestResults/mvc-pages 2>&1 | tee integration-mvc-pages.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"

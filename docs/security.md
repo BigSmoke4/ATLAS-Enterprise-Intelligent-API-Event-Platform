@@ -38,6 +38,11 @@
   Redis-backed, atomic Lua-scripted counters).
 - **Circuit breaker enforced on outbound calls** (`CircuitBreakerDelegatingHandler`).
 
+- **CSRF**: Razor forms validate antiforgery tokens, and cookie-authenticated
+  JSON writes from the console are validated by
+  `ValidateAntiforgeryForCookieAuthFilter`; API-key requests are exempt because
+  the credential is not attached by the browser automatically.
+
 ## Not yet implemented
 
 - **Per-object authorization beyond the tenant.** A caller is authorized for
@@ -51,8 +56,9 @@
 - **Secret-scanning in CI.** The pipeline fails on committed credentials only
   through the advisory dependency scan; a dedicated secret scanner (or branch
   protection with a pre-commit hook) is an operator-side control.
-- **Antiforgery on JSON APIs for cookie-authenticated callers** is enforced for
-  the MVC forms and the console's module writes (token in a meta tag, sent as
-  `X-CSRF-TOKEN`); machine callers authenticate with API keys, where CSRF does
-  not apply. A future cookie-based SPA-style client would need the same header
-  discipline.
+- **Antiforgery scope.** MVC forms carry `[ValidateAntiForgeryToken]`, and
+  `ValidateAntiforgeryForCookieAuthFilter` now enforces the token for
+  *cookie-authenticated* JSON writes as well — the console reads the request
+  token from a meta tag and sends it as `X-CSRF-TOKEN`. API-key callers are
+  exempt by construction (a cross-site page cannot set that header), and the
+  skip rules are pinned by unit tests so the exemption cannot silently widen.

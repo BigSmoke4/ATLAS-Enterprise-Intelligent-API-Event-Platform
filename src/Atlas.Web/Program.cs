@@ -53,8 +53,17 @@ var modules = new List<IAtlasModule>
 
 // Enums cross the wire as their names, not their ordinals: an operations API
 // that returns "Sev2"/"Resolved" is readable, diffable and safe to reorder.
-builder.Services.AddControllersWithViews()
+builder.Services.AddControllersWithViews(options =>
+    {
+        // CSRF for cookie-authenticated writes: the console's ES modules post
+        // JSON to the platform's own API while the browser attaches the Identity
+        // cookie, which is exactly the ambient-credential case antiforgery
+        // exists to stop. API-key callers are exempt (a cross-site page cannot
+        // set that header) — see ValidateAntiforgeryForCookieAuthFilter.
+        options.Filters.AddService<ValidateAntiforgeryForCookieAuthFilter>();
+    })
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddScoped<ValidateAntiforgeryForCookieAuthFilter>();
 builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
 builder.Services.AddAuthentication(options =>
