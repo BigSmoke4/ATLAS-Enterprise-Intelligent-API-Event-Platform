@@ -12,8 +12,14 @@ namespace Atlas.Web.Models;
 /// </summary>
 public static class SortQuery
 {
+    /// <summary>
+    /// Returns the concrete <see cref="BadRequestObjectResult"/> (not
+    /// <c>IActionResult</c>) so callers whose action returns
+    /// <c>ActionResult&lt;T&gt;</c> can return it directly — the implicit
+    /// conversion exists for <c>ActionResult</c>, not for the interface.
+    /// </summary>
     public static bool TryResolve<T>(SortSpec<T> spec, string? sortBy, string? sortDirection,
-        out SortDirection direction, out IActionResult? error)
+        out SortDirection direction, out BadRequestObjectResult? error)
     {
         direction = SortDirection.Ascending;
         error = null;
