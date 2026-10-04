@@ -66,6 +66,9 @@ jobs:
             exit 0
           fi
           git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'InitialSchema' }})"
+          # The branch can move while a generation run is in flight, so replay
+          # the commit on top of the newest tip before pushing.
+          git pull --rebase origin "${{ github.ref_name }}"
           git push origin "HEAD:${{ github.ref_name }}"
           echo "Committed:"
           git show --stat --oneline HEAD
