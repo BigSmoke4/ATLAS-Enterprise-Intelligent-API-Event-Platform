@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,113 +10,57 @@ namespace Atlas.Modules.Organizations.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
+            // Reviewed edit: Entity.RowVersion (uint) maps to PostgreSQL's "xmin"
+            // system column, but the Npgsql generator also emits physical DDL for
+            // that mapping (RenameColumn "RowVersion" -> "xmin", then AlterColumn
+            // to type "xid"). PostgreSQL rejects it -- 42701, column name "xmin"
+            // conflicts with a system column name (npgsql/efcore.pg#3854). The
+            // system column already exists on every table, so the only real schema
+            // change is dropping the obsolete physical "RowVersion" column that
+            // the earlier byte[] mapping created. A regeneration of this migration
+            // must repeat this edit; docs/database.md links the provider issue.
+            migrationBuilder.DropColumn(
                 name: "RowVersion",
                 schema: "organizations",
-                table: "Teams",
-                newName: "xmin");
+                table: "Teams");
 
-            migrationBuilder.RenameColumn(
+            migrationBuilder.DropColumn(
                 name: "RowVersion",
                 schema: "organizations",
-                table: "Organizations",
-                newName: "xmin");
+                table: "Organizations");
 
-            migrationBuilder.RenameColumn(
+            migrationBuilder.DropColumn(
                 name: "RowVersion",
                 schema: "organizations",
-                table: "Environments",
-                newName: "xmin");
-
-            migrationBuilder.AlterColumn<uint>(
-                name: "xmin",
-                schema: "organizations",
-                table: "Teams",
-                type: "xid",
-                rowVersion: true,
-                nullable: false,
-                defaultValue: 0u,
-                oldClrType: typeof(byte[]),
-                oldType: "bytea",
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<uint>(
-                name: "xmin",
-                schema: "organizations",
-                table: "Organizations",
-                type: "xid",
-                rowVersion: true,
-                nullable: false,
-                defaultValue: 0u,
-                oldClrType: typeof(byte[]),
-                oldType: "bytea",
-                oldRowVersion: true,
-                oldNullable: true);
-
-            migrationBuilder.AlterColumn<uint>(
-                name: "xmin",
-                schema: "organizations",
-                table: "Environments",
-                type: "xid",
-                rowVersion: true,
-                nullable: false,
-                defaultValue: 0u,
-                oldClrType: typeof(byte[]),
-                oldType: "bytea",
-                oldNullable: true);
+                table: "Environments");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.RenameColumn(
-                name: "xmin",
-                schema: "organizations",
-                table: "Teams",
-                newName: "RowVersion");
-
-            migrationBuilder.RenameColumn(
-                name: "xmin",
-                schema: "organizations",
-                table: "Organizations",
-                newName: "RowVersion");
-
-            migrationBuilder.RenameColumn(
-                name: "xmin",
-                schema: "organizations",
-                table: "Environments",
-                newName: "RowVersion");
-
-            migrationBuilder.AlterColumn<byte[]>(
+            migrationBuilder.AddColumn<byte[]>(
                 name: "RowVersion",
                 schema: "organizations",
                 table: "Teams",
                 type: "bytea",
-                nullable: true,
-                oldClrType: typeof(uint),
-                oldType: "xid",
-                oldRowVersion: true);
+                rowVersion: true,
+                nullable: true);
 
-            migrationBuilder.AlterColumn<byte[]>(
+            migrationBuilder.AddColumn<byte[]>(
                 name: "RowVersion",
                 schema: "organizations",
                 table: "Organizations",
                 type: "bytea",
                 rowVersion: true,
-                nullable: true,
-                oldClrType: typeof(uint),
-                oldType: "xid",
-                oldRowVersion: true);
+                nullable: true);
 
-            migrationBuilder.AlterColumn<byte[]>(
+            migrationBuilder.AddColumn<byte[]>(
                 name: "RowVersion",
                 schema: "organizations",
                 table: "Environments",
                 type: "bytea",
-                nullable: true,
-                oldClrType: typeof(uint),
-                oldType: "xid",
-                oldRowVersion: true);
+                rowVersion: true,
+                nullable: true);
         }
     }
 }
