@@ -127,3 +127,27 @@
   .atlas-nav { margin-left: 0; width: 100%; }
   .atlas-subbrand { display: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Utility aliases
+   Small, page-agnostic helpers used by more than one console page (and by the
+   authentication screens). Kept here so a page stylesheet only ever owns
+   page-specific chrome.
+   --------------------------------------------------------------------------- */
+
+.atlas-dashboard-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.atlas-wide { grid-column: 1 / -1; }
+.atlas-panel-header { align-items: baseline; border-bottom: 1px solid var(--atlas-line-soft); display: flex; gap: 12px; justify-content: space-between; padding: 12px 16px 10px; }
+.atlas-panel-header h2 { font-size: 0.82rem; letter-spacing: 0.16em; margin: 0; text-transform: uppercase; }
+.atlas-panel--inset { background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 60%); padding: 18px 20px 22px; }
+.atlas-inset-soft { background: rgba(0, 0, 0, 0.14); border: 1px solid var(--atlas-line-soft); border-radius: 3px; padding: 12px 14px; }
+.atlas-status-text { color: var(--atlas-text-dim); font-size: 0.8rem; min-height: 1.2em; }
+.atlas-status-text--error { color: var(--atlas-red); }
+.atlas-status-text--warn { color: var(--atlas-amber); }
+.atlas-status-text--ok { color: var(--atlas-green); }
+.atlas-legend--spaced { margin-bottom: 10px; }
+.atlas-legend__swatch--neutral { background: var(--atlas-line-hi); }
+.atlas-muted { color: var(--atlas-text-mute); }
+/* Truncation and stacking helpers shared by the console tables. */
+.atlas-stack { display: flex; flex-direction: column; gap: 2px; }
+.atlas-stack--tight { gap: 0; }

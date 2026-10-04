@@ -103,7 +103,7 @@ public sealed class OperationsPagesController : Controller
     }
 
     [HttpGet("/Reliability")]
-    public async Task<IActionResult> Reliability([FromQuery] Guid organizationId, CancellationToken ct)
+    public IActionResult Reliability([FromQuery] Guid organizationId)
     {
         if (!OrganizationScopeResolver.TryResolve(User, ref organizationId)) return Forbid();
 
