@@ -107,7 +107,7 @@ dotnet test tests/Atlas.ArchitectureTests/Atlas.ArchitectureTests.csproj
 dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj
 ```
 
-Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6). CI runs it against the started host after the integration suites (thresholds: `http_req_failed < 1%`, all contract checks passing, `p(95) < 250 ms` on liveness) and uploads the measured summary as `k6-smoke-summary.json`; it is a pipeline gate, never a source of published benchmark numbers — see `docs/performance.md`.
+Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6). CI runs it against the started host after the integration suites (thresholds: `http_req_failed < 1%`, all contract checks passing, `p(95) < 250 ms` on liveness) and uploads the measured summary as `k6-smoke-summary.json`. The step waits for `/health/ready` before measuring, and when the gate fails `scripts/k6-summary-annotations.py` republishes the failing checks and threshold values as run annotations, since a workflow log is not readable without repository access. It is a pipeline gate, never a source of published benchmark numbers — see `docs/performance.md`.
 
 ## Known limitations (not faked)
 
@@ -126,7 +126,7 @@ Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6). CI runs i
 src/Atlas.Web/                         MVC host: thin controllers, Razor views, middleware, wwwroot (css/js modules)
 src/Shared/                            contracts (IAtlasModule, IEventPublisher, ICacheService, ITenantContext, …), security, web
 src/Modules/<Module>/{Domain,Application,Infrastructure,Presentation}
-tests/Atlas.UnitTests/                 126 deterministic unit tests
+tests/Atlas.UnitTests/                 133 deterministic unit tests
 tests/Atlas.IntegrationTests/          WebApplicationFactory suites (PostgreSQL/Redis/Kafka)
 tests/Atlas.ArchitectureTests/         module boundary enforcement
 docs/                                  architecture, security, threat model, DR, performance, ADRs
