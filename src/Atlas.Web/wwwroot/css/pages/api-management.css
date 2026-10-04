@@ -1,1 +1,14 @@
-/* PLANNED: styles for this component/page have not been implemented yet. */
+/* Pages: API catalog — enterprise control-room panel framing. */
+.atlas-api-catalog {
+    grid-column: 1 / -1;
+}
+
+.atlas-api-catalog code {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.82rem;
+    color: var(--atlas-text-accent, #9fd4a0);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 3px;
+    padding: 0.05rem 0.35rem;
+}

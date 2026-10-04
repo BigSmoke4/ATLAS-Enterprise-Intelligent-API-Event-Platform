@@ -42,7 +42,7 @@ Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManage
 
 **Platform & tenancy**
 - ASP.NET Core Identity (email/password), lockout, secure password policy, cookie + API-key auth, role RBAC (`PlatformAdmin`, `OrganizationAdmin`, `SRE`, `Developer`, `SecurityEngineer`, `Operator`, `Viewer`), one-time-show API keys stored hashed (prefix + SHA-256), roles seeded idempotently at startup.
-- Tenant isolation at three layers: EF Core global query filters keyed off `ITenantContext`, the `SameOrganization` authorization requirement (query/route org must match the `org_id` claim; PlatformAdmin bypass documented), and per-controller checks — enforced uniformly across JSON APIs **and** the Razor pages (`/Services`, `/Incidents` resolve the caller's org from their claim and 403 on explicit foreign organizations; AI tool access is tenant-checked), covered by integration tests (cross-tenant reads return 403).
+- Tenant isolation at three layers: EF Core global query filters keyed off `ITenantContext`, the `SameOrganization` authorization requirement (query/route org must match the `org_id` claim; PlatformAdmin bypass documented), and per-controller checks — enforced uniformly across JSON APIs **and** the Razor pages (`/Apis`, `/Services`, `/Incidents` resolve the caller's org from their claim and 403 on explicit foreign organizations; AI tool access is tenant-checked), covered by integration tests (cross-tenant reads return 403).
 - Append-only audit trail (DbContext rejects UPDATE/DELETE), before/after JSON, read API gated to `AuditRead` (SecurityEngineer/PlatformAdmin); unscoped reads return system records only.
 
 **API & traffic management, reliability**
@@ -107,7 +107,7 @@ Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6) — run it
 - Refresh-token rotation/session revocation, OAuth/OIDC federation: planned (cookie + API-key flows are implemented and verified today).
 - Kafka stays optional: with no broker configured the publisher seam is absent rather than silently no-op; production schema registry/outbox hardening is documented in `docs/event-driven-architecture.md`.
 - Automatic request-level telemetry ingestion is intentionally scoped to probed availability + explicit sample pushes until service/tenant attribution of middleware sampling is unambiguous (`docs/observability.md`).
-- Latency/connection-count routing strategies, Grafana panels for Kafka/PostgreSQL internals (need their exporters), and browser pages beyond Command Center/Services/Incidents/Account remain roadmap items listed in `docs/architecture.md`.
+- Latency/connection-count routing strategies, Grafana panels for Kafka/PostgreSQL internals (need their exporters), and browser pages beyond Command Center/APIs/Services/Incidents/Account remain roadmap items listed in `docs/architecture.md`.
 
 ## Repository layout
 
