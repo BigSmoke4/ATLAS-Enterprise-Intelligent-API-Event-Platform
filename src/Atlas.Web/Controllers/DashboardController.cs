@@ -1,4 +1,6 @@
+using Atlas.Modules.Audit.Application;
 using Atlas.Modules.DeploymentIntelligence.Application;
+using Atlas.Modules.EventPlatform.Application;
 using Atlas.Modules.IncidentManagement.Application;
 using Atlas.Modules.IncidentManagement.Domain;
 using Atlas.Modules.Observability.Application;
@@ -26,14 +28,19 @@ public class DashboardController : Controller
     private readonly IIncidentService _incidents;
     private readonly ISloService _slo;
     private readonly IDeploymentRegressionService _deployments;
+    private readonly IDeadLetterService _deadLetters;
+    private readonly IAuditQueryService _audit;
 
     public DashboardController(IServiceHealthService services, IIncidentService incidents,
-        ISloService slo, IDeploymentRegressionService deployments)
+        ISloService slo, IDeploymentRegressionService deployments,
+        IDeadLetterService deadLetters, IAuditQueryService audit)
     {
         _services = services;
         _incidents = incidents;
         _slo = slo;
         _deployments = deployments;
+        _deadLetters = deadLetters;
+        _audit = audit;
     }
 
     public async Task<IActionResult> Index(CancellationToken ct)
@@ -71,6 +78,18 @@ public class DashboardController : Controller
             var deployments = await _deployments.ListAsync(orgId, null, 1, 8, ct);
             model.RecentDeployments = deployments
                 .Select(d => new DeploymentSummary(d.Id, d.ServiceId, d.Version, d.Environment, d.Author, d.DeployedAtUtc, d.Status.ToString()))
+                .ToList();
+
+            // Event pipeline signal: un-replayed dead letters (platform-level —
+            // DLQ events are intentionally not tenant-attributed).
+            var deadLetters = await _deadLetters.ListAsync(topic: null, page: 1, pageSize: 500, ct: ct);
+            model.DeadLetterCount = deadLetters.Count(e => !e.Replayed);
+
+            // Security/operational record for this organization (read via the
+            // Audit application service — same data as /api/v1/audit).
+            var securityEvents = await _audit.ListAsync(orgId, null, null, 1, 5, ct);
+            model.SecurityEvents = securityEvents
+                .Select(e => new SecurityEventSummary(e.Action, e.ResourceType, e.ActorDisplay, e.CreatedAtUtc))
                 .ToList();
         }
 

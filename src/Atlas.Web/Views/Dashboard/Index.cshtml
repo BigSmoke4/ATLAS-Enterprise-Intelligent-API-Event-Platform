@@ -147,6 +147,43 @@ else
             }
         </article>
 
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">EVENT PIPELINES — DEAD LETTERS</div>
+            <div class="atlas-reading"><span class="@LampFor(Model.DeadLetterCount)"></span>@Model.DeadLetterCount</div>
+            <div class="atlas-note">Un-replayed dead-lettered events across all Kafka topics (platform-level; inspect/replay via /api/v1/events).</div>
+        </article>
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">SECURITY EVENTS (AUDIT)</div>
+            <div class="atlas-reading">@Model.SecurityEvents.Count</div>
+            <div class="atlas-note">Most recent audited actions recorded for this organization.</div>
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>RECENT SECURITY / OPERATIONS RECORD</h2><span class="atlas-badge">APPEND-ONLY</span></div>
+            @if (Model.SecurityEvents.Count == 0)
+            {
+                <p class="atlas-status-text">No telemetry available.</p>
+                <p class="atlas-note">Security-sensitive and operational actions are appended to the audit trail as they occur; nothing is seeded or synthesized.</p>
+            }
+            else
+            {
+                <table class="atlas-table">
+                    <thead><tr><th>Action</th><th>Resource</th><th>Actor</th><th>Recorded (UTC)</th></tr></thead>
+                    <tbody>
+                    @foreach (var entry in Model.SecurityEvents)
+                    {
+                        <tr>
+                            <td>@entry.Action</td>
+                            <td>@entry.ResourceType</td>
+                            <td>@entry.ActorDisplay</td>
+                            <td>@entry.RecordedAtUtc.ToString("u")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
         <article class="atlas-panel atlas-wide">
             <div class="atlas-panel-header"><h2>AI OPERATIONS ANALYSIS</h2><span class="atlas-badge">EVIDENCE REQUIRED</span></div>
             <p class="atlas-status-text">Insufficient evidence.</p>

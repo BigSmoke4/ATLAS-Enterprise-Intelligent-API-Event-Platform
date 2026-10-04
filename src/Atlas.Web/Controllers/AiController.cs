@@ -33,6 +33,10 @@ public class AiController : ControllerBase
     [HttpPost("ask")]
     public async Task<IActionResult> Ask([FromBody] AskRequest request, CancellationToken ct)
     {
+        // The assistant's tools are tenant-scoped by the organizationId in
+        // the request body — verify the caller may actually act within that
+        // tenant, exactly like every other org-scoped endpoint.
+        if (!CanAccess(request.OrganizationId)) return Forbid();
         var answer = await _assistant.AnswerAsync(request.OrganizationId, request.Question, request.ToolNames, request.ToolArguments, ct);
         return Ok(answer);
     }
@@ -63,4 +67,7 @@ public class AiController : ControllerBase
         if (!result.Success) return UnprocessableEntity(new ProblemDetails { Title = result.Summary });
         return Ok(result);
     }
+
+    private bool CanAccess(Guid organizationId)
+        => User.IsInRole("PlatformAdmin") || User.FindFirst("org_id")?.Value == organizationId.ToString();
 }

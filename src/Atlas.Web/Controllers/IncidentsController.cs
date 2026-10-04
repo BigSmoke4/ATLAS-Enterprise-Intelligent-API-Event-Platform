@@ -19,9 +19,12 @@ public class IncidentsController : Controller
     public record RootCauseRequest(Guid OrganizationId, string RootCause, string Mitigation);
     public record PostmortemRequest(Guid OrganizationId, string PostmortemUrl);
 
+    /// <summary>Razor view. Real data only; tenant scope resolved from the caller's org claim (see OrganizationScopeResolver).</summary>
     [HttpGet("/Incidents")]
     public async Task<IActionResult> Index([FromQuery] Guid organizationId, CancellationToken ct)
     {
+        if (!OrganizationScopeResolver.TryResolve(User, ref organizationId)) return Forbid();
+
         var incidents = organizationId == Guid.Empty
             ? Array.Empty<Incident>()
             : (await _incidents.GetActiveIncidentsAsync(organizationId, 1, 50, null, null, ct)).ToArray();

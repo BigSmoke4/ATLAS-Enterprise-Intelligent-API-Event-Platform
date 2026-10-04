@@ -42,7 +42,7 @@ Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManage
 
 **Platform & tenancy**
 - ASP.NET Core Identity (email/password), lockout, secure password policy, cookie + API-key auth, role RBAC (`PlatformAdmin`, `OrganizationAdmin`, `SRE`, `Developer`, `SecurityEngineer`, `Operator`, `Viewer`), one-time-show API keys stored hashed (prefix + SHA-256), roles seeded idempotently at startup.
-- Tenant isolation at three layers: EF Core global query filters keyed off `ITenantContext`, the `SameOrganization` authorization requirement (query/route org must match the `org_id` claim; PlatformAdmin bypass documented), and per-controller checks — all covered by integration tests (cross-tenant reads return 403).
+- Tenant isolation at three layers: EF Core global query filters keyed off `ITenantContext`, the `SameOrganization` authorization requirement (query/route org must match the `org_id` claim; PlatformAdmin bypass documented), and per-controller checks — enforced uniformly across JSON APIs **and** the Razor pages (`/Services`, `/Incidents` resolve the caller's org from their claim and 403 on explicit foreign organizations; AI tool access is tenant-checked), covered by integration tests (cross-tenant reads return 403).
 - Append-only audit trail (DbContext rejects UPDATE/DELETE), before/after JSON, read API gated to `AuditRead` (SecurityEngineer/PlatformAdmin); unscoped reads return system records only.
 
 **API & traffic management, reliability**
@@ -57,7 +57,7 @@ Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManage
 **Observability & SLO**
 - OTel ASP.NET Core/HttpClient/runtime instrumentation, Npgsql span source, Prometheus `/metrics`, provisioned Grafana dashboard (`observability/grafana/`), dependency-aware `/health` endpoints.
 - SLO definitions + compliance/error-budget/burn computed by pure unit-tested math from `MetricSample` rows; **probed availability telemetry flows automatically** (health prober → `ISloService.RecordOutcomeAsync`), external request telemetry via `POST /api/v1/slo/samples/*`.
-- Command-center dashboard renders the real organization read model (service health split, open incidents, per-SLO compliance + remaining budget, recent deployments) and shows **“No telemetry available.”** for any section without data.
+- Command-center dashboard renders the real organization read model (service health split, open incidents, per-SLO compliance + remaining budget, recent deployments, dead-letter backlog, latest audit-trail entries) and shows **“No telemetry available.”** for any section without data.
 - Deployment records + regression/canary analysis built from before/after sample windows; root-cause service scores deployment/health/error telemetry correlations and reports “Insufficient evidence.” when signals are absent.
 
 **Incidents, policies, AI**
