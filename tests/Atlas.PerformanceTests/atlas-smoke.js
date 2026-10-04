@@ -28,29 +28,39 @@ export const options = {
   }
 };
 
-// k6 >= 0.44 lets a status outside 2xx/3xx count as expected, so probing the
-// auth pipeline (401) does not inflate http_req_failed.
-const expected = (status) => (typeof http.expectedStatuses === 'function' ? http.expectedStatuses(status) : null);
+// The status codes this gate probes on purpose. Registering them as expected
+// keeps `http_req_failed` about *unexpected* responses (a 500, a truncated
+// connection) while each check below still asserts the exact status it must
+// observe. k6 >= 0.44 exposes http.expectedStatuses; older builds fall back to
+// the default 2xx/3xx rule, where the deliberate 401 shows up in
+// http_req_failed — the per-check assertion is the contract either way.
+const expectedStatuses = typeof http.expectedStatuses === 'function'
+  ? http.expectedStatuses(200, 302, 401)
+  : null;
+
+function probe(endpoint, extra = {}) {
+  const params = { tags: { endpoint }, ...extra };
+  if (expectedStatuses) params.responseCallback = expectedStatuses;
+  return params;
+}
 
 export default function () {
   const base = __ENV.ATLAS_BASE_URL || 'http://localhost:8080';
 
-  const liveness = http.get(`${base}/health/live`, { tags: { endpoint: 'liveness' } });
+  const liveness = http.get(`${base}/health/live`, probe('liveness'));
   check(liveness, { 'liveness is successful': (r) => r.status === 200 });
 
-  const readiness = http.get(`${base}/health/ready`, { tags: { endpoint: 'readiness' } });
+  const readiness = http.get(`${base}/health/ready`, probe('readiness'));
   check(readiness, { 'readiness is successful': (r) => r.status === 200 });
 
-  const console_ = http.get(`${base}/`, { tags: { endpoint: 'console' } });
-  check(console_, { 'anonymous console call is challenged to sign-in': (r) => r.status === 302 });
+  // redirects: 0 — the contract is that the console *challenges* an anonymous
+  // browser. k6 follows redirects by default, which would report the sign-in
+  // page's 200 instead of the 302 that proves the challenge happened.
+  const consoleCall = http.get(`${base}/`, probe('console', { redirects: 0 }));
+  check(consoleCall, { 'anonymous console call is challenged to sign-in': (r) => r.status === 302 });
 
-  if (expected(401)) {
-    const api = http.get(`${base}/api/v1/organizations`, {
-      tags: { endpoint: 'api-auth' },
-      responseCallback: expected(401)
-    });
-    check(api, { 'anonymous API call is 401 (never an HTML redirect)': (r) => r.status === 401 });
-  }
+  const api = http.get(`${base}/api/v1/organizations`, probe('api-auth'));
+  check(api, { 'anonymous API call is 401 (never an HTML redirect)': (r) => r.status === 401 });
 
   sleep(1);
 }

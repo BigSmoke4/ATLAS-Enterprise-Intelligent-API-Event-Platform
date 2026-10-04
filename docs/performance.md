@@ -22,8 +22,20 @@ answering fast enough.
    `p(95) < 250 ms` for the liveness endpoint — the same target the platform
    aims at for API calls, applied only to the endpoint whose budget it can
    honour (readiness deliberately touches three dependencies and is not given
-   a latency budget). The measured summary is uploaded with the CI diagnostics
-   as `k6-smoke-summary.json`; nothing from that run is copied into the docs.
+   a latency budget).
+
+   Two details make the gate honest rather than flaky: the step waits for
+   `/health/ready` before measuring, so a dependency warm-up is not reported as
+   a platform failure, and the console probe disables redirect following
+   (`redirects: 0`) because the contract is the `302` challenge itself — k6
+   follows redirects by default and would otherwise observe the sign-in page's
+   `200`. The deliberate `401` is registered through `http.expectedStatuses` so
+   `http_req_failed` only counts genuinely unexpected responses. The measured
+   summary is uploaded with the CI diagnostics as `k6-smoke-summary.json`, and
+   on failure `scripts/k6-summary-annotations.py` republishes the failing
+   checks and threshold values as run annotations, because a workflow log is
+   not readable without repository access. Nothing from that run is copied into
+   the docs.
 2. **Per-route percentiles from recorded telemetry** — the Observability module
    aggregates every request into one-minute `RequestTelemetryAggregate` rows
    and computes P50/P95/P99, error rates and throughput from them
