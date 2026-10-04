@@ -60,7 +60,7 @@ public class TrafficRoutingServiceTests
     [Theory]
     [InlineData(RoutingStrategyType.LeastConnections)]
     [InlineData(RoutingStrategyType.LatencyBased)]
-    public async Task Honestly_refuses_strategies_needing_unmeasured_telemetry(RoutingStrategyType strategy)
+    public async Task Honestly_refuses_telemetry_strategies_when_no_telemetry_service_is_wired(RoutingStrategyType strategy)
     {
         var instances = new List<InstanceStatusDto> { Healthy("10.0.0.1:80") };
         var service = new TrafficRoutingService(new FakeServiceHealthService(instances));
@@ -68,7 +68,7 @@ public class TrafficRoutingServiceTests
         var decision = await service.SelectInstanceAsync(Guid.NewGuid(), Guid.NewGuid(), new RoutingPolicy(strategy));
 
         Assert.False(decision.Success);
-        Assert.Contains("does not currently measure", decision.Reason);
+        Assert.Contains("telemetry", decision.Reason);
     }
 
     [Fact]

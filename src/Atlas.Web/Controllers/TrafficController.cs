@@ -12,7 +12,9 @@ public class TrafficController : ControllerBase
 {
     private readonly ITrafficRoutingService _routing;
     private readonly ITrafficPolicyService _policies;
-    public TrafficController(ITrafficRoutingService routing, ITrafficPolicyService policies) { _routing = routing; _policies = policies; }
+    private readonly IInstanceTelemetryService _telemetry;
+    public TrafficController(ITrafficRoutingService routing, ITrafficPolicyService policies, IInstanceTelemetryService telemetry)
+    { _routing = routing; _policies = policies; _telemetry = telemetry; }
 
     public record SelectInstanceRequest(Guid OrganizationId, Guid ServiceId, RoutingStrategyType Strategy, int RequestSequenceNumber = 0);
     public record ConfigureTrafficRequest(Guid OrganizationId, Guid ServiceId, RoutingStrategyType Strategy, TrafficPolicyMode Mode, TrafficTargetInput[] Targets);
@@ -51,6 +53,31 @@ public class TrafficController : ControllerBase
             new RoutingPolicy(request.Strategy), request.RequestSequenceNumber, ct);
         return Ok(decision);
     }
+
+    /// <summary>
+    /// Telemetry ingress for the LeastConnections/LatencyBased strategies:
+    /// routers/gateways report per-instance gauges (active connections,
+    /// average latency). Values are stored exactly as reported — routing
+    /// consumes them only while fresher than the staleness window.
+    /// </summary>
+    [HttpPost("telemetry")]
+    public IActionResult ReportTelemetry([FromBody] ReportTelemetryRequest request)
+    {
+        if (!CanAccess(request.OrganizationId)) return Forbid();
+        if (request.Instances.Length == 0)
+            return BadRequest(new ProblemDetails { Title = "At least one instance telemetry report is required." });
+
+        foreach (var i in request.Instances)
+        {
+            if (i.ActiveConnections < 0 || double.IsNaN(i.AvgLatencyMs) || double.IsInfinity(i.AvgLatencyMs) || i.AvgLatencyMs < 0)
+                return BadRequest(new ProblemDetails { Title = "ActiveConnections and AvgLatencyMs must be finite, non-negative numbers." });
+            _telemetry.Report(request.OrganizationId, request.ServiceId, i.InstanceId, i.ActiveConnections, i.AvgLatencyMs);
+        }
+        return Ok(new { reported = request.Instances.Length });
+    }
+
+    public record InstanceTelemetryInput(Guid InstanceId, int ActiveConnections, double AvgLatencyMs);
+    public record ReportTelemetryRequest(Guid OrganizationId, Guid ServiceId, InstanceTelemetryInput[] Instances);
 
     private bool CanAccess(Guid organizationId) => User.IsInRole("PlatformAdmin") || User.FindFirst("org_id")?.Value == organizationId.ToString();
 }
