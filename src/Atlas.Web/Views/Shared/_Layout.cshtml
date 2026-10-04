@@ -41,7 +41,8 @@
     <link rel="stylesheet" href="~/css/pages/traffic.css" />
     <link rel="stylesheet" href="~/css/pages/reliability.css" />
 </head>
-<body data-page="@page" data-organization-id="@organizationId" data-window-minutes="@windowMinutes">
+@* `@(page)` rather than `@page`: the bare form is the Razor @page directive. *@
+<body data-page="@(page)" data-organization-id="@organizationId" data-window-minutes="@windowMinutes">
     <header class="atlas-topbar">
         <span class="atlas-brand"><span class="atlas-brand__lamp" aria-hidden="true"></span>ATLAS</span>
         <span class="atlas-subbrand">Enterprise Intelligent API &amp; Event Platform</span>

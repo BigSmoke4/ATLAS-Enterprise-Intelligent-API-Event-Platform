@@ -4,6 +4,7 @@ using Atlas.Modules.DeploymentIntelligence.Domain;
 using Atlas.Modules.EventPlatform.Domain;
 using Atlas.Modules.PolicyEngine.Domain;
 using Atlas.Modules.Reliability.Application;
+using Atlas.Modules.ServiceRegistry.Application;
 using Atlas.Modules.ServiceRegistry.Domain;
 using Atlas.Modules.TrafficManagement.Application;
 using Atlas.Web.ReadModels;
