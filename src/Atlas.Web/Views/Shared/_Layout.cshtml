@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="~/css/pages/dashboard.css" />
     <link rel="stylesheet" href="~/css/pages/services.css" />
     <link rel="stylesheet" href="~/css/pages/incidents.css" />
+    <link rel="stylesheet" href="~/css/pages/observability.css" />
 </head>
 <body>
     <header class="atlas-panel atlas-topbar">
@@ -28,6 +29,7 @@
             <a href="/Apis">APIs</a>
             <a href="/Services">Services</a>
             <a href="/Incidents">Incidents</a>
+            <a href="/Observability">Observability</a>
             @if (User.Identity?.IsAuthenticated == true)
             {
                 <span class="atlas-note">@User.Identity.Name</span>

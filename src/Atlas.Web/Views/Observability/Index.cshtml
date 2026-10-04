@@ -1,0 +1,60 @@
+@model Atlas.Web.Models.ObservabilityViewModel
+@{
+    ViewData["Title"] = "Observability";
+    Layout = "_Layout";
+
+    string UnitFor(string metricType) => metricType.StartsWith("Latency", System.StringComparison.Ordinal) ? "ms" : "%";
+    string FormatValue(double? value, string metricType) =>
+        value is { } v ? $"{v:F2} {UnitFor(metricType)}" : "No telemetry available.";
+    string FormatWindow(System.TimeSpan window) =>
+        window.TotalDays >= 1 ? $"{window.TotalDays:0.#}d" : window.TotalHours >= 1 ? $"{window.TotalHours:0.#}h" : $"{window.TotalMinutes:0}m";
+}
+
+<section class="atlas-panel atlas-observability">
+    <h1>SLO COMPLIANCE &amp; ERROR BUDGETS</h1>
+
+    @if (!Model.HasOrganizationContext)
+    {
+        <p class="atlas-status-text">No telemetry available. Your account has no organization context.</p>
+    }
+    else if (Model.Slos.Count == 0)
+    {
+        <p class="atlas-status-text">No telemetry available. No SLOs are defined for your organization yet — define one via POST /api/v1/slo.</p>
+    }
+    else
+    {
+        <table class="atlas-table">
+            <thead>
+                <tr><th>SLO</th><th>Metric</th><th>Target</th><th>Window</th><th>Current</th><th>Samples</th><th>Error Budget Left</th><th>State</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var slo in Model.Slos)
+            {
+                <tr>
+                    <td>@slo.Name</td>
+                    <td>@slo.MetricType</td>
+                    <td>@($"{slo.TargetValue:F2} {UnitFor(slo.MetricType)}")</td>
+                    <td>@FormatWindow(slo.WindowDuration)</td>
+                    <td>@FormatValue(slo.CurrentValue, slo.MetricType)</td>
+                    <td>@slo.SampleCount.ToString("N0")</td>
+                    <td>@(slo.ErrorBudgetRemainingPercent is { } budget ? $"{budget:F1}%" : "No telemetry available.")</td>
+                    <td>
+                        @if (slo.IsCompliant is true)
+                        {
+                            <span class="atlas-badge atlas-badge--healthy">Compliant</span>
+                        }
+                        else if (slo.IsCompliant is false)
+                        {
+                            <span class="atlas-badge atlas-badge--unavailable">Breached</span>
+                        }
+                        else
+                        {
+                            <span class="atlas-badge">No data</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

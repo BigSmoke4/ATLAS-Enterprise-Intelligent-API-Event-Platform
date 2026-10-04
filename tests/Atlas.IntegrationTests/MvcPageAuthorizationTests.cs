@@ -76,6 +76,28 @@ public sealed class MvcPageAuthorizationTests : IClassFixture<TestWebApplication
     }
 
     [Fact]
+    public async Task Observability_page_defaults_to_the_callers_organization()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/Observability");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "Viewer");
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Observability_page_rejects_an_explicit_foreign_organization()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/Observability?organizationId={OrganizationB}");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "SRE");
+
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Platform_admin_may_view_an_explicit_organization()
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/Services?organizationId={OrganizationB}");
