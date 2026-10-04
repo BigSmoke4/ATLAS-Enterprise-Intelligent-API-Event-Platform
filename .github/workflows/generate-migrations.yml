@@ -60,9 +60,22 @@ jobs:
           set -uo pipefail
           git config user.name "atlas-migrations[bot]"
           git config user.email "atlas-migrations[bot]@users.noreply.github.com"
-          git add 'src/Modules/*/Infrastructure/Migrations'
+
+          # Diagnostics first: the runner log is the only channel available to a
+          # maintainer without write access, so report what was generated before
+          # doing anything that can fail.
+          GENERATED=$(find src/Modules -path '*Migrations*' -name '*.cs' | wc -l)
+          echo "::warning::generated migration files: ${GENERATED}"
+          find src/Modules -path '*Migrations*' -name '*.cs' | head -5 | while IFS= read -r file; do echo "::warning::generated: ${file}"; done
+          if [ "${GENERATED}" -eq 0 ]; then
+            echo "::error::the generation step produced no migration files"
+            exit 1
+          fi
+
+          git add -A src/Modules 2>add.log || { sed -n '1,10p' add.log | while IFS= read -r line; do echo "::error::add: $line"; done; exit 1; }
+          git status --short | head -20 | while IFS= read -r line; do echo "::warning::staged: ${line}"; done
           if git diff --cached --quiet; then
-            echo "No migration files were produced — nothing to commit."
+            echo "::warning::nothing was staged — migration files already match the working tree?"
             exit 0
           fi
           git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'InitialSchema' }})"
