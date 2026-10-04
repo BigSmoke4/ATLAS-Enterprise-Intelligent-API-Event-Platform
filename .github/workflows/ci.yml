@@ -109,6 +109,24 @@ jobs:
           if [ "$drift" -ne 0 ]; then exit 1; fi
           echo "All eleven module models match their checked-in migrations."
 
+      - name: Validate JavaScript syntax
+        run: |
+          set -o pipefail
+          # The console ships plain ES modules with no bundler, so nothing else
+          # in the pipeline parses them. A single syntax error would silently
+          # disable a whole page module in the browser.
+          mkdir -p /tmp/js-syntax
+          failed=0
+          for file in $(find src/Atlas.Web/wwwroot/js -name '*.js' | sort); do
+            cp "$file" /tmp/js-syntax/check.mjs
+            if ! node --check /tmp/js-syntax/check.mjs 2>/tmp/js-syntax/error.txt; then
+              head -5 /tmp/js-syntax/error.txt | while IFS= read -r line; do echo "::error file=$file::$line"; done
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+          echo "All console modules parse."
+
       - name: Architecture tests
         run: |
           set -o pipefail

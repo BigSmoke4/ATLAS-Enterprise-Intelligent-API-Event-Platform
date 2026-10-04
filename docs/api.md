@@ -20,15 +20,20 @@ cross-module reads go through the owning module's Application interface
 | `GET/POST /api/v1/policies`, `POST .../{id}/deactivate`, `POST .../evaluate` | `PolicyController` | `IPolicyManagementService` |
 | `GET /api/v1/audit?organizationId=...&resourceType=...&action=...&page=...&pageSize=...` (read-only) | `AuditController` | `IAuditQueryService` |
 | `GET/POST /api/v1/deployments`, `GET .../{id}/regression-analysis` | `DeploymentsController` | `IDeploymentRegressionService` (pulls real Observability samples via `ISloService.GetSamplesAsync`, runs `RegressionAnalyzer`) |
-| `POST /api/v1/traffic/select-instance` | `TrafficController` | `ITrafficRoutingService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms) |
+| `POST /api/v1/traffic/select-instance`, `POST /api/v1/traffic/telemetry` | `TrafficController` | `ITrafficRoutingService` / `IInstanceTelemetryService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms, per-instance gauges with a staleness window) |
+| `GET /api/v1/metrics/{summary,services,routes,series,infrastructure}` | `MetricsController` | `ITelemetryQueryService` (one-minute request aggregates), `IDatabaseMetricsProbe`, `ICacheStatistics`, `ITelemetryIngestService`, `IConsumerLagService` — every response carries `hasData`/`available` plus a reason |
+| `GET /api/v1/alerts?organizationId=` | `AlertsController` | `AlertReadModel` — alerts derived from registry health, SLO compliance, live breaker states, consumer lag and the dead-letter backlog |
 
-Razor UI: `/Dashboard` (the command center) renders the organization read
-model composed from `IServiceHealthService`, `IIncidentService`,
-`ISloService`, and `IDeploymentRegressionService`. `/Services` and
-`/Incidents` render live registry/incident data. All MVC pages sit behind
-cookie authentication (`[Authorize]`); unauthenticated browsers are
-challenged to the sign-in page, and API callers get `401`, never an HTML
-redirect. Additional routes since the first cut of this document:
+Razor UI: eleven operator consoles, each rendered server-side from a typed
+view model and then hydrated by one vanilla ES module against the same JSON
+APIs listed above — `/Dashboard` (command centre), `/Services`,
+`/Apis`, `/Incidents`, `/Observability`, `/Events`, `/Deployments`,
+`/Policies`, `/Reliability`, `/AiOps` and `/Audit`. **Every** page sits behind
+cookie authentication (`[Authorize]`), including the dashboard; unauthenticated
+browsers are challenged to the sign-in page, and API callers get `401`, never
+an HTML redirect. A page that has no recorded evidence for a section prints
+"No telemetry available." (or the server's own reason string) rather than a
+zero. Additional routes since the first cut of this document:
 `POST /api/v1/account/register|login|logout|api-keys[/revoke]`,
 `GET /api/v1/traffic/policies/{serviceId}` + `PUT` (tenant-checked body),
 `POST /api/v1/traffic/select-configured-instance`,
@@ -47,9 +52,10 @@ redirect. Additional routes since the first cut of this document:
   IncidentManagement, EventPlatform DLQ list, PolicyEngine, and
   DeploymentIntelligence all page at the database query level (`Skip`/`Take`),
   not in memory.
-- **`[Authorize]`** on 10 of 11 controllers (`DashboardController` is the
-  public landing page and stays open), with state-changing actions further
-  restricted to a specific role policy — see docs/security.md.
+- **`[Authorize]`** on every controller (an anonymous request to any
+  `/api/**` route returns `401`, never an HTML redirect; every Razor page
+  challenges to sign-in), with state-changing actions further restricted to a
+  named role policy — see docs/security.md.
 - **`POST /api/v1/events/dead-letters/{id}/replay`** — real replay
   (dry-run or live), re-publishing to the original Kafka topic via
   `IEventPublisher`, restricted to `Role:PlatformAdmin`.
@@ -58,16 +64,16 @@ redirect. Additional routes since the first cut of this document:
   `ActionToolGuard` + `Role:PlatformAdmin` + explicit confirmation in the
   request body.
 
-## Now implemented (previously listed as gaps)
+### Traffic routing and tenant scoping
 
-- **`TrafficController`'s routing decision is now per-instance**, not
-  aggregate. `IServiceHealthService.GetInstancesAsync` returns each
-  instance's id/host/health; `TrafficRoutingService` uses real per-instance
-  health for RoundRobin and Weighted. LeastConnections and LatencyBased are
-  **honestly refused** with a clear reason string — ATLAS doesn't measure
-  per-instance active-connection-count or latency anywhere, and returning
-  fabricated zero values would make every instance look artificially tied.
-  Unit-tested, including the refusal path.
+- **`TrafficController`'s routing decision is per-instance.** RoundRobin,
+  Weighted, Priority, Canary and BlueGreen route on real per-instance health
+  from `IServiceHealthService.GetInstancesAsync`. LeastConnections and
+  LatencyBased route on **reported** per-instance gauges pushed to
+  `POST /api/v1/traffic/telemetry`; an instance whose report is missing or
+  older than the staleness window (60 s by default) is excluded from selection
+  instead of being scored with an invented value. Unit-tested, including the
+  staleness/refusal path.
 - **Resource-level tenant authorization**: `[Authorize(Policy =
   "SameOrganization")]` now applies to organization-scoped GET endpoints,
   including the security-engineer-only audit trail. Audit queries require an

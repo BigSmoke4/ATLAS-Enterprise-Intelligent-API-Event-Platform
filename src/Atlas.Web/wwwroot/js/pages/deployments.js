@@ -17,7 +17,9 @@ function renderAnalysis(container, outcome, kind) {
   if (!container) return;
   container.replaceChildren();
 
-  const available = outcome?.analysisAvailable ?? outcome?.analysisAvailable === undefined && outcome?.result;
+  // The API states availability explicitly; if a response only carries a
+  // result (an older shape), a present result is what makes it readable.
+  const available = outcome?.analysisAvailable ?? (outcome?.result !== undefined && outcome?.result !== null);
   if (!available) {
     const empty = document.createElement('div');
     empty.className = 'atlas-empty atlas-empty--inline';

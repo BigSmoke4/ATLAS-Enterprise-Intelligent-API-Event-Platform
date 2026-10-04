@@ -160,30 +160,52 @@ export async function init() {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const status = form.querySelector('[data-dlq-publish-status]');
+      const topic = form.querySelector('[name="topic"]')?.value?.trim();
       const eventType = form.querySelector('[name="eventType"]')?.value?.trim();
       const payloadJson = form.querySelector('[name="payloadJson"]')?.value?.trim();
-      if (!eventType || !payloadJson) {
-        reportStatus(status, 'Event type and a JSON payload are required.', 'warn');
+      if (!topic || !eventType || !payloadJson) {
+        reportStatus(status, 'Topic, event type and a JSON payload are required.', 'warn');
         return;
       }
+      let payload;
       try {
-        JSON.parse(payloadJson);
+        payload = JSON.parse(payloadJson);
       } catch {
         reportStatus(status, 'Payload is not valid JSON — fix it before publishing.', 'error');
         return;
       }
       try {
-        await post('/api/v1/events/publish', {
-          organizationId: document.body.dataset.organizationId,
+        // POST /api/v1/events/publish takes the same envelope the publisher
+        // writes onto the wire, so the console supplies identity, correlation
+        // and timestamp itself and the API echoes the accepted event id back.
+        const eventId = newId();
+        const correlationId = newId();
+        const accepted = await post('/api/v1/events/publish', {
+          topic,
+          eventId,
           eventType,
-          payloadJson
+          version: 1,
+          timestampUtc: new Date().toISOString(),
+          correlationId,
+          causationId: null,
+          producer: 'atlas-console',
+          payload
         });
-        notifyOk('Event published', `${eventType} accepted by the producer.`);
-        reportStatus(status, 'Accepted by the real Kafka producer.', 'ok');
+        notifyOk('Event published', `${eventType} → ${topic}`);
+        reportStatus(status, `Accepted by the Kafka producer (event ${accepted?.eventId ?? eventId}).`, 'ok');
         form.reset();
       } catch (error) {
         reportStatus(status, error?.detail ?? error?.message ?? 'Publish failed.', 'error');
       }
     });
+  });
+}
+
+/** UUID for event identity; falls back when the page is not a secure context. */
+function newId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
