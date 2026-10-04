@@ -1,0 +1,14 @@
+apiVersion: 1
+
+# Provisioned automatically by docker-compose (mounted under
+# /etc/grafana/provisioning). This is the Prometheus instance defined in
+# observability/prometheus.yml scraping ATLAS's OpenTelemetry /metrics
+# endpoint.
+datasources:
+  - name: Prometheus
+    uid: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

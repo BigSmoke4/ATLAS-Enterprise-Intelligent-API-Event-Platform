@@ -1,0 +1,43 @@
+@using Atlas.Modules.APIManagement.Application
+@model IReadOnlyList<ApiSummaryDto>
+@{
+    ViewData["Title"] = "APIs";
+    Layout = "_Layout";
+}
+
+<section class="atlas-panel atlas-api-catalog">
+    <h1>API CATALOG</h1>
+
+    @if (Model.Count == 0)
+    {
+        <p class="atlas-status-text">No telemetry available. Your organization has no registered APIs yet — register one via POST /api/v1/apis (Role: OrganizationAdmin).</p>
+    }
+    else
+    {
+        <table class="atlas-table">
+            <thead>
+                <tr><th>API</th><th>Base Path</th><th>Versions</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var api in Model)
+            {
+                <tr>
+                    <td>@api.Name</td>
+                    <td><code>@api.BasePath</code></td>
+                    <td>@api.VersionCount</td>
+                    <td>
+                        @if (api.IsActive)
+                        {
+                            <span class="atlas-badge atlas-badge--healthy">Active</span>
+                        }
+                        else
+                        {
+                            <span class="atlas-badge atlas-badge--unavailable">Inactive</span>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</section>

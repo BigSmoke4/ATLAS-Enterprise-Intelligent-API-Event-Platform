@@ -2,6 +2,7 @@ using Atlas.Modules.Reliability.Application;
 using Atlas.Shared.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Atlas.Modules.Reliability.Presentation;
@@ -19,17 +20,22 @@ public class RateLimitingMiddleware
     private readonly RequestDelegate _next;
     private readonly IRequestRateLimiter _limiter;
     private readonly ILogger<RateLimitingMiddleware> _logger;
-    private readonly IRoutePolicyProvider _routePolicies;
 
     private const int DefaultLimitPerWindow = 100;
     private static readonly TimeSpan DefaultWindow = TimeSpan.FromMinutes(1);
 
-    public RateLimitingMiddleware(RequestDelegate next, IRequestRateLimiter limiter, ILogger<RateLimitingMiddleware> logger, IRoutePolicyProvider routePolicies)
+    /// <summary>
+    /// Conventional-middleware note: constructor dependencies are resolved
+    /// from the ROOT provider when the pipeline is built, so scoped
+    /// services (IRoutePolicyProvider, which depends on a scoped
+    /// DbContext) must be resolved per-request from RequestServices —
+    /// never captured in the constructor.
+    /// </summary>
+    public RateLimitingMiddleware(RequestDelegate next, IRequestRateLimiter limiter, ILogger<RateLimitingMiddleware> logger)
     {
         _next = next;
         _limiter = limiter;
         _logger = logger;
-        _routePolicies = routePolicies;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -46,9 +52,10 @@ public class RateLimitingMiddleware
         RoutePolicySnapshot? routePolicy = null;
         if (context.User.Identity?.IsAuthenticated == true)
         {
+            var routePolicies = context.RequestServices.GetRequiredService<IRoutePolicyProvider>();
             try
             {
-                routePolicy = await _routePolicies.FindAsync(organizationId, context.Request.Path.Value ?? "/", context.Request.Method, context.RequestAborted);
+                routePolicy = await routePolicies.FindAsync(organizationId, context.Request.Path.Value ?? "/", context.Request.Method, context.RequestAborted);
             }
             catch (Exception ex)
             {

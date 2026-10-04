@@ -1,20 +1,205 @@
+@model Atlas.Web.Models.DashboardViewModel
 @{
     ViewData["Title"] = "Command Center";
     Layout = "_Layout";
+
+    string LampFor(int bad) => bad > 0 ? "atlas-lamp atlas-lamp--red" : "atlas-lamp atlas-lamp--green";
+    var nonHealthy = Model.ServiceDegraded + Model.ServiceUnhealthy + Model.ServiceUnavailable;
+    var statusLabel = !Model.HasOrganizationContext
+        ? "NO ORGANIZATION CONTEXT"
+        : nonHealthy > 0 || Model.ActiveIncidents.Count > 0 ? "ATTENTION REQUIRED" : "NOMINAL";
+    var statusLamp = !Model.HasOrganizationContext
+        ? "atlas-lamp atlas-lamp--amber"
+        : nonHealthy > 0 || Model.ActiveIncidents.Count > 0 ? "atlas-lamp atlas-lamp--red" : "atlas-lamp atlas-lamp--green";
 }
 
 <section class="atlas-toolbar">
     <div><div class="atlas-kicker">ATLAS / OPERATIONS</div><h1>COMMAND CENTER</h1></div>
-    <span><span class="atlas-lamp atlas-lamp--amber"></span>TELEMETRY STATUS: NO LIVE SAMPLE</span>
+    <span><span class="@statusLamp"></span>SYSTEM STATUS: @statusLabel</span>
 </section>
 
-<section class="atlas-dashboard-grid">
-    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">REQUEST RATE</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Awaiting recorded request samples.</div></article>
-    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">P95 LATENCY</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Calculated only from stored samples.</div></article>
-    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">ERROR RATE</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">No synthetic baseline is shown.</div></article>
-    <article class="atlas-panel atlas-panel--inset"><div class="atlas-kicker">SERVICE AVAILABILITY</div><div class="atlas-reading atlas-reading--muted">NO DATA</div><div class="atlas-note">Select an organization to inspect health.</div></article>
-    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>LIVE SERVICE TOPOLOGY</h2><span class="atlas-badge">DATABASE RELATIONSHIPS</span></div><p class="atlas-status-text">No topology available.</p><p class="atlas-note">Topology is generated from registered service dependencies. It is intentionally empty until those relationships are stored.</p></article>
-    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>AI OPERATIONS ANALYSIS</h2><span class="atlas-badge">EVIDENCE REQUIRED</span></div><p class="atlas-status-text">Insufficient evidence.</p><p class="atlas-note">ATLAS tools will cite stored health, incident, and SLO evidence. The assistant never invents telemetry or certainty.</p></article>
-    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>ACTIVE INCIDENTS</h2></div><p class="atlas-status-text">No telemetry available.</p><p class="atlas-note">Open the Incidents console with an authorized organization context.</p></article>
-    <article class="atlas-panel atlas-wide"><div class="atlas-panel-header"><h2>SLO / ERROR BUDGET</h2></div><p class="atlas-status-text">No telemetry available.</p><p class="atlas-note">Compliance and burn rate are derived from MetricSample records; no defaults are presented as fact.</p></article>
-</section>
+@if (!Model.HasOrganizationContext)
+{
+    <section class="atlas-dashboard-grid">
+        <article class="atlas-panel atlas-panel--inset atlas-wide">
+            <div class="atlas-panel-header"><h2>ORGANIZATION CONTEXT REQUIRED</h2><span class="atlas-badge">TENANT ISOLATION</span></div>
+            <p class="atlas-status-text">No telemetry available.</p>
+            <p class="atlas-note">
+                Your identity is not associated with an organization, so ATLAS intentionally renders
+                no cross-tenant aggregates here. Sign in with an organization-scoped account, or have
+                an administrator assign one, to view service health, incidents, SLOs, and deployments.
+            </p>
+        </article>
+    </section>
+}
+else
+{
+    <section class="atlas-dashboard-grid">
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">REGISTERED SERVICES</div>
+            <div class="atlas-reading">@Model.ServiceTotal</div>
+            <div class="atlas-note">Rows in the service registry for this organization.</div>
+        </article>
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">HEALTHY</div>
+            <div class="atlas-reading"><span class="atlas-lamp atlas-lamp--green"></span>@Model.ServiceHealthy</div>
+            <div class="atlas-note">Derived from recorded health-check probes.</div>
+        </article>
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">DEGRADED</div>
+            <div class="atlas-reading"><span class="@LampFor(Model.ServiceDegraded)"></span>@Model.ServiceDegraded</div>
+            <div class="atlas-note">Intermittent probe failures observed.</div>
+        </article>
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">UNHEALTHY / UNAVAILABLE</div>
+            <div class="atlas-reading"><span class="@LampFor(Model.ServiceUnhealthy + Model.ServiceUnavailable)"></span>@(Model.ServiceUnhealthy + Model.ServiceUnavailable)</div>
+            <div class="atlas-note">Sustained probe failures per recorded check history.</div>
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>ACTIVE INCIDENTS</h2><span class="atlas-badge">@Model.ActiveIncidents.Count OPEN</span></div>
+            @if (Model.ActiveIncidents.Count == 0)
+            {
+                <p class="atlas-status-text">No telemetry available.</p>
+                <p class="atlas-note">Incidents appear here as they are declared through the incident API; nothing is synthesized.</p>
+            }
+            else
+            {
+                <table class="atlas-table">
+                    <thead><tr><th>Title</th><th>Severity</th><th>Status</th><th>Started (UTC)</th></tr></thead>
+                    <tbody>
+                    @foreach (var incident in Model.ActiveIncidents)
+                    {
+                        <tr>
+                            <td>@incident.Title</td>
+                            <td><span class="atlas-badge">@incident.Severity</span></td>
+                            <td>@incident.Status</td>
+                            <td>@incident.StartedAtUtc.ToString("u")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>SLO / ERROR BUDGET</h2><span class="atlas-badge">@Model.Slos.Count DEFINED</span></div>
+            @if (Model.Slos.Count == 0)
+            {
+                <p class="atlas-status-text">No telemetry available.</p>
+                <p class="atlas-note">Define an SLO via <code>POST /api/v1/slo</code>; compliance and burn are derived from MetricSample records only.</p>
+            }
+            else
+            {
+                <table class="atlas-table">
+                    <thead><tr><th>SLO</th><th>Metric</th><th>Target</th><th>Current</th><th>Error Budget Left</th><th>Samples</th></tr></thead>
+                    <tbody>
+                    @foreach (var slo in Model.Slos)
+                    {
+                        var compliantClass = slo.IsCompliant == true ? "atlas-badge atlas-badge--healthy" : "atlas-badge atlas-badge--unhealthy";
+                        <tr>
+                            <td>@slo.Name</td>
+                            <td>@slo.MetricType</td>
+                            <td>@FormatTarget(slo.MetricType, slo.TargetValue)</td>
+                            <td>
+                                @if (slo.SampleCount == 0 || slo.CurrentValue is null)
+                                {
+                                    <span class="atlas-note">No telemetry available.</span>
+                                }
+                                else
+                                {
+                                    <span class="@compliantClass">@FormatCurrent(slo.MetricType, slo.CurrentValue.Value)</span>
+                                }
+                            </td>
+                            <td>@(slo.ErrorBudgetRemainingPercent is null ? "—" : $"{slo.ErrorBudgetRemainingPercent.Value:F1}%")</td>
+                            <td>@slo.SampleCount</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>RECENT DEPLOYMENTS</h2><span class="atlas-badge">@Model.RecentDeployments.Count RECORDED</span></div>
+            @if (Model.RecentDeployments.Count == 0)
+            {
+                <p class="atlas-status-text">No telemetry available.</p>
+                <p class="atlas-note">Record deployments via <code>POST /api/v1/deployments</code> to enable regression/canary correlation.</p>
+            }
+            else
+            {
+                <table class="atlas-table">
+                    <thead><tr><th>Version</th><th>Environment</th><th>Author</th><th>Status</th><th>Deployed (UTC)</th></tr></thead>
+                    <tbody>
+                    @foreach (var deployment in Model.RecentDeployments)
+                    {
+                        <tr>
+                            <td>@deployment.Version</td>
+                            <td>@deployment.Environment</td>
+                            <td>@deployment.Author</td>
+                            <td><span class="atlas-badge">@deployment.Status</span></td>
+                            <td>@deployment.DeployedAtUtc.ToString("u")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">EVENT PIPELINES — DEAD LETTERS</div>
+            <div class="atlas-reading"><span class="@LampFor(Model.DeadLetterCount)"></span>@Model.DeadLetterCount</div>
+            <div class="atlas-note">Un-replayed dead-lettered events across all Kafka topics (platform-level; inspect/replay via /api/v1/events).</div>
+        </article>
+        <article class="atlas-panel atlas-panel--inset">
+            <div class="atlas-kicker">SECURITY EVENTS (AUDIT)</div>
+            <div class="atlas-reading">@Model.SecurityEvents.Count</div>
+            <div class="atlas-note">Most recent audited actions recorded for this organization.</div>
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>RECENT SECURITY / OPERATIONS RECORD</h2><span class="atlas-badge">APPEND-ONLY</span></div>
+            @if (Model.SecurityEvents.Count == 0)
+            {
+                <p class="atlas-status-text">No telemetry available.</p>
+                <p class="atlas-note">Security-sensitive and operational actions are appended to the audit trail as they occur; nothing is seeded or synthesized.</p>
+            }
+            else
+            {
+                <table class="atlas-table">
+                    <thead><tr><th>Action</th><th>Resource</th><th>Actor</th><th>Recorded (UTC)</th></tr></thead>
+                    <tbody>
+                    @foreach (var entry in Model.SecurityEvents)
+                    {
+                        <tr>
+                            <td>@entry.Action</td>
+                            <td>@entry.ResourceType</td>
+                            <td>@entry.ActorDisplay</td>
+                            <td>@entry.RecordedAtUtc.ToString("u")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </article>
+
+        <article class="atlas-panel atlas-wide">
+            <div class="atlas-panel-header"><h2>AI OPERATIONS ANALYSIS</h2><span class="atlas-badge">EVIDENCE REQUIRED</span></div>
+            <p class="atlas-status-text">Insufficient evidence.</p>
+            <p class="atlas-note">
+                The assistant cites stored health, incident, deployment, and SLO evidence via typed
+                tools (see <code>POST /api/v1/ai/ask</code>) and reports "insufficient evidence"
+                rather than inventing telemetry.
+            </p>
+        </article>
+    </section>
+}
+
+@functions {
+    private static string FormatTarget(string metricType, double target)
+        => metricType.StartsWith("Latency", StringComparison.Ordinal) ? $"P ≤ {target:F0} ms" : $"{target:P2}";
+
+    private static string FormatCurrent(string metricType, double current)
+        => metricType.StartsWith("Latency", StringComparison.Ordinal) ? $"{current:F1} ms" : $"{current:P2}";
+}

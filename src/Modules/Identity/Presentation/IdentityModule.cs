@@ -1,3 +1,4 @@
+using Atlas.Modules.Identity.Application;
 using Atlas.Modules.Identity.Domain;
 using Atlas.Modules.Identity.Infrastructure;
 using Atlas.Shared.Contracts;
@@ -45,12 +46,23 @@ public class IdentityModule : IAtlasModule
         // authorization policy wiring lives.
         services.AddSingleton<IAuthorizationHandler, OrganizationAccessHandler>();
 
+        // Roles and the optional configured development operator are
+        // reference data; the seeder is idempotent and fails soft (logs)
+        // when the database has not been migrated yet.
+        services.AddHostedService<IdentityRoleSeedService>();
+
         services.AddAuthorization(options =>
         {
             foreach (var role in AtlasRoles.All)
             {
                 options.AddPolicy($"Role:{role}", policy => policy.RequireRole(role));
             }
+
+            // Composed read policies. PlatformAdmin is the platform-wide
+            // operator and deliberately inherits security-review surface
+            // area that individual roles hold.
+            options.AddPolicy("AuditRead", policy =>
+                policy.RequireRole(AtlasRoles.SecurityEngineer, AtlasRoles.PlatformAdmin));
 
             options.AddPolicy("SameOrganization", policy =>
                 policy.Requirements.Add(new OrganizationAccessRequirement()));

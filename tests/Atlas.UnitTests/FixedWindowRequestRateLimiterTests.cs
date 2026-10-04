@@ -1,3 +1,4 @@
+using Atlas.Modules.Reliability.Application;
 using Atlas.Modules.Reliability.Infrastructure;
 using Atlas.Shared.Contracts;
 using Xunit;

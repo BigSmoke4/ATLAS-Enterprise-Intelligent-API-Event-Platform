@@ -22,9 +22,23 @@ cross-module reads go through the owning module's Application interface
 | `GET/POST /api/v1/deployments`, `GET .../{id}/regression-analysis` | `DeploymentsController` | `IDeploymentRegressionService` (pulls real Observability samples via `ISloService.GetSamplesAsync`, runs `RegressionAnalyzer`) |
 | `POST /api/v1/traffic/select-instance` | `TrafficController` | `ITrafficRoutingService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms) |
 
-Razor UI: `/Services` and `/Incidents` render the same live data these APIs
-serve. `/Dashboard` remains intentionally telemetry-free until
-Observability's aggregation job exists.
+Razor UI: `/Dashboard` (the command center) renders the organization read
+model composed from `IServiceHealthService`, `IIncidentService`,
+`ISloService`, and `IDeploymentRegressionService`. `/Services` and
+`/Incidents` render live registry/incident data. All MVC pages sit behind
+cookie authentication (`[Authorize]`); unauthenticated browsers are
+challenged to the sign-in page, and API callers get `401`, never an HTML
+redirect. Additional routes since the first cut of this document:
+`POST /api/v1/account/register|login|logout|api-keys[/revoke]`,
+`GET /api/v1/traffic/policies/{serviceId}` + `PUT` (tenant-checked body),
+`POST /api/v1/traffic/select-configured-instance`,
+`POST /api/v1/events/publish`, `POST /api/v1/events/dead-letters/{id}/replay`,
+`POST /api/v1/slo/samples/outcome|latency`,
+`GET /api/v1/incidents/{id}/root-cause-analysis`,
+`GET /api/v1/deployments/{id}/canary-analysis`,
+`GET /api/v1/reliability/circuit-breakers`,
+`POST /api/v1/policies/{id}/activate|versions`,
+`GET /api/v1/services/{id}/dependencies` (+`POST`).
 
 ## Now implemented (previously listed as gaps)
 
@@ -64,9 +78,14 @@ Observability's aggregation job exists.
 
 ## Honest limitations still open
 
-- **No API versioning beyond `v1`** — nothing to version yet.
+- **No API versioning beyond `v1`** — nothing to version yet; the routing
+  and controller layout leaves space for a `v2` without breaking `v1`.
 - **PolicyController's `evaluate` endpoint is read-only/advisory** by
   design — a matched rule's `Action` is returned in the response but
   nothing auto-executes it outside the explicit `/api/v1/ai/actions` path.
-- **`SameOrganization` only covers query/route parameters, not POST
-  bodies** — see the README's honest-gaps section for why.
+- **POST-body tenant checks are per-controller** (`CanAccess(...)` on the
+  body's `organizationId`, verified by integration tests such as
+  `SRE_cannot_use_a_different_organization_in_a_body_operation`), not a
+  single pipeline convention — the `SameOrganization` requirement covers
+  query/route values while body-based writes repeat the explicit check;
+  unifying that is on the security roadmap (see docs/threat-model.md).

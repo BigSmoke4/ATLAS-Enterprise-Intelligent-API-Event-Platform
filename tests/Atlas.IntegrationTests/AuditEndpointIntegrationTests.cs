@@ -21,7 +21,7 @@ public sealed class AuditEndpointIntegrationTests : IClassFixture<TestWebApplica
             AuditEntry.Create(null, "a", OrganizationA, "dead_letter.replay", "DeadLetterEvent", "a-1", Guid.NewGuid()),
             AuditEntry.Create(null, "a", OrganizationA, "other.action", "PolicyRule", "a-2", Guid.NewGuid()),
             AuditEntry.Create(null, "b", OrganizationB, "dead_letter.replay", "DeadLetterEvent", "b-1", Guid.NewGuid()));
-        using var client = _factory.CreateClient();
+        using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/audit?organizationId={OrganizationA}&action=dead_letter.replay");
         request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
         request.Headers.Add("X-Test-Role", "SecurityEngineer");
@@ -39,7 +39,7 @@ public sealed class AuditEndpointIntegrationTests : IClassFixture<TestWebApplica
     public async Task Platform_admin_can_read_unscoped_system_audit_records()
     {
         await SeedAsync(AuditEntry.Create(null, "system", null, "dead_letter.replay", "DeadLetterEvent", "system-1", Guid.NewGuid()));
-        using var client = _factory.CreateClient();
+        using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/audit?action=dead_letter.replay");
         request.Headers.Add("X-Test-Role", "PlatformAdmin");
 
@@ -53,7 +53,7 @@ public sealed class AuditEndpointIntegrationTests : IClassFixture<TestWebApplica
     [Fact]
     public async Task Organization_role_must_supply_an_organization_filter()
     {
-        using var client = _factory.CreateClient();
+        using var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/audit");
         request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
         request.Headers.Add("X-Test-Role", "SecurityEngineer");

@@ -7,14 +7,18 @@
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/layout.css" />
     <link rel="stylesheet" href="~/css/components/panels.css" />
+    <link rel="stylesheet" href="~/css/components/forms.css" />
+    <link rel="stylesheet" href="~/css/components/buttons.css" />
     <link rel="stylesheet" href="~/css/components/tables.css" />
     <link rel="stylesheet" href="~/css/components/badges.css" />
     <link rel="stylesheet" href="~/css/components/status-indicators.css" />
     <link rel="stylesheet" href="~/css/components/alerts.css" />
     <link rel="stylesheet" href="~/css/components/gauges.css" />
+    <link rel="stylesheet" href="~/css/pages/api-management.css" />
     <link rel="stylesheet" href="~/css/pages/dashboard.css" />
     <link rel="stylesheet" href="~/css/pages/services.css" />
     <link rel="stylesheet" href="~/css/pages/incidents.css" />
+    <link rel="stylesheet" href="~/css/pages/observability.css" />
 </head>
 <body>
     <header class="atlas-panel atlas-topbar">
@@ -22,8 +26,22 @@
         <span class="atlas-subbrand">Enterprise Intelligent API &amp; Event Platform</span>
         <nav class="atlas-nav">
             <a href="/Dashboard">Command Center</a>
+            <a href="/Apis">APIs</a>
             <a href="/Services">Services</a>
             <a href="/Incidents">Incidents</a>
+            <a href="/Observability">Observability</a>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <span class="atlas-note">@User.Identity.Name</span>
+                <form asp-action="Logout" asp-controller="Account" method="post" class="atlas-inline-form">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="atlas-button">SIGN OUT</button>
+                </form>
+            }
+            else
+            {
+                <a href="/Account/Login">Sign in</a>
+            }
         </nav>
     </header>
     <main class="atlas-shell">

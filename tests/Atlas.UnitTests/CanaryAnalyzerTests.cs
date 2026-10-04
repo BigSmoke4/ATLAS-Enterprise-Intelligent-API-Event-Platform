@@ -18,10 +18,15 @@ public sealed class CanaryAnalyzerTests
     public void Fails_canary_when_error_rate_exceeds_configured_multiplier()
     {
         var now = DateTimeOffset.UtcNow;
+        // Mirrors the production caller (DeploymentRegressionService), which
+        // concatenates outcome samples (Success set) with latency samples
+        // (Success null, Value = milliseconds).
         var samples = new List<MetricSampleDto>
         {
-            new(10, true, now, "v1"), new(20, true, now, "v1"), new(100, true, now, "v1"),
-            new(110, true, now, "v1"), new(12, false, now, "v2"), new(120, true, now, "v2")
+            new(0, true, now, "v1"), new(0, true, now, "v1"), new(0, true, now, "v1"),
+            new(0, true, now, "v1"), new(0, false, now, "v2"), new(0, true, now, "v2"),
+            new(95, null, now, "v1"), new(98, null, now, "v1"),
+            new(97, null, now, "v2"), new(99, null, now, "v2")
         };
         var result = CanaryAnalyzer.Analyze(samples, "v2");
         Assert.True(result.AnalysisAvailable);

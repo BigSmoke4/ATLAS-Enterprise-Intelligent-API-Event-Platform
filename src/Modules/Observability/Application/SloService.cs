@@ -68,4 +68,13 @@ public class SloService : ISloService
             .Select(m => new MetricSampleDto(m.Value, m.Success, m.RecordedAtUtc, m.DeploymentVersion))
             .ToListAsync(ct);
     }
+
+    public async Task<IReadOnlyList<SloDefinitionDto>> ListSlosAsync(Guid organizationId, CancellationToken ct = default)
+    {
+        return await _db.Slos.AsNoTracking()
+            .Where(s => s.OrganizationId == organizationId)
+            .OrderBy(s => s.Name)
+            .Select(s => new SloDefinitionDto(s.Id, s.ServiceId, s.Name, s.MetricType, s.TargetValue, s.WindowDuration))
+            .ToListAsync(ct);
+    }
 }

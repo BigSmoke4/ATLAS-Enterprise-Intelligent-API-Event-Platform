@@ -16,10 +16,19 @@ public class ServicesController : Controller
     public record RecordHealthCheckRequest(Guid OrganizationId, bool Success);
     public record AddDependencyRequest(Guid OrganizationId, Guid DependsOnServiceId);
 
-    /// <summary>Razor view. Real data — if organizationId is empty/unset the view shows "No telemetry available." rather than fabricating rows.</summary>
+    /// <summary>
+    /// Razor view. Real data only. The organization is resolved from the
+    /// caller's org_id claim unless an explicit ?organizationId is given —
+    /// and an explicit value must match the claim (PlatformAdmin may view
+    /// any). Anything else is 403: the view path enforces the same tenant
+    /// isolation as the JSON endpoints.
+    /// </summary>
     [HttpGet("/Services")]
     public async Task<IActionResult> Index([FromQuery] Guid organizationId, CancellationToken ct)
     {
+        var denial = ResolveOrganizationScope(ref organizationId);
+        if (denial is not null) return denial;
+
         var statuses = organizationId == Guid.Empty
             ? Array.Empty<ServiceStatusDto>()
             : (await _serviceHealth.GetStatusAsync(organizationId, 1, 50, ct)).ToArray();
@@ -77,4 +86,8 @@ public class ServicesController : Controller
         if (!result.IsSuccess) return NotFound(new ProblemDetails { Title = result.Error });
         return NoContent();
     }
+
+    /// <summary>Tenant scope for the MVC page path — see OrganizationScopeResolver for the exact rules.</summary>
+    private IActionResult? ResolveOrganizationScope(ref Guid organizationId)
+        => OrganizationScopeResolver.TryResolve(User, ref organizationId) ? null : Forbid();
 }
