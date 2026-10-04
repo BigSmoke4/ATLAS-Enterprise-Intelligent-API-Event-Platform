@@ -12,6 +12,10 @@ persisted `MetricSample` records.
   built-in `Npgsql` ActivitySource (the SQL Server-only
   `OpenTelemetry.Instrumentation.SqlClient` package was deliberately
   removed — it never traced this stack).
+- **Optional OTLP span export**: set `OpenTelemetry:Otlp:Endpoint` (e.g.
+  `http://otel-collector:4317`) and spans stream to any OpenTelemetry
+  Protocol collector. When unset, no exporter is registered and behavior is
+  unchanged.
 - Docker Compose Prometheus configuration at `observability/prometheus.yml`,
   and Grafana with **file-provisioned** Prometheus datasource and the
   "ATLAS Platform Overview" dashboard

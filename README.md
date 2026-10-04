@@ -55,7 +55,7 @@ Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManage
 - Kafka publish with versioned contract headers (event-type/version/correlation-id), header/payload verified by integration test; consumer with exponential-backoff retry then DLQ; DB-unique-index idempotency guard; dead-letter inspection with topic/type/time/event-id filters; dry-run and authorized live replay; in-flight consumer never crashes the process when Kafka is down.
 
 **Observability & SLO**
-- OTel ASP.NET Core/HttpClient/runtime instrumentation, Npgsql span source, Prometheus `/metrics`, provisioned Grafana dashboard (`observability/grafana/`), dependency-aware `/health` endpoints.
+- OTel ASP.NET Core/HttpClient/runtime instrumentation, Npgsql span source, optional OTLP span export (`OpenTelemetry:Otlp:Endpoint`), Prometheus `/metrics`, provisioned Grafana dashboard (`observability/grafana/`), dependency-aware `/health` endpoints.
 - SLO definitions + compliance/error-budget/burn computed by pure unit-tested math from `MetricSample` rows; **probed availability telemetry flows automatically** (health prober → `ISloService.RecordOutcomeAsync`), external request telemetry via `POST /api/v1/slo/samples/*`.
 - Command-center dashboard renders the real organization read model (service health split, open incidents, per-SLO compliance + remaining budget, recent deployments, dead-letter backlog, latest audit-trail entries) and shows **“No telemetry available.”** for any section without data.
 - Deployment records + regression/canary analysis built from before/after sample windows; root-cause service scores deployment/health/error telemetry correlations and reports “Insufficient evidence.” when signals are absent.
