@@ -1,6 +1,7 @@
 using Atlas.Shared.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Text.Json;
 using Xunit;
@@ -19,7 +20,12 @@ public class ConcurrencyConflictExceptionHandlerTests
 
     private static DefaultHttpContext Context(string method, string path)
     {
-        var context = new DefaultHttpContext();
+        var context = new DefaultHttpContext
+        {
+            // HttpResults resolve JSON options through RequestServices; an empty
+            // container keeps the test host faithful to a real request.
+            RequestServices = new ServiceCollection().BuildServiceProvider()
+        };
         context.Request.Method = method;
         context.Request.Path = path;
         context.Response.Body = new MemoryStream();

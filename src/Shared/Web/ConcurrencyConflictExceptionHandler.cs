@@ -48,15 +48,17 @@ public sealed class ConcurrencyConflictExceptionHandler : IExceptionHandler
             httpContext.Request.Method, httpContext.Request.Path,
             entityTypes.Length == 0 ? "(unknown entity)" : string.Join(", ", entityTypes));
 
-        httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
-        await httpContext.Response.WriteAsJsonAsync(new ProblemDetails
+        // Results.Problem writes the body as application/problem+json and owns
+        // the status code, so this response has exactly the same shape as the
+        // ProblemDetails the controllers return directly.
+        await Results.Problem(new ProblemDetails
         {
             Title = "Concurrent modification detected.",
             Detail = "The resource changed after this request read it, so the write was rejected rather than overwriting newer data. Re-read the resource and retry the change.",
             Status = StatusCodes.Status409Conflict,
             Instance = httpContext.Request.Path,
             Extensions = { ["code"] = ErrorCode, ["conflictingEntities"] = entityTypes }
-        }, contentType: "application/problem+json", cancellationToken: cancellationToken);
+        }).ExecuteAsync(httpContext);
 
         return true;
     }
