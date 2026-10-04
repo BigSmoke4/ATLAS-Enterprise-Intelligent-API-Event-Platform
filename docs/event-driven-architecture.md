@@ -52,11 +52,21 @@ InMemory provider.
 
 ## Not yet implemented
 
-Retry *topics* (as opposed to in-process retry with backoff) — the current
-retry loop delays and retries the same consumer poll rather than
-republishing to a separate `topic.retry` topic, which is the more
-Kafka-idiomatic approach if the initial handler needs to release the
-partition during backoff. Also not implemented: payload schema validation
-before dispatch (a malformed event can still reach a consumer's handler and
-throw, which correctly routes it to DLQ, but there's no earlier
-schema-level rejection).
+- **Retry *topics*** (as opposed to in-process retry with backoff). The current
+  loop delays and retries the same consumer poll rather than republishing to a
+  separate `topic.retry` topic, which is the more Kafka-idiomatic approach when
+  a handler wants to release the partition during backoff. The in-process delay
+  is bounded and the outcome is the same (retry, then DLQ), so this is an
+  operational refinement rather than a correctness gap.
+- **Consumer-side contract validation before dispatch.** The publisher validates
+  every payload it produces (`EventContractValidator.ValidateJson`), so
+  platform-emitted events are well formed at the source; an event produced by
+  another system can still reach a handler and throw, which correctly routes it
+  to the dead-letter queue. Validating against a schema registry *before*
+  dispatch — and rejecting unknown versions there rather than in the handler — is
+  the remaining step.
+- **Transactional outbox.** Publication happens after the business transaction
+  commits, with the failure logged and counted; a broker outage therefore loses
+  the event rather than the business fact. An outbox table with a relay would
+  make publication recoverable, and is the documented price of not writing
+  Kafka into the request path today.

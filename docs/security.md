@@ -40,10 +40,19 @@
 
 ## Not yet implemented
 
-- Per-action authorization is role-based only — no finer-grained
-  resource-level checks (e.g. "can this SRE modify this specific
-  organization's incidents") beyond the tenant query filter.
-- CSRF tokens aren't exercised anywhere yet because no Razor form exists
-  that needs one — the plumbing is registered but unused.
-- No rate limit scoping by authenticated user/tenant, only IP or API-key
-  prefix (see docs/api.md).
+- **Per-object authorization beyond the tenant.** A caller is authorized for
+  their organization (query filters + the `SameOrganization` policy + explicit
+  body checks on writes); there is no per-*record* ACL (e.g. "this SRE may edit
+  only incidents they declared"). Role policies are the current granularity, and
+  the roles themselves are coarse by design.
+- **Session revocation / refresh-token rotation.** Cookie sessions are not
+  server-side revocable before expiry, and OAuth/OIDC federation is a marked
+  extension point rather than connector code — see the README limitations list.
+- **Secret-scanning in CI.** The pipeline fails on committed credentials only
+  through the advisory dependency scan; a dedicated secret scanner (or branch
+  protection with a pre-commit hook) is an operator-side control.
+- **Antiforgery on JSON APIs for cookie-authenticated callers** is enforced for
+  the MVC forms and the console's module writes (token in a meta tag, sent as
+  `X-CSRF-TOKEN`); machine callers authenticate with API keys, where CSRF does
+  not apply. A future cookie-based SPA-style client would need the same header
+  discipline.
