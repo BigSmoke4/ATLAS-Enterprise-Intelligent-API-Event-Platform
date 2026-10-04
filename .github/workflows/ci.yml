@@ -144,8 +144,12 @@ jobs:
 
       - name: Integration tests - console page render
         run: |
-          set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ConsolePageRenderTests" --logger "console;verbosity=detailed" --results-directory TestResults/console-pages 2>&1 | tee integration-console-pages.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ConsolePageRenderTests" --logger "console;verbosity=detailed" --results-directory TestResults/console-pages > integration-console-pages.log 2>&1 || true
+          # Surface the failure lines as annotations: a page that renders an
+          # error body must not be diagnosable only from an uploaded artifact.
+          grep -n -E "Failed |Error Message|Assert\.|Expected:|Actual:|Stack Trace" integration-console-pages.log | head -60 | while IFS= read -r line; do echo "::error::$line"; done
+          tail -3 integration-console-pages.log
+          if grep -q "Failed!" integration-console-pages.log; then exit 1; fi
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
