@@ -34,12 +34,13 @@ public sealed class OrganizationService : IOrganizationService
             .Select(o => new OrganizationDto(o.Id, o.Name, o.Slug, o.IsActive, o.Teams.Count, o.Environments.Count))
             .SingleOrDefaultAsync(ct);
 
-    public async Task<IReadOnlyList<OrganizationDto>> ListAsync(int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<OrganizationDto>> ListAsync(int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 100);
-        return await _db.Organizations.AsNoTracking()
-            .OrderBy(o => o.Name)
+        return await OrganizationSorting.Organizations
+            .Apply(_db.Organizations.AsNoTracking(), sortBy, sortDirection)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new OrganizationDto(o.Id, o.Name, o.Slug, o.IsActive, o.Teams.Count, o.Environments.Count))

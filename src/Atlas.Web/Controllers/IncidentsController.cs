@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.IncidentManagement.Application;
 using Atlas.Modules.IncidentManagement.Domain;
+using Atlas.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Atlas.Web.Hubs;
@@ -35,8 +36,12 @@ public class IncidentsController : Controller
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<Incident>>> ListJson([FromQuery] Guid organizationId,
         [FromQuery] IncidentStatus? status = null, [FromQuery] IncidentSeverity? severity = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _incidents.GetActiveIncidentsAsync(organizationId, page, pageSize, status, severity, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(IncidentSorting.Incidents, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _incidents.GetActiveIncidentsAsync(organizationId, page, pageSize, status, severity, ct, sortBy, direction));
+    }
 
     [HttpGet("/api/v1/incidents/{incidentId:guid}")]
     [Authorize(Policy = "SameOrganization")]

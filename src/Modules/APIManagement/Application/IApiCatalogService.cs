@@ -15,13 +15,23 @@ public interface IApiCatalogService
     Task<Result> SetRouteTargetServiceAsync(Guid organizationId, Guid routeId, Guid? serviceId, CancellationToken ct = default);
 
     Task<IReadOnlyList<ApiRouteDto>> ListRoutesAsync(Guid organizationId, Guid apiVersionId, CancellationToken ct = default);
-    Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default);
+    /// <summary>
+    /// Page of registered APIs. <paramref name="sortBy"/> must be a field whitelisted in
+    /// <see cref="ApiCatalogSorting.Apis"/> — the controller rejects anything else with a
+    /// 400 (INVALID_SORT_FIELD); null keeps the default ordering (name ascending).
+    /// </summary>
+    Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending);
 
     /// <summary>Versions of one API definition (newest first) — the version picker on the API management page.</summary>
     Task<IReadOnlyList<ApiVersionDto>> ListVersionsAsync(Guid organizationId, Guid apiDefinitionId, CancellationToken ct = default);
 
-    /// <summary>Route inventory for the organization across every API version (read model for the API management page).</summary>
-    Task<IReadOnlyList<ApiRouteDto>> ListAllRoutesAsync(Guid organizationId, int page = 1, int pageSize = 200, CancellationToken ct = default);
+    /// <summary>
+    /// Route inventory for the organization across every API version (read model for the API management page).
+    /// <paramref name="sortBy"/> must come from <see cref="ApiCatalogSorting.Routes"/>.
+    /// </summary>
+    Task<IReadOnlyList<ApiRouteDto>> ListAllRoutesAsync(Guid organizationId, int page = 1, int pageSize = 200, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending);
 }
 
 public record ApiSummaryDto(Guid Id, string Name, string BasePath, bool IsActive, int VersionCount);

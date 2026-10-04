@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.APIManagement.Application;
 using Atlas.Modules.APIManagement.Domain;
+using Atlas.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -28,8 +29,12 @@ public class ApiManagementController : ControllerBase
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<ApiSummaryDto>>> List([FromQuery] Guid organizationId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _catalog.ListApisAsync(organizationId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(ApiCatalogSorting.Apis, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _catalog.ListApisAsync(organizationId, page, pageSize, ct, sortBy, direction));
+    }
 
     [HttpPost]
     [Authorize(Policy = "Role:OrganizationAdmin")]
@@ -96,8 +101,12 @@ public class ApiManagementController : ControllerBase
     [HttpGet("routes")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<ApiRouteDto>>> ListAllRoutes([FromQuery] Guid organizationId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 200, CancellationToken ct = default)
-        => Ok(await _catalog.ListAllRoutesAsync(organizationId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 200,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(ApiCatalogSorting.Routes, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _catalog.ListAllRoutesAsync(organizationId, page, pageSize, ct, sortBy, direction));
+    }
 
     private IActionResult ToProblem(string error, string code) => code switch
     {

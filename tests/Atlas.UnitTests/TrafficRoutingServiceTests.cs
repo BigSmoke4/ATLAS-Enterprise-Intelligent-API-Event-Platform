@@ -1,3 +1,4 @@
+using Atlas.Shared.Application;
 using Atlas.Modules.ServiceRegistry.Application;
 using Atlas.Modules.ServiceRegistry.Domain;
 using Atlas.Modules.TrafficManagement.Application;
@@ -14,7 +15,8 @@ file class FakeServiceHealthService : IServiceHealthService
     public Task<Atlas.Shared.Application.Result<Guid>> RegisterServiceAsync(Guid o, Guid e, string n, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Atlas.Shared.Application.Result<Guid>> RegisterInstanceAsync(Guid o, Guid s, string h, CancellationToken ct = default) => throw new NotImplementedException();
     public Task<Atlas.Shared.Application.Result> RecordHealthCheckAsync(Guid o, Guid i, bool s, CancellationToken ct = default) => throw new NotImplementedException();
-    public Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid o, int page = 1, int pageSize = 50, CancellationToken ct = default) => throw new NotImplementedException();
+    public Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid o, int page = 1, int pageSize = 50, CancellationToken ct = default,
+            string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending) => throw new NotImplementedException();
     public Task<IReadOnlyList<InstanceStatusDto>> GetInstancesAsync(Guid organizationId, Guid serviceId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<InstanceStatusDto>>(_instances);
     public Task<Atlas.Shared.Application.Result> AddDependencyAsync(Guid o, Guid s, Guid d, CancellationToken ct = default) => throw new NotImplementedException();

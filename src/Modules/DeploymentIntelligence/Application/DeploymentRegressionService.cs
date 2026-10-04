@@ -92,12 +92,13 @@ public class DeploymentRegressionService : IDeploymentRegressionService
         }
     }
 
-    public async Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
         var query = _db.Deployments.Where(d => d.OrganizationId == organizationId);
         if (serviceId.HasValue) query = query.Where(d => d.ServiceId == serviceId.Value);
-        return await query.OrderByDescending(d => d.DeployedAtUtc)
+        return await DeploymentSorting.Deployments.Apply(query, sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .AsNoTracking().ToListAsync(ct);
     }

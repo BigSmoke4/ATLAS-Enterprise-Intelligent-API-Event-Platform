@@ -54,11 +54,12 @@ public class PolicyManagementService : IPolicyManagementService
         catch (ArgumentException ex) { return PolicyOperationResult<Guid>.Fail(ex.Message); }
     }
 
-    public async Task<IReadOnlyList<PolicyRule>> ListAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PolicyRule>> ListAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
-        return await _db.Rules.Where(r => r.OrganizationId == organizationId)
-            .OrderBy(r => r.Name)
+        return await PolicySorting.Rules
+            .Apply(_db.Rules.Where(r => r.OrganizationId == organizationId), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .AsNoTracking().ToListAsync(ct);
     }

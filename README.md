@@ -11,10 +11,10 @@ The platform's defining rule is the **No Fake Functionality** contract: metrics,
 The full delivery pipeline is green and verifies the application end-to-end on every push:
 
 - **Restore + Build + Static analysis** (`dotnet build -warnaserror`) — nullable-enabled C# across 18 projects.
-- **109 unit test methods** (`[Fact]`/`[Theory]` — theory data rows expand the executed case count in the run log) — routing strategies incl. telemetry-driven selection and staleness, sliding/token-bucket/leaky-bucket + fixed-window rate limiting, circuit-breaker state machine, policy evaluator + versioning, SLO/error-budget math, canary/regression analyzers, root-cause scoring, incident state machine + MTTD/MTTR, organizations/tenant rules, API-key hashing, webhook HMAC verification, event contract validation, event dispatcher/coordinator, dead-letter service, audit query service, organization-access handler.
+- **126 unit test methods** (`[Fact]`/`[Theory]` — theory data rows expand the executed case count in the run log) — routing strategies incl. telemetry-driven selection and staleness, sliding/token-bucket/leaky-bucket + fixed-window rate limiting, circuit-breaker state machine, policy evaluator + versioning, SLO/error-budget math, canary/regression analyzers, root-cause scoring, incident state machine + MTTD/MTTR, organizations/tenant rules, API-key hashing, webhook HMAC verification, event contract validation, event dispatcher/coordinator, dead-letter service, audit query service, organization-access handler, the list-endpoint sort whitelists (`SortSpecTests`), and the OIDC configuration contract (`OidcOptionsTests`).
 - **EF Core migrations are checked in** — one `InitialSchema` migration plus a model snapshot per module (`src/Modules/*/Infrastructure/Migrations`, 11 contexts, 11 PostgreSQL schemas) — and CI applies them to a real PostgreSQL 16 on every run. `EnsureCreated` is never used. CI additionally runs `dotnet ef migrations add` and fails if the model has drifted from the checked-in snapshot; the **Generate EF migrations** workflow regenerates and commits them on a runner that has the SDK and `dotnet-ef`.
 - **Architecture tests** (NetArchTest) — Domain/Application layers of one module may not depend on another module's Infrastructure; MVC controllers cannot reference EF Core.
-- **Integration tests** (WebApplicationFactory + real PostgreSQL/Redis/Kafka, 32 test methods): anonymous rejection with 401, unauthenticated liveness, organization isolation (403 for cross-tenant reads), role enforcement (403 for non-admin policy operations), tenant-scoped audit reads, dependency-aware readiness, atomic Redis rate-limit counters under concurrency, Kafka publisher headers/payload round-trip, every console page rendered through the real MVC pipeline as an operator (a render-time Razor defect can no longer hide behind a 200), and the antiforgery filter's skip rules for API-key and non-cookie principals.
+- **Integration tests** (WebApplicationFactory + real PostgreSQL/Redis/Kafka, 39 test methods): anonymous rejection with 401, unauthenticated liveness, organization isolation (403 for cross-tenant reads), role enforcement (403 for non-admin policy operations), tenant-scoped audit reads, dependency-aware readiness, atomic Redis rate-limit counters under concurrency, Kafka publisher headers/payload round-trip, every console page rendered through the real MVC pipeline as an operator (a render-time Razor defect can no longer hide behind a 200), the antiforgery filter's skip rules for API-key and non-cookie principals, and list-endpoint sorting (whitelisted fields reorder real results; unknown fields and directions answer `400 INVALID_SORT_FIELD`/`INVALID_SORT_DIRECTION`).
 - **Docker build + container smoke test** — liveness, readiness, and the Prometheus `http_server_request_duration*` metric family asserted from the running container.
 
 ## Technology stack
@@ -36,7 +36,7 @@ The full delivery pipeline is green and verifies the application end-to-end on e
 Razor View → MVC Controller (thin) → Application Service → Domain → Infrastructure → PostgreSQL / Redis / Kafka
 ```
 
-Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManagement, ServiceRegistry, EventPlatform, Reliability, Observability, IncidentManagement, DeploymentIntelligence, PolicyEngine, AIOperations, Audit. Each has `Domain / Application / Infrastructure / Presentation` folders. Cross-module calls go only through Application interfaces or `src/Shared` contracts — never another module's DbContext or infrastructure. Design rationale lives in `docs/decisions/ADR-001…009`.
+Modules (`src/Modules/*`): Identity, Organizations, APIManagement, TrafficManagement, ServiceRegistry, EventPlatform, Reliability, Observability, IncidentManagement, DeploymentIntelligence, PolicyEngine, AIOperations, Audit. Each has `Domain / Application / Infrastructure / Presentation` folders. Cross-module calls go only through Application interfaces or `src/Shared` contracts — never another module's DbContext or infrastructure. Design rationale lives in `docs/decisions/ADR-001…010`.
 
 ## What is implemented (verified)
 
@@ -96,7 +96,7 @@ Cookie session for browsers, `X-Api-Key` for machines; all anonymous calls to `/
 
 `/api/v1/account` (incl. `api-keys` list/issue/revoke) · `/api/v1/organizations` · `/api/v1/apis` (+`{apiId}/versions`, route config, target-service) · `/api/v1/services` (+`topology`, instances, dependencies, health-check) · `/api/v1/traffic` (policies, select-instance, telemetry) · `/api/v1/metrics` (summary, services, routes, series, infrastructure) · `/api/v1/alerts` · `/api/v1/reliability/circuit-breakers` · `/api/v1/events` (publish, dead-letters, replay, mark-replayed) · `/api/v1/incidents` (+transition, root-cause, postmortem, root-cause-analysis) · `/api/v1/deployments` (+canary-analysis, regression-analysis) · `/api/v1/slo` (list, compliance, samples/outcome, samples/latency) · `/api/v1/policies` (+versions, activate/deactivate, evaluate) · `/api/v1/audit` · `/api/v1/ai` (ask, actions)
 
-Full details: `docs/api.md`.
+List endpoints page (`page`/`pageSize`, clamped 1–200) and sort (`sortBy`/`sortDirection` against a per-resource whitelist) at the query level, before `Skip`/`Take`; an unknown sort field is a `400` ProblemDetails that lists the allowed values rather than silently returning unsorted data. Full details: `docs/api.md`.
 
 ## Testing
 
@@ -112,7 +112,7 @@ Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6) — run it
 ## Known limitations (not faked)
 
 - **Migrations are generated artefacts and must be regenerated when a model changes.** `scripts/migrate.sh` applies the committed migrations; `scripts/add-migration.sh <Name>` (or the *Generate EF migrations* workflow, which commits the result for you) produces the next one. The application never calls `EnsureCreated`, and it does not migrate automatically at startup — a deployment applies reviewed migrations as a release step, which is also what `docker compose` and the CI pipeline do.
-- Refresh-token rotation/session revocation, OAuth/OIDC federation: planned (cookie + API-key flows are implemented and verified today). OAuth/OIDC appears in the code only as a marked extension point.
+- **Refresh-token rotation/session revocation: planned** (cookie + API-key flows are implemented and verified today). **OAuth/OIDC federation is a marked, executable extension point**: the `Oidc` configuration section is bound and validated at startup (`Atlas.Shared.Security.OidcOptions`) so a partial configuration fails the host and a complete one logs that no handler is registered; the `OpenIdConnect` handler itself is deliberately not wired, and the exact registration is documented in `docs/security.md` + ADR-010. ATLAS does not authenticate against an external identity provider today.
 - The AI completion provider is optional and off by default: without `AI:AnthropicApiKey` the assistant returns a deterministic composition of the evidence returned by its tools — the refusal behaviour ("Insufficient evidence.") and the citations are identical, only the prose differs.
 - The SignalR browser client is loaded from a CDN; when it cannot load, live updates degrade to bounded polling and the header beacon shows the degraded state instead of pretending to be connected.
 - Kafka stays optional: with no broker configured the publisher seam is absent rather than silently no-op; schema registry/outbox hardening for at-least-once publish under prolonged broker outage is documented in `docs/event-driven-architecture.md`.
@@ -126,7 +126,7 @@ Performance smoke: `tests/Atlas.PerformanceTests/atlas-smoke.js` (k6) — run it
 src/Atlas.Web/                         MVC host: thin controllers, Razor views, middleware, wwwroot (css/js modules)
 src/Shared/                            contracts (IAtlasModule, IEventPublisher, ICacheService, ITenantContext, …), security, web
 src/Modules/<Module>/{Domain,Application,Infrastructure,Presentation}
-tests/Atlas.UnitTests/                 104 deterministic unit tests
+tests/Atlas.UnitTests/                 126 deterministic unit tests
 tests/Atlas.IntegrationTests/          WebApplicationFactory suites (PostgreSQL/Redis/Kafka)
 tests/Atlas.ArchitectureTests/         module boundary enforcement
 docs/                                  architecture, security, threat model, DR, performance, ADRs

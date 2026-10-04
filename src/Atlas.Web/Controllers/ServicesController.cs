@@ -64,8 +64,12 @@ public class ServicesController : Controller
     [HttpGet("/api/v1/services")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<ServiceStatusDto>>> ListJson([FromQuery] Guid organizationId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _serviceHealth.GetStatusAsync(organizationId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(ServiceRegistrySorting.Services, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _serviceHealth.GetStatusAsync(organizationId, page, pageSize, ct, sortBy, direction));
+    }
 
     /// <summary>
     /// Service topology: registry graph (services, instances, dependencies)

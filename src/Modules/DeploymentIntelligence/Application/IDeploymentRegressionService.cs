@@ -9,7 +9,9 @@ public interface IDeploymentRegressionService
     Task<Result<Guid>> RecordDeploymentAsync(Guid organizationId, Guid serviceId, string version, string environment,
         string commitSha, string author, CancellationToken ct = default);
 
-    Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default);
+    /// <summary>Page of deployments; <c>sortBy</c> must come from <see cref="DeploymentSorting.Deployments"/>.</summary>
+    Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending);
 
     /// <summary>
     /// Pulls real before/after MetricSample windows from Observability (via

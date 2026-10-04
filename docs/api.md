@@ -52,6 +52,33 @@ zero. Additional routes since the first cut of this document:
   IncidentManagement, EventPlatform DLQ list, PolicyEngine, and
   DeploymentIntelligence all page at the database query level (`Skip`/`Take`),
   not in memory.
+- **Sorting** on every paginated list endpoint (`sortBy` + `sortDirection`),
+  applied at the database query level *before* `Skip`/`Take` so a page is a
+  stable slice of the ordered set rather than a re-sorted page. The accepted
+  fields are a per-resource whitelist (`Atlas.Shared.Application.SortSpec`,
+  one spec beside each application service) and each entry is a real LINQ
+  ordering, so a user-supplied string never reaches SQL as a column name. An
+  unknown field is a `400` ProblemDetails (`code: INVALID_SORT_FIELD`) that
+  lists the allowed values; an unknown direction is `400`
+  (`code: INVALID_SORT_DIRECTION`) — mismatched input is never silently
+  ignored, and validation happens in the controller so it costs no query.
+
+  | Endpoint | `sortBy` values | Default ordering |
+  |---|---|---|
+  | `GET /api/v1/apis` | name, basePath, isActive, createdAtUtc | name asc |
+  | `GET /api/v1/apis/routes` | path, httpMethod, maxRetries, createdAtUtc | path, then method |
+  | `GET /api/v1/services` | name, environmentId, createdAtUtc | name asc |
+  | `GET /api/v1/audit` | createdAtUtc, action, resourceType, resourceId, actorDisplay | createdAtUtc desc |
+  | `GET /api/v1/incidents` | detectedAtUtc, startedAtUtc, severity, status, title | detectedAtUtc desc |
+  | `GET /api/v1/deployments` | deployedAtUtc, version, environment, author, status, serviceId | deployedAtUtc desc |
+  | `GET /api/v1/events/dead-letters` | lastFailedAtUtc, firstFailedAtUtc, retryCount, eventType, originalTopic | lastFailedAtUtc desc |
+  | `GET /api/v1/policies` | name, isActive, version, createdAtUtc | name asc |
+  | `GET /api/v1/organizations` | name, slug, isActive, createdAtUtc | name asc (PlatformAdmin only) |
+
+  Field names and `asc`/`desc` are case-insensitive. The non-paginated
+  sub-collections (an API's versions, one version's routes) keep their fixed
+  newest-first/path order. Covered by `SortSpecTests` (unit) and
+  `ListEndpointSortingTests` (HTTP, seeded through the real pipeline).
 - **`[Authorize]`** on every controller (an anonymous request to any
   `/api/**` route returns `401`, never an HTML redirect; every Razor page
   challenges to sign-in), with state-changing actions further restricted to a

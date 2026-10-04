@@ -113,12 +113,14 @@ public class ApiCatalogService : IApiCatalogService
             .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries, r.TargetServiceId))
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<ApiRouteDto>> ListAllRoutesAsync(Guid organizationId, int page = 1, int pageSize = 200, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ApiRouteDto>> ListAllRoutesAsync(Guid organizationId, int page = 1, int pageSize = 200, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
-        return await _db.ApiRoutes.AsNoTracking()
-            .Where(r => r.OrganizationId == organizationId)
-            .OrderBy(r => r.Path).ThenBy(r => r.HttpMethod)
+        // Ordering is applied before Skip/Take so pages stay stable: the sort
+        // is part of the SQL, not a re-sort of the page that came back.
+        return await ApiCatalogSorting.Routes
+            .Apply(_db.ApiRoutes.AsNoTracking().Where(r => r.OrganizationId == organizationId), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries, r.TargetServiceId))
             .ToListAsync(ct);
@@ -131,12 +133,12 @@ public class ApiCatalogService : IApiCatalogService
             .Select(v => new ApiVersionDto(v.Id, v.VersionNumber, v.Status.ToString(), v.Routes.Count))
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
-        return await _db.ApiDefinitions
-            .Where(a => a.OrganizationId == organizationId)
-            .OrderBy(a => a.Name)
+        return await ApiCatalogSorting.Apis
+            .Apply(_db.ApiDefinitions.Where(a => a.OrganizationId == organizationId), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(a => new ApiSummaryDto(a.Id, a.Name, a.BasePath, a.IsActive, a.Versions.Count))
             .AsNoTracking()

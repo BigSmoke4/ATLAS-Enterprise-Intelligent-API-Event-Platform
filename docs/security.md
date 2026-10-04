@@ -51,8 +51,13 @@
   only incidents they declared"). Role policies are the current granularity, and
   the roles themselves are coarse by design.
 - **Session revocation / refresh-token rotation.** Cookie sessions are not
-  server-side revocable before expiry, and OAuth/OIDC federation is a marked
-  extension point rather than connector code — see the README limitations list.
+  server-side revocable before expiry.
+- **OAuth/OIDC connector.** The `Oidc` configuration section *is* implemented
+  and enforced at startup (`Atlas.Shared.Security.OidcOptions`, bound in
+  `Program.cs`): a partial configuration fails the host with an actionable
+  message instead of being ignored, and a complete one logs loudly that
+  external sign-in is still disabled. The OpenIdConnect handler itself is a
+  marked extension point — see [OAuth/OIDC extension point](#oauthoidc-extension-point).
 - **Secret-scanning in CI.** The pipeline fails on committed credentials only
   through the advisory dependency scan; a dedicated secret scanner (or branch
   protection with a pre-commit hook) is an operator-side control.
@@ -62,3 +67,43 @@
   token from a meta tag and sends it as `X-CSRF-TOKEN`. API-key callers are
   exempt by construction (a cross-site page cannot set that header), and the
   skip rules are pinned by unit tests so the exemption cannot silently widen.
+
+## OAuth/OIDC extension point
+
+Local authentication (cookie session for the console, hashed API keys for
+machines) is what ATLAS runs on today. Federation is *marked*, not silently
+absent, and the marker is executable:
+
+1. **Configuration contract** — `Oidc:Authority`, `Oidc:ClientId`,
+   `Oidc:ClientSecret`, `Oidc:DisplayName`, `Oidc:Scopes`,
+   `Oidc:RequireHttpsMetadata` (see `.env.example` and `appsettings.json`).
+   `OidcOptions.Validate()` runs before `builder.Build()`:
+   - section absent → valid, local authentication only;
+   - partially filled → startup fails, e.g. *"Oidc:Authority is required once
+     any Oidc setting is present"*;
+   - complete → the host logs a warning that no handler is registered.
+2. **What is missing** — the `Microsoft.AspNetCore.Authentication.OpenIdConnect`
+   package and this registration in `Program.cs`:
+
+   ```csharp
+   builder.Services.AddAuthentication()
+       .AddOpenIdConnect("oidc", options =>
+       {
+           options.Authority = oidc.Authority;
+           options.ClientId = oidc.ClientId;
+           options.ClientSecret = oidc.ClientSecret;
+           options.ResponseType = "code";
+           options.RequireHttpsMetadata = oidc.RequireHttpsMetadata;
+           options.SignInScheme = IdentityConstants.ExternalScheme;
+           foreach (var scope in oidc.Scopes) options.Scope.Add(scope);
+       });
+   ```
+
+3. **Why it is not registered yet** — a credential exchange is the easy part;
+   the security decision is what happens to the claims afterwards. ATLAS users
+   carry an `org_id` claim and one of seven roles, so the connector must be
+   accompanied by an explicit provisioning policy (reject unknown identities
+   vs. auto-provision to a named role) and a tenant-scoping test. Shipping the
+   redirect without that policy would create accounts nobody can audit. The
+   decision and its rationale are recorded in
+   [ADR-010](decisions/ADR-010-oidc-extension-point.md).

@@ -1,5 +1,6 @@
 using Atlas.Modules.EventPlatform.Application;
 using Atlas.Shared.Contracts;
+using Atlas.Web.Models;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -35,8 +36,12 @@ public class EventsController : ControllerBase
     [HttpGet("dead-letters")]
     public async Task<IActionResult> ListDeadLetters([FromQuery] string? topic, [FromQuery] string? eventType,
         [FromQuery] DateTimeOffset? fromUtc, [FromQuery] DateTimeOffset? toUtc, [FromQuery] Guid? eventId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _deadLetters.ListAsync(topic, page, pageSize, ct, eventType, fromUtc, toUtc, eventId));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(DeadLetterSorting.DeadLetters, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _deadLetters.ListAsync(topic, page, pageSize, ct, eventType, fromUtc, toUtc, eventId, sortBy, direction));
+    }
 
     /// <summary>Flags as replayed WITHOUT re-publishing (use when the fix was applied out-of-band).</summary>
     [HttpPost("dead-letters/{id:guid}/mark-replayed")]

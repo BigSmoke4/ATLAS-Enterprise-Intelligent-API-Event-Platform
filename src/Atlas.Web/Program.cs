@@ -13,6 +13,7 @@ using Atlas.Modules.Reliability.Presentation;
 using Atlas.Modules.ServiceRegistry.Presentation;
 using Atlas.Modules.TrafficManagement.Presentation;
 using Atlas.Shared.Contracts;
+using Atlas.Shared.Security;
 using Atlas.Shared.Web;
 using Serilog;
 using Atlas.Web.Middleware;
@@ -90,6 +91,26 @@ builder.Services.AddAuthentication(options =>
         context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
     };
 });
+
+// OAuth/OIDC federation. The configuration contract below is real: the section
+// is bound and validated so an operator's intent to federate is never silently
+// ignored — a half-configured provider stops the host with an actionable
+// message. The OpenIdConnect handler itself is a marked extension point (see
+// docs/security.md and ADR-010): registering it is a deliberate follow-up, so
+// the platform runs on local cookie + API-key authentication until then.
+var oidc = builder.Configuration.GetSection(OidcOptions.SectionName).Get<OidcOptions>() ?? new OidcOptions();
+var oidcErrors = oidc.Validate();
+if (oidcErrors.Count > 0)
+{
+    throw new InvalidOperationException(
+        "OAuth/OIDC configuration is incomplete and must not be ignored: " + string.Join(" ", oidcErrors) +
+        " Complete the Oidc section, or remove it to run with local authentication only.");
+}
+if (oidc.HasAnyValue)
+{
+    Log.Warning("OAuth/OIDC configuration detected (Authority: {Authority}) but no OpenIdConnect handler is registered in this build — external sign-in stays disabled. See docs/security.md for the marked extension point.",
+        oidc.Authority);
+}
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })
     .AddCheck<PostgresHealthCheck>("postgres", tags: new[] { "ready" })
