@@ -3,6 +3,7 @@ using System;
 using Atlas.Modules.Observability.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Atlas.Modules.Observability.Infrastructure.Migrations
 {
     [DbContext(typeof(ObservabilityDbContext))]
-    partial class ObservabilityDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261004123918_ModelSync")]
+    partial class ModelSync
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

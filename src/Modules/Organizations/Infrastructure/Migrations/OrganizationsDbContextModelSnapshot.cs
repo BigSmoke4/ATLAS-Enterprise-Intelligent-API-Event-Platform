@@ -40,8 +40,11 @@ namespace Atlas.Modules.Organizations.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
-                    b.Property<byte[]>("RowVersion")
-                        .HasColumnType("bytea");
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<int>("Tier")
                         .HasColumnType("integer");
@@ -73,10 +76,11 @@ namespace Atlas.Modules.Organizations.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<uint>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea");
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("Slug")
                         .IsRequired()
@@ -111,8 +115,11 @@ namespace Atlas.Modules.Organizations.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationId")
                         .HasColumnType("uuid");
 
-                    b.Property<byte[]>("RowVersion")
-                        .HasColumnType("bytea");
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<DateTimeOffset?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
