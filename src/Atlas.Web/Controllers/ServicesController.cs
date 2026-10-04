@@ -44,18 +44,19 @@ public class ServicesController : Controller
 
         var topology = await _topology.BuildAsync(organizationId, TimeSpan.FromMinutes(TopologyTelemetryWindowMinutes), ct);
 
+        var policies = new Dictionary<Guid, TrafficPolicyDto?>();
+        foreach (var node in topology.Nodes.Take(25))
+        {
+            policies[node.Id] = await _trafficPolicies.GetAsync(organizationId, node.Id, ct);
+        }
+
         var model = new ServiceTopologyViewModel
         {
             HasOrganizationContext = organizationId != Guid.Empty,
             OrganizationId = organizationId,
             Topology = topology,
-            TrafficPolicies = new Dictionary<Guid, TrafficPolicyDto?>()
+            TrafficPolicies = policies
         };
-
-        foreach (var node in topology.Nodes.Take(25))
-        {
-            model.TrafficPolicies[node.Id] = await _trafficPolicies.GetAsync(organizationId, node.Id, ct);
-        }
 
         return View(model);
     }

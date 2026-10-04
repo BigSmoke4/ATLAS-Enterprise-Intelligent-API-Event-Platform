@@ -80,7 +80,10 @@ public sealed class MetricsController : ControllerBase
             organizationId,
             capturedAtUtc = DateTimeOffset.UtcNow,
             database = database is null
-                ? new { available = false, reason = "PostgreSQL statistics could not be read." }
+                // Cast keeps the two branches a single expression type while
+                // still emitting a distinct shape per branch ("reason" only
+                // exists when the probe could not read pg_stat_database).
+                ? (object)new { available = false, reason = "PostgreSQL statistics could not be read." }
                 : new
                 {
                     available = true,

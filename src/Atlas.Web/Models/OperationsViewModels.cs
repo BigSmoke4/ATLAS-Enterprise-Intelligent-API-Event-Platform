@@ -29,6 +29,14 @@ public sealed class ServiceTopologyViewModel
         ServiceHealth.Unhealthy or ServiceHealth.Unavailable => "bad",
         _ => "idle"
     };
+
+    /// <summary>
+    /// Tone for the topology read model, whose health is the recorded
+    /// <see cref="ServiceHealth"/> name as a string (the read model is
+    /// serialized to the browser as JSON, where enums are names).
+    /// </summary>
+    public static string HealthTone(string health)
+        => Enum.TryParse<ServiceHealth>(health, ignoreCase: true, out var parsed) ? HealthTone(parsed) : "idle";
 }
 
 /// <summary>Event platform page: dead-letter backlog plus the replay capability flags.</summary>
