@@ -57,7 +57,7 @@ jobs:
 
       - name: Commit and push the generated migrations
         run: |
-          set -euo pipefail
+          set -uo pipefail
           git config user.name "atlas-migrations[bot]"
           git config user.email "atlas-migrations[bot]@users.noreply.github.com"
           git add 'src/Modules/*/Infrastructure/Migrations'
@@ -66,9 +66,17 @@ jobs:
             exit 0
           fi
           git commit -m "Add generated EF Core migrations (${{ inputs.migration_name || 'InitialSchema' }})"
+          echo "::notice::generated $(git show --stat --oneline HEAD | head -1)"
           # The branch can move while a generation run is in flight, so replay
           # the commit on top of the newest tip before pushing.
-          git pull --rebase origin "${{ github.ref_name }}"
-          git push origin "HEAD:${{ github.ref_name }}"
-          echo "Committed:"
-          git show --stat --oneline HEAD
+          if ! git pull --rebase origin "${BRANCH}" > pull.log 2>&1; then
+            sed -n '1,20p' pull.log | while IFS= read -r line; do echo "::error::pull-rebase: $line"; done
+            exit 1
+          fi
+          if ! git push origin "HEAD:${BRANCH}" > push.log 2>&1; then
+            sed -n '1,20p' push.log | while IFS= read -r line; do echo "::error::push: $line"; done
+            exit 1
+          fi
+          echo "::notice::pushed $(git rev-parse --short HEAD) to ${BRANCH}"
+        env:
+          BRANCH: ${{ github.ref_name }}
