@@ -3,19 +3,35 @@ using Atlas.Modules.DeploymentIntelligence.Infrastructure;
 using Atlas.Modules.Observability.Application;
 using Atlas.Modules.Observability.Domain;
 using Atlas.Shared.Application;
+using Atlas.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Atlas.Modules.DeploymentIntelligence.Application;
+
+/// <summary>Topic names owned by this module, kept as constants so producer and configuration cannot drift silently.</summary>
+public static class DeploymentTopics
+{
+    public const string Deployments = "atlas.events.deployments";
+}
 
 public class DeploymentRegressionService : IDeploymentRegressionService
 {
     private readonly DeploymentIntelligenceDbContext _db;
     private readonly ISloService _sloService; // cross-module via Application interface only — never Observability's DbContext
+    private readonly IEventPublisher? _publisher; // optional: present only when Kafka is configured
+    private readonly ILogger<DeploymentRegressionService>? _logger;
 
-    public DeploymentRegressionService(DeploymentIntelligenceDbContext db, ISloService sloService)
+    public DeploymentRegressionService(
+        DeploymentIntelligenceDbContext db,
+        ISloService sloService,
+        IEventPublisher? publisher = null,
+        ILogger<DeploymentRegressionService>? logger = null)
     {
         _db = db;
         _sloService = sloService;
+        _publisher = publisher;
+        _logger = logger;
     }
 
     public async Task<Result<Guid>> RecordDeploymentAsync(Guid organizationId, Guid serviceId, string version, string environment,
@@ -27,11 +43,52 @@ public class DeploymentRegressionService : IDeploymentRegressionService
             deployment.MarkSucceeded();
             _db.Deployments.Add(deployment);
             await _db.SaveChangesAsync(ct);
+
+            await PublishDeploymentRecordedAsync(deployment, ct);
             return Result<Guid>.Success(deployment.Id);
         }
         catch (ArgumentException ex)
         {
             return Result<Guid>.Failure(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Publishes the integration event for a recorded deployment.
+    ///
+    /// The deployment itself is already durable at this point, so a broker
+    /// outage is logged and counted — it must never roll back the recording or
+    /// pretend the event was delivered. When Kafka is not configured there is
+    /// no publisher at all, which is reported the same way (the console's
+    /// event pipeline page shows the dead-letter queue and the lag that the
+    /// consumer would otherwise report).
+    /// </summary>
+    private async Task PublishDeploymentRecordedAsync(Deployment deployment, CancellationToken ct)
+    {
+        if (_publisher is null)
+        {
+            _logger?.LogDebug("Deployment {DeploymentId} recorded without publishing: no IEventPublisher configured.", deployment.Id);
+            return;
+        }
+
+        try
+        {
+            var @event = DeploymentRecordedIntegrationEvent.Create(
+                deployment.OrganizationId, deployment.Id, deployment.ServiceId,
+                deployment.Version, deployment.Environment, deployment.CommitSha, deployment.Author);
+
+            await _publisher.PublishAsync(DeploymentTopics.Deployments, @event, ct);
+            Atlas.Shared.Observability.AtlasMetrics.EventsPublished.Add(1,
+                new KeyValuePair<string, object?>("topic", DeploymentTopics.Deployments),
+                new KeyValuePair<string, object?>("event_type", DeploymentRecordedIntegrationEvent.TypeName));
+        }
+        catch (Exception ex)
+        {
+            Atlas.Shared.Observability.AtlasMetrics.EventsPublished.Add(1,
+                new KeyValuePair<string, object?>("topic", DeploymentTopics.Deployments),
+                new KeyValuePair<string, object?>("event_type", DeploymentRecordedIntegrationEvent.TypeName),
+                new KeyValuePair<string, object?>("outcome", "failed"));
+            _logger?.LogWarning(ex, "Deployment {DeploymentId} was recorded but its integration event could not be published.", deployment.Id);
         }
     }
 

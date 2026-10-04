@@ -40,6 +40,10 @@ public class EventPlatformModule : IAtlasModule
         services.AddSingleton<IEventHandlerRegistry>(dispatcher);
         services.AddSingleton<IEventHandlerDispatcher>(dispatcher);
 
+        // Consumer handlers are registered at host start (see the class docs);
+        // without this the dispatcher would exist but dispatch nothing.
+        services.AddHostedService<EventPlatformHandlerRegistration>();
+
         // Consumer-lag registry: always registered so the metrics endpoint can
         // answer honestly ("no consumer running") instead of 404/500 when Kafka
         // is not configured.

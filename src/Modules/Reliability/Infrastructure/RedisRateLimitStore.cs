@@ -23,17 +23,21 @@ public class RedisRateLimitStore : IRateLimitStore
         redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[2]) + 1000)
         return count";
 
+    // Returns "allowed:level" as a single bulk string. A multi-bulk reply would
+    // need a RedisResult[] conversion that StackExchange.Redis does not define,
+    // and one atomic round trip giving one readable string is simpler to verify
+    // than an array whose element types are asserted at the call site.
     private const string LeakyScript = @"
         local now = tonumber(ARGV[1])
         local interval = 1000 / tonumber(ARGV[2])
         redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, now)
         local count = redis.call('ZCARD', KEYS[1])
         local capacity = tonumber(ARGV[3])
-        if count >= capacity then return {0, count} end
+        if count >= capacity then return string.format('%d:%.6f', 0, count) end
         local member = ARGV[4]
         redis.call('ZADD', KEYS[1], now + interval, member)
         redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[5]))
-        return {1, count + 1}";
+        return string.format('%d:%.6f', 1, count + 1)";
 
     private const string TokenScript = @"
         local now = tonumber(ARGV[1])
@@ -52,7 +56,7 @@ public class RedisRateLimitStore : IRateLimitStore
         local allowed = 0
         if level >= cost then level = level - cost; allowed = 1 end
         redis.call('SET', KEYS[1], tostring(level) .. '|' .. tostring(now), 'PX', ARGV[5])
-        return {allowed, level}";
+        return string.format('%d:%.6f', allowed, level)";
 
     public async Task<long> IncrementAsync(string key, TimeSpan window, CancellationToken ct = default)
     {
@@ -83,17 +87,35 @@ public class RedisRateLimitStore : IRateLimitStore
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var raw = await _redis.GetDatabase().ScriptEvaluateAsync(LeakyScript, [new RedisKey(key)], [now, leakPerSecond, capacity, Guid.NewGuid().ToString("N"), (long)ttl.TotalMilliseconds]);
-        var result = raw as RedisResult[] ?? throw new InvalidOperationException("Unexpected response from the leaky-bucket script.");
-        if (result.Length < 2) throw new InvalidOperationException("Incomplete response from the leaky-bucket script.");
-        return ((long)result[0] == 1, (long)result[1]);
+        var (allowed, level) = ParseDecision(raw, "leaky-bucket");
+        return (allowed, (long)Math.Round(level, MidpointRounding.AwayFromZero));
     }
 
     public async Task<(bool Allowed, double Level)> TryConsumeTokenBucketAsync(string key, double capacity, double refillPerSecond, double cost, TimeSpan ttl, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var raw = await _redis.GetDatabase().ScriptEvaluateAsync(TokenScript, [new RedisKey(key)], [now, capacity, refillPerSecond, cost, (long)ttl.TotalMilliseconds]);
-        var result = raw as RedisResult[] ?? throw new InvalidOperationException("Unexpected response from the token-bucket script.");
-        if (result.Length < 2) throw new InvalidOperationException("Incomplete response from the token-bucket script.");
-        return ((long)result[0] == 1, (double)result[1]);
+        return ParseDecision(raw, "token-bucket");
+    }
+
+    /// <summary>
+    /// Parses the "allowed:level" decision the bucket scripts return. A
+    /// missing or malformed reply is an infrastructure failure, so it throws
+    /// rather than defaulting to "allowed" — failing open would silently
+    /// disable rate limiting during a Redis incident.
+    /// </summary>
+    private static (bool Allowed, double Level) ParseDecision(RedisResult raw, string scriptName)
+    {
+        var text = (string?)raw;
+        if (string.IsNullOrWhiteSpace(text))
+            throw new InvalidOperationException($"The {scriptName} rate-limit script returned no decision.");
+
+        var separator = text.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0)
+            throw new InvalidOperationException($"The {scriptName} rate-limit script returned an unreadable decision ('{text}').");
+
+        var allowed = text.AsSpan(0, separator).SequenceEqual("1");
+        var level = double.Parse(text.AsSpan(separator + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture);
+        return (allowed, level);
     }
 }

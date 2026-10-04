@@ -105,6 +105,7 @@ builder.Services.AddSingleton<Atlas.Web.Observability.IDatabaseMetricsProbe>(
 // Presentation-shaped read models that join several modules' application
 // services (see the class docs for why they live in the composition root).
 builder.Services.AddScoped<Atlas.Web.ReadModels.ServiceTopologyReadModel>();
+builder.Services.AddScoped<Atlas.Web.ReadModels.AlertReadModel>();
 
 foreach (var module in modules)
 {

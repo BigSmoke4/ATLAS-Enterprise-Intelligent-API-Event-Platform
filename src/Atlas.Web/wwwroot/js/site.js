@@ -21,6 +21,7 @@ const PAGE_MODULES = {
   apis: () => import('./pages/api-management.js'),
   events: () => import('./pages/events.js'),
   deployments: () => import('./pages/deployments.js'),
+  reliability: () => import('./pages/reliability.js'),
   policies: () => import('./pages/policies.js'),
   ai: () => import('./pages/ai.js'),
   audit: () => import('./pages/audit.js')
