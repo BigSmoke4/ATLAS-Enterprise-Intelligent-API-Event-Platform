@@ -69,16 +69,25 @@ jobs:
         # not be the exception.
         run: |
           set -uo pipefail
-          if ! scripts/add-migration.sh "${{ inputs.migration_name || 'ModelSync' }}" > generation.log 2>&1; then
-            echo "::error::migration generation failed; the last 40 lines of its output follow"
-            tail -n 40 generation.log | while IFS= read -r line; do
+          scripts/add-migration.sh "${{ inputs.migration_name || 'ModelSync' }}" > generation.log 2>&1
+          EXIT=$?
+          echo "::warning::add-migration.sh exit ${EXIT}; generation.log has $(wc -l < generation.log) line(s)"
+          # Publish head and tail: a process that dies mid-run (segfault, OOM,
+          # aborted host) loses whichever end of the log is farther from the
+          # failure, so both ends are reported, with the line count making it
+          # obvious whether anything was lost.
+          for range in "head -n 20" "tail -n 40"; do
+            echo "::warning::--- ${range} ---"
+            ${range} generation.log | while IFS= read -r line; do
               line="${line//'%'/'%25'}"
               line="${line//$'\r'/'%0D'}"
               echo "::error::add-migration: ${line}"
             done
-            exit 1
+          done
+          if [ "${EXIT}" -ne 0 ]; then
+            echo "::error::migration generation failed with exit ${EXIT}"
+            exit "${EXIT}"
           fi
-          tail -n 20 generation.log
         env:
           # The design-time host boots Program.cs, so each module must find the
           # configuration keys it requires. No server needs to be reachable:
@@ -86,6 +95,14 @@ jobs:
           ConnectionStrings__Postgres: "Host=localhost;Database=atlas_design;Username=atlas;Password=atlas_design"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Upload the generation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generation-log
+          path: generation.log
+          if-no-files-found: ignore
 
       - name: Commit and push the generated migrations
         run: |
