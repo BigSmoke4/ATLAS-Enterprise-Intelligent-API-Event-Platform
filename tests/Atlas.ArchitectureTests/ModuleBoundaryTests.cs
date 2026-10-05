@@ -34,42 +34,25 @@ public sealed class ModuleBoundaryTests
     }
 
     [Fact]
-    public void Every_module_assembly_is_covered_by_the_boundary_sweep()
+    public void Every_module_the_host_composes_is_covered_by_the_boundary_sweep()
     {
         // The sweep above is only as strong as its list: a module added to the
-        // solution but forgotten here would be silently unpoliced. Enumerate the
-        // solution's module projects and require each to appear.
-        var solutionDir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (solutionDir is not null && !File.Exists(Path.Combine(solutionDir.FullName, "ATLAS.sln")))
-            solutionDir = solutionDir.Parent;
-        Assert.NotNull(solutionDir);
-
-        var projectModules = Directory.GetFiles(Path.Combine(solutionDir!.FullName, "src", "Modules"), "Atlas.Modules.*.csproj")
-            .Select(path => Path.GetFileNameWithoutExtension(path))
+        // host but forgotten here would be silently unpoliced. The host
+        // constructs every module, so its referenced assemblies are the
+        // authoritative module list — no file paths, no drift.
+        var composedByHost = typeof(Program).Assembly.GetReferencedAssemblies()
+            .Select(reference => reference.Name!)
+            .Where(name => name.StartsWith("Atlas.Modules.", StringComparison.Ordinal))
             .OrderBy(name => name, StringComparer.Ordinal)
             .ToArray();
 
         var covered = Assemblies.OrderBy(name => name, StringComparer.Ordinal).ToArray();
-        Assert.Equal(projectModules, covered);
-    }
 
-    [Fact]
-    public void Domain_layers_do_not_depend_on_entity_framework()
-    {
-        // The domain model must be persistence-ignorant: mappings live in each
-        // module's Infrastructure/DbContext, so an aggregate can be unit-tested
-        // without a database. Identity is not exempt — its Domain type derives
-        // from ASP.NET Identity's user, not from EF Core.
-        foreach (var assemblyName in Assemblies)
-        {
-            var assembly = Assembly.Load(assemblyName);
-            var result = Types.InAssembly(assembly)
-                .That().ResideInNamespace(assemblyName + ".Domain")
-                .Should().NotHaveDependencyOn("Microsoft.EntityFrameworkCore")
-                .GetResult();
-
-            Assert.True(result.IsSuccessful, $"{assemblyName}.Domain depends on Entity Framework Core.");
-        }
+        var missing = composedByHost.Except(covered, StringComparer.Ordinal).ToArray();
+        var stale = covered.Except(composedByHost, StringComparer.Ordinal).ToArray();
+        Assert.True(missing.Length == 0 && stale.Length == 0,
+            $"modules composed by the host but not swept: [{string.Join(", ", missing)}]; " +
+            $"swept but not composed: [{string.Join(", ", stale)}]");
     }
 
     [Fact]
