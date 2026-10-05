@@ -1,1 +1,91 @@
-.atlas-field { display: grid; gap: 6px; }.atlas-field label { color: var(--atlas-text-dim); font-size: .8rem; }.atlas-field input,.atlas-field select { background: var(--atlas-surface-inset); border: 1px solid var(--atlas-border); color: var(--atlas-text); padding: 8px; }
+/* ==========================================================================
+   Forms: inset text fields, selects and validation feedback. Fields look
+   recessed into the panel; focus is signalled with a bezel glow.
+   ========================================================================== */
+
+.atlas-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.atlas-field--inline { align-items: center; flex-direction: row; gap: var(--atlas-gap-sm); }
+.atlas-field__label {
+  color: var(--atlas-text-mute);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: var(--atlas-label-spacing);
+  text-transform: uppercase;
+}
+.atlas-field__hint { color: var(--atlas-text-mute); font-size: 0.7rem; }
+.atlas-field__error { color: var(--atlas-red); font-size: 0.72rem; }
+
+.atlas-input,
+.atlas-select,
+.atlas-textarea {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  color: var(--atlas-text);
+  font-family: var(--atlas-font);
+  font-size: 0.84rem;
+  min-width: 0;
+  padding: 9px 11px;
+  transition: border-color var(--atlas-transition), box-shadow var(--atlas-transition);
+  width: 100%;
+}
+
+.atlas-input::placeholder, .atlas-textarea::placeholder { color: #55666f; }
+
+.atlas-input:focus, .atlas-select:focus, .atlas-textarea:focus {
+  border-color: var(--atlas-blue-dim);
+  box-shadow: var(--atlas-shadow-inset), 0 0 0 3px rgba(111, 176, 218, 0.16);
+  outline: none;
+}
+
+.atlas-input[aria-invalid="true"], .atlas-textarea[aria-invalid="true"] {
+  border-color: var(--atlas-red-dim);
+  box-shadow: var(--atlas-shadow-inset), 0 0 0 3px rgba(226, 106, 106, 0.14);
+}
+
+.atlas-input--mono, .atlas-textarea--mono { font-family: var(--atlas-font-mono); font-size: 0.8rem; }
+.atlas-input--sm { padding: 6px 9px; font-size: 0.78rem; }
+
+.atlas-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--atlas-text-mute) 50%), linear-gradient(135deg, var(--atlas-text-mute) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  padding-right: 28px;
+}
+
+.atlas-textarea { min-height: 92px; resize: vertical; line-height: 1.5; }
+
+.atlas-form-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+/* Denser variant for configuration docks with many short numeric fields. */
+.atlas-form-grid.atlas-form-grid--two { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.atlas-form-actions { align-items: center; display: flex; gap: var(--atlas-gap-sm); justify-content: flex-end; padding-top: 4px; }
+
+.atlas-toolbar {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap-sm);
+  justify-content: space-between;
+}
+
+.atlas-toolbar__group { align-items: flex-end; display: flex; flex-wrap: wrap; gap: var(--atlas-gap-sm); }
+
+.atlas-inline-form { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Login console: a single centred rack panel. */
+.atlas-auth {
+  align-items: center;
+  display: grid;
+  min-height: 100vh;
+  padding: var(--atlas-gap-lg);
+}
+
+.atlas-auth__panel { margin: 0 auto; max-width: 420px; width: 100%; }
+.atlas-auth__brand { align-items: center; display: flex; gap: 10px; justify-content: center; margin-bottom: 6px; }
+.atlas-auth__title { letter-spacing: 0.3em; }
+.atlas-auth__meta { color: var(--atlas-text-mute); font-size: 0.74rem; text-align: center; }
+.atlas-auth .atlas-panel__body { display: flex; flex-direction: column; gap: var(--atlas-gap); }

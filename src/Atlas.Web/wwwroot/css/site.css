@@ -1,8 +1,100 @@
-@import url('variables.css');
-* { box-sizing: border-box; }
-body { background: radial-gradient(circle at 15% 0%, #23323a 0, var(--atlas-bg) 42%); color: var(--atlas-text); font-family: "Segoe UI", Roboto, sans-serif; margin: 0; min-height: 100vh; }
-h1,h2,h3 { letter-spacing: .08em; font-weight: 600; } h1 { font-size: 1.15rem; } h2 { font-size: .95rem; color: var(--atlas-text-dim); }
-a { color: var(--atlas-blue); } .atlas-panel { background: var(--atlas-metal); border: 1px solid var(--atlas-border); border-radius: var(--atlas-radius); box-shadow: var(--atlas-shadow); padding: 20px; } .atlas-panel--inset { background: var(--atlas-surface-inset); box-shadow: inset 0 3px 12px rgba(0,0,0,.45), var(--atlas-shadow); }
-.atlas-status-text { color: var(--atlas-amber); font-family: ui-monospace, SFMono-Regular, monospace; letter-spacing: .04em; } .atlas-note { color: var(--atlas-text-dim); max-width: 820px; line-height: 1.6; }
-.atlas-toolbar { align-items: center; display: flex; gap: 12px; justify-content: space-between; } .atlas-kicker { color: var(--atlas-text-dim); font-size: .72rem; letter-spacing: .15em; }
-@media (max-width: 700px) { .atlas-topbar { align-items: flex-start !important; flex-wrap: wrap; } .atlas-nav { margin-left: 0 !important; width: 100%; } .atlas-shell { padding: 14px !important; } }
+/* ==========================================================================
+   Base layer + shared primitives. Imported by _Layout after variables.css.
+   ========================================================================== */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background:
+    radial-gradient(1200px 600px at 12% -10%, #1b2730 0%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #16222b 0%, transparent 55%),
+    var(--atlas-bg);
+  color: var(--atlas-text);
+  font-family: var(--atlas-font);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: 0.02em; }
+h1 { font-size: 1.05rem; letter-spacing: var(--atlas-label-spacing); text-transform: uppercase; }
+h2 { font-size: 0.86rem; letter-spacing: var(--atlas-label-spacing); text-transform: uppercase; color: var(--atlas-text-dim); }
+h3 { font-size: 0.95rem; }
+p { margin: 0 0 0.7rem; }
+
+a { color: var(--atlas-blue); text-decoration: none; transition: color var(--atlas-transition); }
+a:hover { color: #9fd0ef; }
+
+code, kbd, .atlas-mono { font-family: var(--atlas-font-mono); font-size: 0.86em; }
+kbd {
+  background: var(--atlas-inset);
+  border: 1px solid var(--atlas-line);
+  border-radius: var(--atlas-radius-sm);
+  padding: 1px 5px;
+}
+
+hr.atlas-rule { border: 0; border-top: 1px solid var(--atlas-line-soft); margin: var(--atlas-gap) 0; }
+
+/* Engraved micro-label used on every panel header, gauge caption and table head. */
+.atlas-kicker,
+.atlas-label {
+  color: var(--atlas-text-mute);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: var(--atlas-label-spacing);
+  text-transform: uppercase;
+}
+
+.atlas-note { color: var(--atlas-text-dim); font-size: 0.82rem; line-height: 1.6; }
+.atlas-dim { color: var(--atlas-text-dim); }
+.atlas-mute { color: var(--atlas-text-mute); }
+.atlas-small { font-size: 0.78rem; }
+.atlas-right { text-align: right; }
+.atlas-center { text-align: center; }
+.atlas-nowrap { white-space: nowrap; }
+.atlas-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.atlas-hidden { display: none !important; }
+.atlas-visually-hidden {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px; width: 1px;
+  overflow: hidden; position: absolute; white-space: nowrap;
+}
+
+.atlas-row { display: flex; align-items: center; gap: var(--atlas-gap-sm); }
+.atlas-row--between { justify-content: space-between; }
+.atlas-row--wrap { flex-wrap: wrap; }
+.atlas-column { display: flex; flex-direction: column; gap: var(--atlas-gap-sm); }
+.atlas-spacer { flex: 1 1 auto; }
+
+.atlas-value {
+  font-family: var(--atlas-font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.atlas-signal { font-variant-numeric: tabular-nums; font-weight: 600; }
+.atlas-signal--ok { color: var(--atlas-green); }
+.atlas-signal--warn { color: var(--atlas-amber); }
+.atlas-signal--bad { color: var(--atlas-red); }
+.atlas-signal--info { color: var(--atlas-blue); }
+.atlas-signal--idle { color: var(--atlas-text-mute); }
+
+/* Focus visibility is part of the design, not an afterthought. */
+:focus-visible {
+  outline: 2px solid var(--atlas-blue);
+  outline-offset: 2px;
+}
+
+::selection { background: rgba(111, 176, 218, 0.35); }
+
+@media (max-width: 720px) {
+  body { font-size: 13px; }
+  .atlas-shell { padding: 12px !important; }
+}

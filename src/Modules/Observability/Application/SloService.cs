@@ -44,6 +44,31 @@ public class SloService : ISloService
         if (slo is null) return null;
 
         var windowStart = DateTimeOffset.UtcNow - slo.WindowDuration;
+
+        // Evidence precedence (documented in docs/observability.md):
+        // 1. Live request telemetry — every request ATLAS actually served,
+        //    rolled up per minute with a latency histogram. Used whenever the
+        //    service has attributed traffic in the SLO window.
+        // 2. Recorded MetricSample rows — probed availability/health outcomes
+        //    and samples pushed through /api/v1/slo/samples/*.
+        // 3. No evidence -> the result reports HasData = false and the UI
+        //    shows "No telemetry available." rather than a fabricated 0%.
+        var telemetry = await _db.RequestTelemetryAggregates.AsNoTracking()
+            .Where(a => a.ServiceId == slo.ServiceId && a.WindowStartUtc >= windowStart && a.RequestCount > 0)
+            .ToListAsync(ct);
+
+        if (telemetry.Count > 0)
+        {
+            return slo.MetricType switch
+            {
+                SloMetricType.Availability or SloMetricType.ErrorRate =>
+                    SloCalculator.CalculateAvailabilityFromTelemetry(telemetry, slo.TargetValue, slo.WindowDuration),
+                SloMetricType.LatencyP95 => SloCalculator.CalculateLatencyFromTelemetry(telemetry, 95, slo.TargetValue),
+                SloMetricType.LatencyP99 => SloCalculator.CalculateLatencyFromTelemetry(telemetry, 99, slo.TargetValue),
+                _ => throw new NotSupportedException($"Unsupported metric type: {slo.MetricType}")
+            };
+        }
+
         var samples = await _db.MetricSamples
             .Where(m => m.ServiceId == slo.ServiceId && m.MetricType == slo.MetricType && m.RecordedAtUtc >= windowStart)
             .AsNoTracking()

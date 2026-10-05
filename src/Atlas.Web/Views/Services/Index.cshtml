@@ -1,33 +1,221 @@
-@using Atlas.Modules.ServiceRegistry.Application
-@model IReadOnlyList<ServiceStatusDto>
+@model ServiceTopologyViewModel
 @{
-    ViewData["Title"] = "Services";
+    ViewData["Title"] = "Service Registry & Topology";
+    ViewData["Page"] = "services";
+    ViewData["WindowMinutes"] = 15;
     Layout = "_Layout";
+    var topology = Model.Topology;
+    var nodes = topology.Nodes;
+    var first = nodes.FirstOrDefault();
 }
 
-<section class="atlas-panel">
-    <h1>SERVICE HEALTH</h1>
+<section data-atlas-command data-cadence="30000">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>Service Registry &amp; Topology</h1>
+            <span class="atlas-kicker" data-topology-summary>
+                @(nodes.Count == 0 ? "No telemetry available." : $"{nodes.Count} service(s) · generated from the registry")
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <span class="atlas-freshness">Registry read <span data-atlas-updated>—</span></span>
+            <label class="atlas-label" for="topology-search">Find</label>
+            <input class="atlas-input atlas-input--sm" id="topology-search" type="search" placeholder="service name" data-topology-search />
+            <button type="button" class="atlas-button atlas-button--primary atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
 
-    @if (Model.Count == 0)
+    @if (!Model.HasOrganizationContext)
     {
-        <p class="atlas-status-text">No telemetry available. Your organization has no registered services yet — register one via POST /api/v1/services (Role: SRE).</p>
+        <div class="atlas-panel">
+            <div class="atlas-panel__body">
+                <partial name="_Empty" model="@("No telemetry available.")" view-data='new ViewDataDictionary(ViewData) { { "Hint", "Your account is not scoped to an organization, so no topology can be resolved." }, { "Glyph", "⬡" } }' />
+            </div>
+        </div>
     }
     else
     {
-        <table class="atlas-table">
-            <thead>
-                <tr><th>Service</th><th>Health</th><th>Instances</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var s in Model)
+        <div class="atlas-observability-grid">
+            <div class="atlas-panel atlas-panel--flat">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title">Topology · registry graph with live traffic</span>
+                    <span class="atlas-freshness">Evidence: @topology.EvidenceSource</span>
+                </div>
+                <div class="atlas-panel__body">
+                    @* The SVG graph is rendered client-side from the same JSON island
+                       that carries the registry truth; the list below is the
+                       no-JavaScript baseline and stays in the DOM for screen readers. *@
+                    <div class="atlas-topology" data-atlas-topology aria-label="Service dependency topology"></div>
+                    <noscript>
+                        <ul class="atlas-dependency-tree">
+                            @foreach (var node in nodes)
+                            {
+                                <li class="atlas-dependency">
+                                    <span class="atlas-mono">@node.Name</span>
+                                    <span class="atlas-freshness">@node.Health · @node.HealthyInstances/@node.Instances instances</span>
+                                </li>
+                            }
+                        </ul>
+                    </noscript>
+                    <div class="atlas-legend atlas-legend--spaced">
+                        <span class="atlas-legend__item"><span class="atlas-lamp atlas-lamp--ok" aria-hidden="true"></span>healthy</span>
+                        <span class="atlas-legend__item"><span class="atlas-lamp atlas-lamp--warn" aria-hidden="true"></span>degraded</span>
+                        <span class="atlas-legend__item"><span class="atlas-lamp atlas-lamp--bad" aria-hidden="true"></span>unhealthy</span>
+                        <span class="atlas-legend__item"><span class="atlas-lamp atlas-lamp--idle" aria-hidden="true"></span>unknown / no telemetry</span>
+                        <span class="atlas-legend__item atlas-freshness">drag to pan · scroll to zoom · click a node to inspect it</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="atlas-panel atlas-panel--flat" data-service-detail data-service-id="@(first?.Id)">
+                <div class="atlas-panel__head">
+                    <span class="atlas-panel__title" data-detail-name>@(first?.Name ?? "No service selected")</span>
+                    <span class="atlas-badge atlas-badge--neutral" data-detail-health>@(first?.Health ?? "—")</span>
+                </div>
+                <div class="atlas-panel__body">
+                    <div class="atlas-metric-strip">
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">Instances</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-detail-instances>@(first is null ? "—" : $"{first.HealthyInstances}/{first.Instances}")</span>
+                        </div>
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">Requests/s</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-detail-rps>—</span>
+                        </div>
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">P95</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-detail-p95>—</span>
+                        </div>
+                        <div class="atlas-metric">
+                            <span class="atlas-metric__label">Deployed</span>
+                            <span class="atlas-metric__value atlas-metric__value--small" data-detail-version>@(first?.DeploymentVersion ?? "unversioned")</span>
+                        </div>
+                    </div>
+
+                    <div class="atlas-instance-list" data-detail-instance-list></div>
+
+                    <form class="atlas-form-grid" data-traffic-form>
+                        <input type="hidden" name="serviceId" value="@(first?.Id)" />
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Routing strategy</span>
+                            <select class="atlas-select" name="strategy">
+                                <option value="RoundRobin">Round robin</option>
+                                <option value="Weighted">Weighted</option>
+                                <option value="LeastConnections">Least connections</option>
+                                <option value="Latency">Lowest latency</option>
+                                <option value="HealthBased">Health based</option>
+                                <option value="Priority">Priority</option>
+                                <option value="Canary">Canary</option>
+                                <option value="BlueGreen">Blue / green</option>
+                            </select>
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Mode</span>
+                            <select class="atlas-select" name="mode">
+                                <option value="Active">Active — drives routing decisions</option>
+                                <option value="Observe">Observe — records the decision, does not route</option>
+                            </select>
+                        </label>
+                        <div class="atlas-inset atlas-inset-soft" data-traffic-targets>
+                            <span class="atlas-field__label">Targets (weight %, priority)</span>
+                            <div data-target-list></div>
+                        </div>
+                        <div class="atlas-form-actions">
+                            <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">SAVE ROUTING POLICY</button>
+                            <span class="atlas-freshness" data-traffic-status>
+                                Selection falls back to healthy instances only when no policy is active.
+                            </span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="atlas-service-grid">
+            @foreach (var node in nodes)
             {
-                <tr>
-                    <td>@s.Name</td>
-                    <td><span class="atlas-badge atlas-badge--@s.AggregateHealth.ToString().ToLowerInvariant()">@s.AggregateHealth</span></td>
-                    <td>@s.HealthyInstanceCount / @s.InstanceCount healthy</td>
-                </tr>
+                var tone = ServiceTopologyViewModel.HealthTone(node.Health);
+                Model.TrafficPolicies.TryGetValue(node.Id, out var policy);
+                <article class="atlas-service-card atlas-panel" data-service-card="@node.Id">
+                    <header class="atlas-panel__head">
+                        <span class="atlas-panel__title">
+                            <span class="atlas-lamp atlas-lamp--@tone" aria-hidden="true"></span>
+                            @node.Name
+                        </span>
+                        <span class="atlas-badge atlas-badge--@(tone == "idle" ? "neutral" : tone)">@node.Health.ToUpperInvariant()</span>
+                    </header>
+                    <div class="atlas-panel__body">
+                        <div class="atlas-metric-strip">
+                            <div class="atlas-metric">
+                                <span class="atlas-metric__label">Requests/s</span>
+                                <span class="atlas-metric__value atlas-metric__value--small">@(node.HasTelemetry ? node.RequestsPerSecond.ToString("0.00") : "—")</span>
+                            </div>
+                            <div class="atlas-metric">
+                                <span class="atlas-metric__label">P95</span>
+                                <span class="atlas-metric__value atlas-metric__value--small">@(node.HasTelemetry && node.P95Ms.HasValue ? node.P95Ms.Value.ToString("0") + " ms" : "—")</span>
+                            </div>
+                            <div class="atlas-metric">
+                                <span class="atlas-metric__label">Error rate</span>
+                                <span class="atlas-metric__value atlas-metric__value--small">@(node.HasTelemetry && node.ErrorRate.HasValue ? (node.ErrorRate.Value * 100).ToString("0.00") + "%" : "—")</span>
+                            </div>
+                            <div class="atlas-metric">
+                                <span class="atlas-metric__label">Instances</span>
+                                <span class="atlas-metric__value atlas-metric__value--small">@node.HealthyInstances/@node.Instances</span>
+                            </div>
+                        </div>
+
+                        @if (!node.HasTelemetry)
+                        {
+                            <p class="atlas-freshness">No telemetry available for this service in the selected window.</p>
+                        }
+
+                        <div class="atlas-instance-list">
+                            @foreach (var instance in node.InstanceDetails)
+                            {
+                                var instanceTone = instance.Health switch
+                                {
+                                    "Healthy" => "ok",
+                                    "Degraded" => "warn",
+                                    "Unhealthy" or "Unavailable" => "bad",
+                                    _ => "idle"
+                                };
+                                <div class="atlas-instance">
+                                    <span class="atlas-lamp atlas-lamp--sm atlas-lamp--@instanceTone" aria-hidden="true"></span>
+                                    <span class="atlas-instance__host atlas-mono atlas-small">@instance.HostAndPort</span>
+                                    <span class="atlas-freshness">@instance.Health</span>
+                                </div>
+                            }
+                            @if (node.InstanceDetails.Count == 0)
+                            {
+                                <span class="atlas-freshness">No instances registered.</span>
+                            }
+                        </div>
+
+                        <div class="atlas-policy-strip">
+                            <span class="atlas-label">Routing</span>
+                            @if (policy is null)
+                            {
+                                <span class="atlas-freshness">No traffic policy configured — selection falls back to healthy instances only.</span>
+                            }
+                            else
+                            {
+                                <span class="atlas-tag">@policy.Strategy</span>
+                                <span class="atlas-tag">@policy.Mode</span>
+                                <span class="atlas-freshness">@policy.Targets.Count target(s)</span>
+                            }
+                        </div>
+                    </div>
+                    <footer class="atlas-panel__foot atlas-freshness">
+                        Routes targeting this service: @node.RouteCount
+                        @if (node.DependsOn.Count > 0)
+                        {
+                            <text>· depends on @node.DependsOn.Count service(s)</text>
+                        }
+                    </footer>
+                </article>
             }
-            </tbody>
-        </table>
+        </div>
     }
 </section>
+
+<script type="application/json" id="services-topology">@Html.Raw(WebJson.Serialize(Model.Topology))</script>

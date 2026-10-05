@@ -34,6 +34,7 @@ public class AuditModule : IAtlasModule
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: /api/v1/audit (read-only, filterable) once needed by a real caller.
+        // The read-only, filterable audit trail is served by AuditController in
+        // Atlas.Web over IAuditQueryService; this module registers no routes.
     }
 }

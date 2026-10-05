@@ -3,9 +3,17 @@ using Atlas.Modules.DeploymentIntelligence.Infrastructure;
 using Atlas.Modules.Observability.Application;
 using Atlas.Modules.Observability.Domain;
 using Atlas.Shared.Application;
+using Atlas.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Atlas.Modules.DeploymentIntelligence.Application;
+
+/// <summary>Topic names owned by this module, kept as constants so producer and configuration cannot drift silently.</summary>
+public static class DeploymentTopics
+{
+    public const string Deployments = "atlas.events.deployments";
+}
 
 public class DeploymentRegressionService : IDeploymentRegressionService
 {
@@ -26,7 +34,14 @@ public class DeploymentRegressionService : IDeploymentRegressionService
             var deployment = Deployment.Record(organizationId, serviceId, version, environment, commitSha, author);
             deployment.MarkSucceeded();
             _db.Deployments.Add(deployment);
+            // Transactional outbox: the deployment row and its integration event
+            // are committed by the same SaveChanges. A broker outage can no longer
+            // lose the event — OutboxRelayService publishes it later, retrying with
+            // exponential backoff, and consumers are idempotent.
+            _db.OutboxMessages.Add(OutboxMessage.Create(DeploymentTopics.Deployments,
+                DeploymentRecordedIntegrationEvent.Create(organizationId, deployment.Id, serviceId, version, environment, commitSha, author)));
             await _db.SaveChangesAsync(ct);
+
             return Result<Guid>.Success(deployment.Id);
         }
         catch (ArgumentException ex)
@@ -35,12 +50,13 @@ public class DeploymentRegressionService : IDeploymentRegressionService
         }
     }
 
-    public async Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Deployment>> ListAsync(Guid organizationId, Guid? serviceId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
         var query = _db.Deployments.Where(d => d.OrganizationId == organizationId);
         if (serviceId.HasValue) query = query.Where(d => d.ServiceId == serviceId.Value);
-        return await query.OrderByDescending(d => d.DeployedAtUtc)
+        return await DeploymentSorting.Deployments.Apply(query, sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .AsNoTracking().ToListAsync(ct);
     }

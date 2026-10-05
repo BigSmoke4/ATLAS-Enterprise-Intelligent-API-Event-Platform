@@ -1,1 +1,95 @@
-.atlas-sparkline { background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(117,185,232,.08) 19px 20px), var(--atlas-surface-inset); border: 1px solid var(--atlas-border); height: 64px; }
+/* ==========================================================================
+   Charts: canvas plates inside inset bezels. Data comes from server-rendered
+   JSON islands or /api/v1/metrics; the CSS never encodes a value.
+   ========================================================================== */
+
+.atlas-chart { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.atlas-chart__plot {
+  background: radial-gradient(120% 140% at 50% -30%, #101a20 0%, var(--atlas-inset) 72%);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  height: 190px;
+  position: relative;
+}
+
+.atlas-chart__plot--tall { height: 250px; }
+.atlas-chart__plot--short { height: 120px; }
+.atlas-chart__plot canvas { display: block; height: 100%; width: 100%; }
+
+.atlas-chart__meta { align-items: baseline; display: flex; gap: var(--atlas-gap-sm); justify-content: space-between; }
+
+.atlas-chart__readout {
+  font-family: var(--atlas-font-mono);
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-chart__tooltip {
+  background: var(--atlas-metal-raised);
+  border: 1px solid var(--atlas-line-hi);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  color: var(--atlas-text);
+  display: none;
+  font-family: var(--atlas-font-mono);
+  font-size: 0.72rem;
+  padding: 6px 9px;
+  pointer-events: none;
+  position: absolute;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.atlas-chart__tooltip.is-visible { display: block; }
+
+.atlas-sparkline {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: 3px;
+  box-shadow: var(--atlas-shadow-inset);
+  display: block;
+  height: 34px;
+  width: 100%;
+}
+
+.atlas-chart-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+/* Service topology map (SVG rendered by /js/components/service-map.js). */
+.atlas-topology {
+  background: radial-gradient(90% 120% at 50% 0%, #111c23 0%, var(--atlas-inset) 70%);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  height: 460px;
+  overflow: hidden;
+  position: relative;
+}
+
+.atlas-topology svg { display: block; height: 100%; width: 100%; cursor: grab; }
+.atlas-topology svg.is-panning { cursor: grabbing; }
+.atlas-topology__controls { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; z-index: 3; }
+.atlas-topology__stage { transition: none; }
+.atlas-topology__edge { stroke: #3b5561; stroke-width: 1.4; fill: none; }
+.atlas-topology__edge--warn { stroke: var(--atlas-amber); }
+.atlas-topology__edge--bad { stroke: var(--atlas-red); }
+.atlas-topology__edge-label { fill: var(--atlas-text-mute); font-family: var(--atlas-font-mono); font-size: 9px; }
+.atlas-topology__node rect {
+  fill: url(#atlas-node-fill);
+  stroke: var(--atlas-line-hi);
+  stroke-width: 1;
+  rx: 6;
+}
+.atlas-topology__node text { fill: var(--atlas-text); font-size: 11px; }
+.atlas-topology__node.is-selected rect { stroke: var(--atlas-blue); stroke-width: 2; }
+.atlas-topology__node.is-unhealthy rect { stroke: var(--atlas-red); }
+
+.atlas-latency-bars { display: flex; flex-direction: column; gap: 9px; }
+.atlas-latency-row { display: grid; align-items: center; gap: 10px; grid-template-columns: minmax(120px, 1.4fr) 2fr auto; }
+.atlas-latency-row__label { color: var(--atlas-text-dim); font-size: 0.76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-latency-row__track { background: var(--atlas-inset); border: 1px solid #05090b; border-radius: 3px; box-shadow: var(--atlas-shadow-inset); height: 9px; overflow: hidden; }
+.atlas-latency-row__fill { background: linear-gradient(90deg, #2f7a55, var(--atlas-green)); height: 100%; }
+.atlas-latency-row__fill--warn { background: linear-gradient(90deg, #8a6427, var(--atlas-amber)); }
+.atlas-latency-row__fill--bad { background: linear-gradient(90deg, #833636, var(--atlas-red)); }
+.atlas-latency-row__value { font-family: var(--atlas-font-mono); font-size: 0.74rem; font-variant-numeric: tabular-nums; }

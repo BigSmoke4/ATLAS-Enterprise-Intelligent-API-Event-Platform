@@ -9,9 +9,10 @@ public sealed class ModuleBoundaryTests
     private static readonly string[] Assemblies =
     [
         "Atlas.Modules.Identity", "Atlas.Modules.Organizations", "Atlas.Modules.APIManagement",
-        "Atlas.Modules.ServiceRegistry", "Atlas.Modules.EventPlatform", "Atlas.Modules.Reliability",
-        "Atlas.Modules.Observability", "Atlas.Modules.IncidentManagement", "Atlas.Modules.DeploymentIntelligence",
-        "Atlas.Modules.PolicyEngine", "Atlas.Modules.AIOperations", "Atlas.Modules.Audit"
+        "Atlas.Modules.TrafficManagement", "Atlas.Modules.ServiceRegistry", "Atlas.Modules.EventPlatform",
+        "Atlas.Modules.Reliability", "Atlas.Modules.Observability", "Atlas.Modules.IncidentManagement",
+        "Atlas.Modules.DeploymentIntelligence", "Atlas.Modules.PolicyEngine", "Atlas.Modules.AIOperations",
+        "Atlas.Modules.Audit"
     ];
 
     [Fact]
@@ -30,6 +31,28 @@ public sealed class ModuleBoundaryTests
 
             Assert.True(result.IsSuccessful, $"{assemblyName} domain/application references another module infrastructure layer.");
         }
+    }
+
+    [Fact]
+    public void Every_module_the_host_composes_is_covered_by_the_boundary_sweep()
+    {
+        // The sweep above is only as strong as its list: a module added to the
+        // host but forgotten here would be silently unpoliced. The host
+        // constructs every module, so its referenced assemblies are the
+        // authoritative module list — no file paths, no drift.
+        var composedByHost = typeof(Program).Assembly.GetReferencedAssemblies()
+            .Select(reference => reference.Name!)
+            .Where(name => name.StartsWith("Atlas.Modules.", StringComparison.Ordinal))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var covered = Assemblies.OrderBy(name => name, StringComparer.Ordinal).ToArray();
+
+        var missing = composedByHost.Except(covered, StringComparer.Ordinal).ToArray();
+        var stale = covered.Except(composedByHost, StringComparer.Ordinal).ToArray();
+        Assert.True(missing.Length == 0 && stale.Length == 0,
+            $"modules composed by the host but not swept: [{string.Join(", ", missing)}]; " +
+            $"swept but not composed: [{string.Join(", ", stale)}]");
     }
 
     [Fact]

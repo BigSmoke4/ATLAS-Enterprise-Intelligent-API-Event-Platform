@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.PolicyEngine.Application;
 using Atlas.Modules.PolicyEngine.Domain;
 using Atlas.Shared.Contracts;
+using Atlas.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -23,8 +24,13 @@ public class PolicyController : ControllerBase
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
     public async Task<IActionResult> List([FromQuery] Guid organizationId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _policies.ListAsync(organizationId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(PolicySorting.Rules, sortBy, sortDirection, out var direction, out var error)) return error!;
+        var rules = await _policies.ListAsync(organizationId, page, pageSize, ct, sortBy, direction);
+        return Ok(rules.Select(PolicyRuleDto.From).ToArray());
+    }
 
     [HttpPost]
     [Authorize(Policy = "Role:PlatformAdmin")]

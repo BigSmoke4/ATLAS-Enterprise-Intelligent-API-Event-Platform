@@ -89,6 +89,66 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
+      - name: Model drift check (checked-in migrations match the EF model and the reviewed xmin edit)
+        run: |
+          set -o pipefail
+          # `migrations add` always succeeds: if the model matches the committed
+          # snapshot the new migration is empty. An empty migration is the pass
+          # condition — any schema operation means the committed migration (and
+          # its snapshot) is behind the model, which must fail the build rather
+          # than ship an unreviewed schema.
+          drift=0
+          for file in $(find src/Modules -path '*Migrations*' -name '*_CiBaseline.cs'); do
+            if grep -q 'migrationBuilder\.' "$file"; then
+              echo "::error file=$file::contains schema operations — the checked-in migration/snapshot is behind the model"
+              drift=1
+            else
+              echo "no drift: $file"
+            fi
+          done
+          if [ "$drift" -ne 0 ]; then exit 1; fi
+          echo "All eleven module models match their checked-in migrations."
+
+          # The reviewed migrations must not carry physical DDL for the "xmin"
+          # system column: PostgreSQL rejects it (42701) and the concurrency
+          # token already works through the system column. A regeneration that
+          # forgets the reviewed edit is caught here instead of at deployment.
+          bogus=0
+          for file in $(find src/Modules -path '*Migrations*' -name '*_ModelSync.cs'); do
+            if grep -qE 'migrationBuilder\.(RenameColumn|AlterColumn)' "$file" && grep -q '"xmin"' "$file"; then
+              echo "::error file=$file::contains generated DDL for the xmin system column — the reviewed edit (drop RowVersion, keep the system column) is missing"
+              bogus=1
+            fi
+          done
+          if [ "$bogus" -ne 0 ]; then exit 1; fi
+          echo "No generated migration touches the xmin system column."
+
+      - name: Validate JavaScript syntax
+        run: |
+          set -o pipefail
+          # The console ships plain ES modules with no bundler, so nothing else
+          # in the pipeline parses them. A single syntax error would silently
+          # disable a whole page module in the browser.
+          mkdir -p /tmp/js-syntax
+          failed=0
+          for file in $(find src/Atlas.Web/wwwroot/js -name '*.js' | sort); do
+            cp "$file" /tmp/js-syntax/check.mjs
+            if ! node --check /tmp/js-syntax/check.mjs 2>/tmp/js-syntax/error.txt; then
+              head -5 /tmp/js-syntax/error.txt | while IFS= read -r line; do echo "::error file=$file::$line"; done
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+          echo "All console modules parse."
+
+      - name: Secret scan
+        run: |
+          set -o pipefail
+          # Curated deny-list (cloud keys, tokens, private keys, literal secrets
+          # in configuration) plus the .env.example placeholder rule. Failures
+          # arrive as file/line annotations rather than as a log excerpt.
+          bash scripts/secret-scan.sh
+
       - name: Architecture tests
         run: |
           set -o pipefail
@@ -133,19 +193,90 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
-      - name: Integration tests - MVC page authorization
+      - name: Integration tests - MVC page authorization and CSRF filter
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~MvcPageAuthorizationTests" --logger "console;verbosity=detailed" --results-directory TestResults/mvc-pages 2>&1 | tee integration-mvc-pages.log
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~MvcPageAuthorizationTests|FullyQualifiedName~AntiforgeryFilterTests" --logger "console;verbosity=detailed" --results-directory TestResults/mvc-pages 2>&1 | tee integration-mvc-pages.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
-      - name: Integration tests - audit HTTP
+      - name: Integration tests - console page render
+        run: |
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ConsolePageRenderTests" --logger "console;verbosity=detailed" --results-directory TestResults/console-pages > integration-console-pages.log 2>&1 || true
+          # Surface the failure lines as annotations: a page that renders an
+          # error body must not be diagnosable only from an uploaded artifact.
+          grep -n -E "Failed |Error Message|Assert\.|Expected:|Actual:|Stack Trace" integration-console-pages.log | head -60 | while IFS= read -r line; do echo "::error::$line"; done
+          tail -3 integration-console-pages.log
+          if grep -q "Failed!" integration-console-pages.log; then exit 1; fi
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - audit HTTP and AI-action attribution
         run: |
           set -o pipefail
-          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuditEndpointIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/audit 2>&1 | tee integration-audit.log
+          # Audit reads, plus the write path that matters most for the ledger:
+          # an AI action attempt is attributed to the authenticated user id,
+          # whether it was confirmed-and-failed or denied for lack of
+          # confirmation (AiActionAuditIntegrationTests).
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~AuditEndpointIntegrationTests|FullyQualifiedName~AiActionAuditIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/audit 2>&1 | tee integration-audit.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - list endpoint sorting
+        run: |
+          set -o pipefail
+          # Sorting is validated in the controller (400 INVALID_SORT_FIELD)
+          # and applied at query level before Skip/Take, so it must be proven
+          # through the real pipeline, not only on the spec objects.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ListEndpointSortingTests" --logger "console;verbosity=detailed" --results-directory TestResults/list-sorting 2>&1 | tee integration-list-sorting.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - event idempotency (real PostgreSQL)
+        run: |
+          set -o pipefail
+          # The claim that a redelivered or racing event runs its handler once is
+          # a database property (the unique index on ConsumerGroup+EventId), so it
+          # is proven against PostgreSQL and not against a stub.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~EventIdempotencyIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/idempotency 2>&1 | tee integration-idempotency.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - transactional outbox (real PostgreSQL)
+        run: |
+          set -o pipefail
+          # At-least-once delivery is a property of the committed row and the
+          # leased claim, so the relay is exercised against PostgreSQL: published
+          # once and marked sent, a failed publish stays pending with a future
+          # retry window, an abandoned row is never retried, and a leased row is
+          # invisible to another pass.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~OutboxRelayIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/outbox 2>&1 | tee integration-outbox.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - federated sign-in (in-process OpenID provider)
+        run: |
+          set -o pipefail
+          # The OIDC handler is driven through the full protocol round trip
+          # against a fake provider that runs inside the test process: discovery,
+          # PKCE challenge, code exchange, a JWKS-signed id_token, nonce
+          # validation, the userinfo call, principal mapping to a real Identity
+          # row and the resulting session cookie — plus the two refusal paths and
+          # the unconfigured deployment. No external identity provider and no
+          # outbound network are involved.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~OidcSignInIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/oidc 2>&1 | tee integration-oidc.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"
@@ -178,6 +309,60 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Performance smoke test (k6 against the running host)
+        run: |
+          set -uo pipefail
+          mkdir -p TestResults
+
+          # A real host, the same configuration the integration suites use, so
+          # the smoke measurements come from the platform and not from a stub.
+          dotnet run --project src/Atlas.Web/Atlas.Web.csproj -c Release --no-build > smoke-host.log 2>&1 &
+          HOST_PID=$!
+
+          # Liveness says the process is up; readiness says PostgreSQL, Redis
+          # and Kafka answer. Measuring before readiness would report a
+          # dependency warm-up as a platform failure, so wait for readiness and
+          # publish its body (which names the failing dependency) when it never
+          # arrives — the runner log is not readable without repository access.
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/health/ready >/dev/null 2>&1; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "${ready}" -ne 1 ]; then
+            echo "::error::the ATLAS host did not report readiness within 90s"
+            curl -sS http://127.0.0.1:8080/health/ready 2>&1 | head -20 | while IFS= read -r line; do echo "::error::readiness: ${line}"; done
+            tail -40 smoke-host.log | while IFS= read -r line; do echo "::error::host: ${line}"; done
+            kill "${HOST_PID}" 2>/dev/null || true
+            exit 1
+          fi
+
+          k6 run --summary-export=TestResults/k6-smoke-summary.json tests/Atlas.PerformanceTests/atlas-smoke.js
+          K6_EXIT=$?
+          kill "${HOST_PID}" 2>/dev/null || true
+
+          if [ "${K6_EXIT}" -ne 0 ]; then
+            echo "::error::the k6 smoke thresholds were not met (exit ${K6_EXIT})"
+            # Publish the exported summary as annotations: they name the check
+            # or threshold that failed, which is the only way to see why
+            # without access to the runner log.
+            python3 scripts/k6-summary-annotations.py TestResults/k6-smoke-summary.json || true
+            tail -40 smoke-host.log | while IFS= read -r line; do echo "::error::host: ${line}"; done
+            exit "${K6_EXIT}"
+          fi
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          ASPNETCORE_URLS: http://127.0.0.1:8080
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+          ATLAS_BASE_URL: http://127.0.0.1:8080
+          VUS: "2"
+          DURATION: 20s
+
       - name: Upload integration test diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -187,6 +372,7 @@ jobs:
             TestResults
             integration-*.log
             migration-*.log
+            smoke-host.log
             unit-tests.log
             architecture-tests.log
             static-analysis.log
@@ -249,3 +435,43 @@ jobs:
           done
           echo "Container smoke test did not become healthy in time."
           exit 1
+
+  secret-history-scan:
+    name: Secret scan (gitleaks over the full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # This layer scans commits, not the working tree: a credential that was
+          # committed and later edited out is still a leaked credential.
+          fetch-depth: 0
+
+      - name: Scan every commit with gitleaks
+        run: |
+          set -o pipefail
+          # Independent of scripts/secret-scan.sh: that one is ATLAS's own
+          # reviewed deny-list over the working tree, this one is an external
+          # engine with its own rules and entropy heuristics over git history.
+          # Both must pass — the cheap gate stays in the main job, this is the
+          # second layer that catches what a curated pattern list misses.
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose \
+            --report-format sarif --report-path /repo/gitleaks.sarif || GITLEAKS_EXIT=$?
+
+          # The report is written before the process exits non-zero, so it is
+          # always worth publishing the findings.
+          python3 scripts/gitleaks-annotations.py gitleaks.sarif
+
+          if [ "${GITLEAKS_EXIT:-0}" -ne 0 ]; then
+            echo "::error::gitleaks detected committed secrets (exit ${GITLEAKS_EXIT})"
+            exit "${GITLEAKS_EXIT}"
+          fi
+          echo "No committed secrets found in the full history."
+
+      - name: Upload the gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks.sarif
+          if-no-files-found: ignore

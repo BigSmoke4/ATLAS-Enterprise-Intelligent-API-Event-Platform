@@ -20,9 +20,17 @@ public class ApiRoute : TenantEntity
     public TimeSpan Timeout { get; private set; } = TimeSpan.FromSeconds(30);
     public int MaxRetries { get; private set; } = 0;
 
+    /// <summary>
+    /// The registered service (ServiceRegistry) this route dispatches to.
+    /// Nullable on purpose: a route can be catalogued before its backing
+    /// service is registered, and telemetry attribution treats "no target
+    /// service" as unattributed rather than guessing.
+    /// </summary>
+    public Guid? TargetServiceId { get; private set; }
+
     private ApiRoute() { }
 
-    public static ApiRoute Create(Guid organizationId, Guid apiVersionId, string path, string httpMethod, RateLimitPolicy? rateLimit)
+    public static ApiRoute Create(Guid organizationId, Guid apiVersionId, string path, string httpMethod, RateLimitPolicy? rateLimit, Guid? targetServiceId = null)
     {
         if (string.IsNullOrWhiteSpace(path) || !path.StartsWith('/'))
             throw new ArgumentException("Route path must start with '/'.", nameof(path));
@@ -61,6 +69,14 @@ public class ApiRoute : TenantEntity
             throw new ArgumentException("Rate limit must have a positive limit and window.");
         RateLimit = rateLimit;
     }
+
+    /// <summary>Points the route at a registered service, or clears the target when null.</summary>
+    public void SetTargetService(Guid? serviceId)
+    {
+        if (serviceId == Guid.Empty) serviceId = null;
+        TargetServiceId = serviceId;
+        Touch();
+    }
 }
 
 /// <summary>
@@ -68,7 +84,11 @@ public class ApiRoute : TenantEntity
 /// algorithms (Modules/Reliability/Domain) — this module only stores the
 /// numbers, Reliability owns the enforcement math.
 /// </summary>
-public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope, RateLimitAlgorithm Algorithm = RateLimitAlgorithm.FixedWindow);
+public record RateLimitPolicy(int LimitPerWindow, TimeSpan Window, RateLimitScope Scope, RateLimitAlgorithm Algorithm = RateLimitAlgorithm.FixedWindow)
+{
+    /// <summary>Window in whole seconds — the unit the console and the Redis limiter both speak.</summary>
+    public int WindowSeconds => (int)Math.Round(Window.TotalSeconds);
+}
 
 public enum RateLimitScope { Ip, User, ApiKey, Tenant, Endpoint, Global }
 public enum RateLimitAlgorithm { FixedWindow, TokenBucket, SlidingWindow, LeakyBucket }

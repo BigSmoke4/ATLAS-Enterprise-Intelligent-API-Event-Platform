@@ -1,1 +1,91 @@
-.atlas-table { border-collapse: collapse; width: 100%; }.atlas-table th { color: var(--atlas-text-dim); font-size: .72rem; letter-spacing: .1em; text-align: left; text-transform: uppercase; }.atlas-table td, .atlas-table th { border-bottom: 1px solid rgba(100,119,129,.35); padding: 12px 10px; }.atlas-table tbody tr:hover { background: rgba(117,185,232,.06); }
+/* ==========================================================================
+   Data tables: dense, instrument-grade, skinable with sticky headers.
+   ========================================================================== */
+
+.atlas-table-wrap {
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  overflow: auto;
+  background: var(--atlas-inset-soft);
+}
+
+.atlas-table { border-collapse: collapse; font-size: 0.8rem; min-width: 100%; width: 100%; }
+
+.atlas-table thead th {
+  background: var(--atlas-metal-raised);
+  border-bottom: 1px solid var(--atlas-line);
+  color: var(--atlas-text-mute);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: var(--atlas-label-spacing);
+  padding: 9px 12px;
+  position: sticky;
+  text-align: left;
+  text-transform: uppercase;
+  top: 0;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.atlas-table tbody td {
+  border-bottom: 1px solid var(--atlas-line-soft);
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.atlas-table tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+.atlas-table tbody tr:last-child td { border-bottom: 0; }
+.atlas-table tbody tr.is-selected { background: rgba(111, 176, 218, 0.08); box-shadow: inset 3px 0 0 var(--atlas-blue); }
+.atlas-table tbody tr.is-alert { box-shadow: inset 3px 0 0 var(--atlas-red); }
+.atlas-table tbody tr.is-warn { box-shadow: inset 3px 0 0 var(--atlas-amber); }
+
+.atlas-table--compact tbody td, .atlas-table--compact thead th { padding: 6px 10px; }
+.atlas-table--zebra tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.012); }
+
+.atlas-table th.is-numeric, .atlas-table td.is-numeric,
+.atlas-table .is-numeric { font-family: var(--atlas-font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+.atlas-table td.is-mono { font-family: var(--atlas-font-mono); font-size: 0.76rem; }
+
+.atlas-table__sort {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 0;
+  text-transform: inherit;
+}
+
+.atlas-table__sort::after { content: " \25B4\25BE"; color: var(--atlas-line-hi); font-size: 0.6rem; }
+.atlas-table__sort[data-sort-direction="asc"]::after { content: " \25B4"; color: var(--atlas-blue); }
+.atlas-table__sort[data-sort-direction="desc"]::after { content: " \25BE"; color: var(--atlas-blue); }
+
+.atlas-table__caption {
+  color: var(--atlas-text-mute);
+  font-size: 0.7rem;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.atlas-table-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap-sm);
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  background: var(--atlas-metal);
+}
+
+.atlas-table-pager { align-items: center; display: flex; gap: 8px; }
+.atlas-table-pager__status { color: var(--atlas-text-mute); font-size: 0.72rem; }
+
+.atlas-empty-row td {
+  color: var(--atlas-text-mute);
+  font-style: italic;
+  padding: 18px 12px;
+  text-align: center;
+}

@@ -1,0 +1,27 @@
+/* ==========================================================================
+   Audit trail: read-only ledger. No affordance on this page can mutate an
+   entry, and the styling reinforces that — nothing here looks editable.
+   ========================================================================== */
+
+[data-audit-body] td {
+  font-size: 0.74rem;
+  vertical-align: top;
+}
+
+[data-audit-body] td.atlas-mono {
+  color: var(--atlas-text-dim);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.atlas-table-toolbar .atlas-label { margin-right: 2px; }
+[data-audit-filter] { max-width: 220px; }
+
+.atlas-alert--info .atlas-mono { color: var(--atlas-blue); }
+
+.atlas-hash {
+  color: var(--atlas-text-mute);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+}

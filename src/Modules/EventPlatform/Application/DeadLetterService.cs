@@ -9,7 +9,9 @@ namespace Atlas.Modules.EventPlatform.Application;
 public interface IDeadLetterService
 {
     Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default, int version = 1);
-    Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null);
+    /// <summary>Page of dead-lettered events; <c>sortBy</c> must come from <see cref="DeadLetterSorting.DeadLetters"/>.</summary>
+    Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending);
 
     /// <summary>Flags a dead-lettered event as replayed WITHOUT re-publishing it — use when the fix was applied out-of-band (e.g. a manual data correction) and the message itself should not run again.</summary>
     Task<DeadLetterOperationResult> MarkReplayedAsync(Guid deadLetterEventId, CancellationToken ct = default);
@@ -61,7 +63,8 @@ public class DeadLetterService : IDeadLetterService
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null)
+    public async Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
         var query = _db.DeadLetterEvents.Where(d => !d.Replayed);
@@ -70,7 +73,7 @@ public class DeadLetterService : IDeadLetterService
         if (fromUtc.HasValue) query = query.Where(d => d.LastFailedAtUtc >= fromUtc.Value);
         if (toUtc.HasValue) query = query.Where(d => d.LastFailedAtUtc <= toUtc.Value);
         if (eventId.HasValue) query = query.Where(d => d.EventId == eventId.Value);
-        return await query.AsNoTracking().OrderByDescending(d => d.LastFailedAtUtc)
+        return await DeadLetterSorting.DeadLetters.Apply(query.AsNoTracking(), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync(ct);
     }

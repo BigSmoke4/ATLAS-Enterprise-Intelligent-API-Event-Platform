@@ -1,1 +1,61 @@
-.service-summary { display: flex; gap: 24px; color: var(--atlas-text-dim); font-size: .85rem; margin-bottom: 18px; }
+/* ==========================================================================
+   Service Registry + topology page.
+   ========================================================================== */
+
+.atlas-service-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); }
+
+.atlas-service-card {
+  background: var(--atlas-panel);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-card);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 12px;
+  transition: border-color var(--atlas-transition), transform var(--atlas-transition);
+}
+
+.atlas-service-card:hover { border-color: var(--atlas-line-hi); transform: translateY(-1px); }
+.atlas-service-card.is-selected { border-color: var(--atlas-blue); box-shadow: var(--atlas-shadow-card), 0 0 0 1px rgba(111, 176, 218, 0.35); }
+.atlas-service-card__head { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.atlas-service-card__name { font-size: 0.86rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.atlas-service-card__stats { display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); }
+.atlas-service-card__stat { display: flex; flex-direction: column; gap: 1px; }
+.atlas-service-card__stat-value { font-family: var(--atlas-font-mono); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+
+.atlas-instance-list { display: flex; flex-direction: column; gap: 4px; }
+.atlas-instance {
+  align-items: center;
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: 3px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 6px 9px;
+}
+.atlas-instance__host { font-family: var(--atlas-font-mono); font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.atlas-dependency-tree { display: flex; flex-direction: column; gap: 8px; }
+.atlas-dependency {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  font-size: 0.78rem;
+}
+.atlas-dependency__arrow { color: var(--atlas-text-mute); font-family: var(--atlas-font-mono); }
+
+.atlas-traffic-target {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(90px, 1fr) 64px 1fr;
+  padding: 5px 0;
+}
+.atlas-traffic-target__weight { font-family: var(--atlas-font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+@media (max-width: 1100px) {
+  .atlas-service-grid { grid-template-columns: minmax(0, 1fr); }
+}

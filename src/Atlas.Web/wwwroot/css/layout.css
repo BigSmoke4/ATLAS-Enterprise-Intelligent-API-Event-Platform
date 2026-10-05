@@ -1,2 +1,153 @@
-.atlas-topbar { align-items: baseline; background: var(--atlas-metal); border-bottom: 1px solid var(--atlas-border); box-shadow: 0 4px 18px rgba(0,0,0,.35); display: flex; gap: 12px; padding: 14px 24px; position: sticky; top: 0; z-index: 10; }.atlas-brand { font-weight: 800; letter-spacing: .2em; font-size: 1.2rem; }.atlas-subbrand { color: var(--atlas-text-dim); font-size: .82rem; }.atlas-shell { display: grid; gap: 16px; margin: 0 auto; max-width: 1440px; padding: 24px; }.atlas-nav { display: flex; gap: 16px; margin-left: auto; }.atlas-nav a { color: var(--atlas-text-dim); font-size: .82rem; text-decoration: none; }.atlas-nav a:hover, .atlas-nav a[aria-current="page"] { color: var(--atlas-text); }.atlas-footer { color: var(--atlas-text-dim); font-size: .75rem; padding: 12px 0; }
-.atlas-nav { align-items: center; }.atlas-inline-form { display: inline-flex; margin: 0; }
+/* ==========================================================================
+   Shell layout: fixed control-room topbar, page grid, responsive columns.
+   ========================================================================== */
+
+.atlas-topbar {
+  align-items: center;
+  background: var(--atlas-metal);
+  border-bottom: 1px solid var(--atlas-line);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5), inset 0 -1px 0 var(--atlas-engrave);
+  display: flex;
+  gap: var(--atlas-gap);
+  min-height: 58px;
+  padding: 8px 22px;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.atlas-brand {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-size: 1.06rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.atlas-brand__lamp {
+  background: radial-gradient(circle at 35% 30%, #8ef0bd, var(--atlas-green) 45%, #1d5c3d);
+  border: 1px solid #0c2a1c;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(85, 201, 141, 0.6), inset 0 -1px 2px rgba(0, 0, 0, 0.5);
+  height: 11px;
+  width: 11px;
+}
+
+.atlas-subbrand {
+  color: var(--atlas-text-mute);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.atlas-nav { align-items: center; display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+
+.atlas-nav__link {
+  border: 1px solid transparent;
+  border-radius: var(--atlas-radius-sm);
+  color: var(--atlas-text-dim);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  padding: 7px 10px;
+  text-transform: uppercase;
+  transition: background var(--atlas-transition), color var(--atlas-transition), border-color var(--atlas-transition);
+}
+
+.atlas-nav__link:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--atlas-line);
+  color: var(--atlas-text);
+}
+
+.atlas-nav__link[aria-current="page"] {
+  background: var(--atlas-inset-soft);
+  border-color: var(--atlas-line-hi);
+  box-shadow: var(--atlas-shadow-inset);
+  color: var(--atlas-text);
+}
+
+.atlas-shell {
+  display: grid;
+  gap: var(--atlas-gap);
+  margin: 0 auto;
+  max-width: var(--atlas-shell-max);
+  padding: 20px 22px 40px;
+}
+
+.atlas-page-head {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--atlas-gap);
+  justify-content: space-between;
+}
+
+.atlas-page-head__titles { display: flex; flex-direction: column; gap: 4px; }
+.atlas-page-head__title { display: flex; align-items: center; gap: 10px; }
+
+/* Instrument grid: panels snap to a 12-column rack. */
+.atlas-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.atlas-col-2 { grid-column: span 2; }
+.atlas-col-3 { grid-column: span 3; }
+.atlas-col-4 { grid-column: span 4; }
+.atlas-col-5 { grid-column: span 5; }
+.atlas-col-6 { grid-column: span 6; }
+.atlas-col-7 { grid-column: span 7; }
+.atlas-col-8 { grid-column: span 8; }
+.atlas-col-9 { grid-column: span 9; }
+.atlas-col-12 { grid-column: span 12; }
+
+.atlas-split { display: grid; gap: var(--atlas-gap); grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.atlas-split--even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+.atlas-footer {
+  border-top: 1px solid var(--atlas-line-soft);
+  color: var(--atlas-text-mute);
+  font-size: 0.72rem;
+  padding: 14px 22px 26px;
+  text-align: center;
+}
+
+.atlas-inline-form { display: inline-flex; margin: 0; }
+
+@media (max-width: 1200px) {
+  .atlas-col-3, .atlas-col-4, .atlas-col-5 { grid-column: span 6; }
+  .atlas-col-7, .atlas-col-8, .atlas-col-9 { grid-column: span 12; }
+}
+
+@media (max-width: 900px) {
+  .atlas-split, .atlas-split--even { grid-template-columns: minmax(0, 1fr); }
+  .atlas-col-2, .atlas-col-3, .atlas-col-4, .atlas-col-5, .atlas-col-6 { grid-column: span 12; }
+}
+
+@media (max-width: 720px) {
+  .atlas-topbar { align-items: flex-start; flex-wrap: wrap; }
+  .atlas-nav { margin-left: 0; width: 100%; }
+  .atlas-subbrand { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Utility aliases
+   Small, page-agnostic helpers used by more than one console page (and by the
+   authentication screens). Kept here so a page stylesheet only ever owns
+   page-specific chrome.
+   --------------------------------------------------------------------------- */
+
+.atlas-dashboard-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.atlas-wide { grid-column: 1 / -1; }
+.atlas-panel-header { align-items: baseline; border-bottom: 1px solid var(--atlas-line-soft); display: flex; gap: 12px; justify-content: space-between; padding: 12px 16px 10px; }
+.atlas-panel-header h2 { font-size: 0.82rem; letter-spacing: 0.16em; margin: 0; text-transform: uppercase; }
+.atlas-panel--inset { background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 60%); padding: 18px 20px 22px; }
+.atlas-inset-soft { background: rgba(0, 0, 0, 0.14); border: 1px solid var(--atlas-line-soft); border-radius: 3px; padding: 12px 14px; }
+.atlas-status-text { color: var(--atlas-text-dim); font-size: 0.8rem; min-height: 1.2em; }
+.atlas-status-text--error { color: var(--atlas-red); }
+.atlas-status-text--warn { color: var(--atlas-amber); }
+.atlas-status-text--ok { color: var(--atlas-green); }
+.atlas-legend--spaced { margin-bottom: 10px; }
+.atlas-legend__swatch--neutral { background: var(--atlas-line-hi); }
+.atlas-muted { color: var(--atlas-text-mute); }
+/* Truncation and stacking helpers shared by the console tables. */
+.atlas-stack { display: flex; flex-direction: column; gap: 2px; }
+.atlas-stack--tight { gap: 0; }

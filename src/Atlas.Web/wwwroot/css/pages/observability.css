@@ -1,4 +1,76 @@
-/* Pages: observability/SLO catalog — control-room table framing. */
-.atlas-observability {
-    grid-column: 1 / -1;
+/* ==========================================================================
+   Observability page: telemetry plates, infrastructure probes, SLO budgets.
+   ========================================================================== */
+
+.atlas-observability-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: repeat(12, minmax(0, 1fr)); }
+
+.atlas-traffic-plate { grid-column: span 8; }
+.atlas-infra-plate { grid-column: span 4; }
+.atlas-slo-plate { grid-column: span 7; }
+.atlas-pipeline-plate { grid-column: span 5; }
+
+.atlas-probe-list { display: flex; flex-direction: column; gap: 10px; }
+
+.atlas-probe {
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+
+.atlas-probe:last-child { border-bottom: 0; padding-bottom: 0; }
+.atlas-probe__head { align-items: baseline; display: flex; gap: 8px; justify-content: space-between; }
+.atlas-probe__name { color: var(--atlas-text-dim); font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.atlas-probe__value { font-family: var(--atlas-font-mono); font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.atlas-probe__meta { color: var(--atlas-text-mute); font-size: 0.7rem; }
+
+.atlas-percentile-strip { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+
+.atlas-percentile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-right: 1px solid var(--atlas-line-soft);
+}
+
+.atlas-percentile:last-child { border-right: 0; }
+.atlas-percentile__label { color: var(--atlas-text-mute); font-size: 0.64rem; letter-spacing: var(--atlas-label-spacing); text-transform: uppercase; }
+.atlas-percentile__value { font-family: var(--atlas-font-mono); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+
+.atlas-budget {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 1fr) auto auto;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--atlas-line-soft);
+}
+
+.atlas-budget:last-child { border-bottom: 0; }
+.atlas-budget__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.atlas-budget__value { font-family: var(--atlas-font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+.atlas-log-stream {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.74rem;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.atlas-log-line { display: grid; gap: 10px; grid-template-columns: 148px 64px minmax(0, 1fr); padding: 3px 0; border-bottom: 1px dotted rgba(255, 255, 255, 0.04); }
+.atlas-log-line__time { color: var(--atlas-text-mute); }
+.atlas-log-line__level { font-weight: 700; }
+.atlas-log-line__level--info { color: var(--atlas-blue); }
+.atlas-log-line__level--warn { color: var(--atlas-amber); }
+.atlas-log-line__level--error { color: var(--atlas-red); }
+
+@media (max-width: 1200px) {
+  .atlas-traffic-plate, .atlas-infra-plate, .atlas-slo-plate, .atlas-pipeline-plate { grid-column: span 12; }
 }

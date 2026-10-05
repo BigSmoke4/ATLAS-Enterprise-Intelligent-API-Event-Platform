@@ -30,6 +30,7 @@ public class ApiManagementDbContext : DbContext
         {
             b.ToTable("ApiDefinitions");
             b.HasKey(a => a.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(a => a.Name).HasMaxLength(256).IsRequired();
             b.Property(a => a.BasePath).HasMaxLength(256).IsRequired();
             b.HasIndex(a => new { a.OrganizationId, a.BasePath }).IsUnique();
@@ -41,6 +42,7 @@ public class ApiManagementDbContext : DbContext
         {
             b.ToTable("ApiVersions");
             b.HasKey(v => v.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.HasIndex(v => new { v.ApiDefinitionId, v.VersionNumber }).IsUnique();
             b.HasQueryFilter(v => !_tenantContext.HasOrganization || v.OrganizationId == _tenantContext.CurrentOrganizationId);
             b.HasMany(v => v.Routes).WithOne().HasForeignKey(r => r.ApiVersionId).OnDelete(DeleteBehavior.Cascade);
@@ -50,6 +52,7 @@ public class ApiManagementDbContext : DbContext
         {
             b.ToTable("ApiRoutes");
             b.HasKey(r => r.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(r => r.Path).HasMaxLength(512).IsRequired();
             b.Property(r => r.HttpMethod).HasMaxLength(10).IsRequired();
             b.HasIndex(r => new { r.ApiVersionId, r.Path, r.HttpMethod }).IsUnique();

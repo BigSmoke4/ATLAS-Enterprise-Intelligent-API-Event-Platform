@@ -1,1 +1,89 @@
-.atlas-lamp { border-radius: 50%; box-shadow: 0 0 10px currentColor; display: inline-block; height: 9px; margin-right: 7px; width: 9px; }.atlas-lamp--green { color: var(--atlas-green); background: currentColor; }.atlas-lamp--amber { color: var(--atlas-amber); background: currentColor; }.atlas-lamp--red { color: var(--atlas-red); background: currentColor; }
+/* ==========================================================================
+   Status lamps, health indicators and the live-connection beacon.
+   ========================================================================== */
+
+.atlas-lamp {
+  --atlas-lamp-colour: var(--atlas-text-mute);
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.85), var(--atlas-lamp-colour) 42%, rgba(0, 0, 0, 0.55));
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  box-shadow: 0 0 7px var(--atlas-lamp-colour), inset 0 -1px 2px rgba(0, 0, 0, 0.55);
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
+.atlas-lamp--ok { --atlas-lamp-colour: var(--atlas-green); }
+.atlas-lamp--warn { --atlas-lamp-colour: var(--atlas-amber); }
+.atlas-lamp--bad { --atlas-lamp-colour: var(--atlas-red); }
+.atlas-lamp--info { --atlas-lamp-colour: var(--atlas-blue); }
+.atlas-lamp--idle { --atlas-lamp-colour: #4b5b65; }
+.atlas-lamp--lg { height: 13px; width: 13px; }
+.atlas-lamp--sm { height: 7px; width: 7px; }
+
+.atlas-lamp--pulse { animation: atlas-lamp-pulse 2.4s ease-in-out infinite; }
+
+@keyframes atlas-lamp-pulse {
+  0%, 100% { box-shadow: 0 0 5px var(--atlas-lamp-colour), inset 0 -1px 2px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: 0 0 13px var(--atlas-lamp-colour), inset 0 -1px 2px rgba(0, 0, 0, 0.55); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-lamp--pulse { animation: none; }
+}
+
+.atlas-health { align-items: center; display: inline-flex; gap: 7px; font-size: 0.76rem; white-space: nowrap; }
+.atlas-health__text { color: var(--atlas-text-dim); letter-spacing: 0.05em; }
+.atlas-health--ok .atlas-health__text { color: #b6ebd1; }
+.atlas-health--warn .atlas-health__text { color: #f0d7a5; }
+.atlas-health--bad .atlas-health__text { color: #f4c3c3; }
+
+.atlas-legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.atlas-legend__item { align-items: center; color: var(--atlas-text-dim); display: inline-flex; font-size: 0.7rem; gap: 6px; }
+.atlas-legend__swatch { border-radius: 2px; height: 9px; width: 14px; background: var(--atlas-line-hi); }
+.atlas-legend__swatch--ok { background: var(--atlas-green); }
+.atlas-legend__swatch--warn { background: var(--atlas-amber); }
+.atlas-legend__swatch--bad { background: var(--atlas-red); }
+.atlas-legend__swatch--info { background: var(--atlas-blue); }
+.atlas-legend__swatch--idle { background: #3c4a53; }
+
+.atlas-live {
+  align-items: center;
+  color: var(--atlas-text-mute);
+  display: inline-flex;
+  font-size: 0.68rem;
+  gap: 7px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.atlas-live[data-state="connected"] { color: #a9e8c8; }
+.atlas-live[data-state="connecting"] { color: #f0d7a5; }
+.atlas-live[data-state="disconnected"] { color: var(--atlas-text-mute); }
+
+.atlas-live__beacon {
+  background: currentColor;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+  height: 7px;
+  width: 7px;
+}
+
+.atlas-live[data-state="connected"] .atlas-live__beacon { animation: atlas-lamp-pulse 2s ease-in-out infinite; }
+
+/* Staleness marker: shows how old a readout is. */
+.atlas-freshness { color: var(--atlas-text-mute); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+.atlas-freshness--stale { color: var(--atlas-amber); }
+
+.atlas-state-strip {
+  align-items: center;
+  display: flex;
+  gap: var(--atlas-gap-sm);
+  justify-content: space-between;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  padding: 8px 14px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.atlas-state-strip__items { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; }

@@ -1,0 +1,42 @@
+# Configuration for the gitleaks scan that runs in CI (`.github/workflows/ci.yml`)
+# alongside the curated `scripts/secret-scan.sh`.
+#
+# Two layers, on purpose: `secret-scan.sh` is ATLAS's own deny-list over the
+# working tree (deterministic, reviewed in the same pull request as the code),
+# while gitleaks adds an independent engine with its own rule set and entropy
+# heuristics and scans the whole commit history. Findings here are never silenced
+# by editing this file without saying why: the allowlists below cover exactly
+# three things — generated/placeholder configuration, CI and development
+# credentials that exist only inside this repository, and test fixtures whose
+# whole purpose is to look like secrets.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Repository-known non-secrets: placeholders, CI/dev credentials, test fixtures"
+# Deliberately narrow. The file whose entire purpose is placeholders, the
+# container/CI definitions whose credentials are throwaway values scoped to this
+# repository, and test fixtures whose job is to look like credentials. Docs,
+# source and migrations are *not* exempt: they were scanned clean, and a real
+# credential hiding in an example must still fail the build.
+paths = [
+  '''^\.env\.example$''',
+  '''^\.github/workflows/.*\.ya?ml$''',
+  '''^docker-compose\.yml$''',
+  '''^tests/.*\.cs$''',
+  '''^\.gitleaks\.toml$''',
+]
+regexes = [
+  # Placeholder values, not credentials.
+  '''change_me[a-z_]*''',
+  '''CHANGE_ME''',
+  '''use-a-local-only-password''',
+  # Disposable CI and design-time database credentials that exist only inside
+  # this repository and its throwaway services.
+  '''atlas_ci''',
+  '''atlas_design''',
+  # Test fixtures by name.
+  '''not-a-real-secret''',
+  '''not-a-real-signature''',
+  '''shared-secret''',
+]

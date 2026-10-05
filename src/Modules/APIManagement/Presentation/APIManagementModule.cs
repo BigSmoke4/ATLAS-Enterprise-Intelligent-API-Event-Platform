@@ -26,12 +26,20 @@ public class APIManagementModule : IAtlasModule
         services.AddDbContext<ApiManagementDbContext>(opt =>
             opt.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", "apimanagement")));
 
+        // The route policy provider memoizes lookups per request, so it needs
+        // access to the current HttpContext (one lookup shared by rate
+        // limiting, telemetry attribution and timeout/retry resolution).
+        services.AddHttpContextAccessor();
+
         services.AddScoped<IApiCatalogService, ApiCatalogService>();
         services.AddScoped<IRoutePolicyProvider, ApiRoutePolicyProvider>();
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // TODO: map /api/v1/apis via a real MVC/minimal-API controller.
+        // Nothing to map here by design. The module's HTTP surface is
+        // ApiManagementController in Atlas.Web (a thin [ApiController] over
+        // IApiCatalogService); modules expose behaviour through their
+        // application services and registration, not through routes.
     }
 }

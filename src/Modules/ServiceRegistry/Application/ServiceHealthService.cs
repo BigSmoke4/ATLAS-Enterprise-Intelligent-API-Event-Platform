@@ -78,12 +78,12 @@ public class ServiceHealthService : IServiceHealthService
             .Select(d => new ServiceDependencyDto(d.ServiceId, d.DependsOnServiceId))
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
-        var services = await _db.Services.Include(s => s.Instances)
-            .Where(s => s.OrganizationId == organizationId)
-            .OrderBy(s => s.Name)
+        var services = await ServiceRegistrySorting.Services
+            .Apply(_db.Services.Include(s => s.Instances).Where(s => s.OrganizationId == organizationId), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .AsNoTracking()
             .ToListAsync(ct);

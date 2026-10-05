@@ -1,4 +1,5 @@
 using Atlas.Modules.Organizations.Application;
+using Atlas.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,8 +18,12 @@ public sealed class OrganizationsController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = "Role:PlatformAdmin")]
-    public async Task<ActionResult<IReadOnlyList<OrganizationDto>>> List([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _organizations.ListAsync(page, pageSize, ct));
+    public async Task<ActionResult<IReadOnlyList<OrganizationDto>>> List([FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(OrganizationSorting.Organizations, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _organizations.ListAsync(page, pageSize, ct, sortBy, direction));
+    }
 
     [HttpGet("{organizationId:guid}")]
     [Authorize(Policy = "SameOrganization")]

@@ -11,13 +11,15 @@ namespace Atlas.Modules.EventPlatform.Infrastructure;
 ///
 /// KafkaEventConsumer provides the complementary consumer-group, retry, and
 /// DLQ pipeline. This publisher also exposes raw replay publishing so DLQ
-/// replay preserves the original business payload. Untested against a real
-/// broker in this environment.
+/// replay preserves the original business payload. The integration suite
+/// (KafkaEventIntegrationTests) publishes through this class against a real
+/// broker in CI and asserts the payload and versioned headers round-trip.
 /// </summary>
 public class KafkaEventPublisher : IEventPublisher, IRawEventPublisher, IAsyncDisposable
 {
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaEventPublisher> _logger;
+    private int _disposed;
 
     public KafkaEventPublisher(string bootstrapServers, ILogger<KafkaEventPublisher> logger)
     {
@@ -93,8 +95,29 @@ public class KafkaEventPublisher : IEventPublisher, IRawEventPublisher, IAsyncDi
 
     public ValueTask DisposeAsync()
     {
-        _producer.Flush(TimeSpan.FromSeconds(5));
-        _producer.Dispose();
+        // Host shutdown must never throw: a duplicate dispose (or a producer
+        // whose handle is already closed by a previous flush) must not turn a
+        // graceful shutdown into a failed one.
+        if (Interlocked.Exchange(ref _disposed, 1) == 1) return ValueTask.CompletedTask;
+
+        try
+        {
+            _producer.Flush(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Kafka producer flush during shutdown did not complete cleanly.");
+        }
+
+        try
+        {
+            _producer.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Kafka producer dispose reported an error.");
+        }
+
         return ValueTask.CompletedTask;
     }
 }

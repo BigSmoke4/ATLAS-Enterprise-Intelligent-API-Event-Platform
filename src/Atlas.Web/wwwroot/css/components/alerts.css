@@ -1,1 +1,105 @@
-.atlas-alert { border-left: 3px solid var(--atlas-amber); background: rgba(240,189,99,.08); color: var(--atlas-text-dim); padding: 12px 14px; }.atlas-alert--error { border-color: var(--atlas-red); }
+/* ==========================================================================
+   Alerts, banners, empty states and toasts. The empty state is a first-class
+   component: "No telemetry available." must look deliberate, not broken.
+   ========================================================================== */
+
+.atlas-alert {
+  align-items: flex-start;
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line);
+  border-left-width: 3px;
+  border-radius: var(--atlas-radius-sm);
+  display: flex;
+  gap: var(--atlas-gap-sm);
+  padding: 10px 12px;
+}
+
+.atlas-alert__body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.atlas-alert__title { font-size: 0.8rem; font-weight: 600; }
+.atlas-alert__text { color: var(--atlas-text-dim); font-size: 0.78rem; }
+.atlas-alert--info { border-left-color: var(--atlas-blue); }
+.atlas-alert--ok { border-left-color: var(--atlas-green); }
+.atlas-alert--warn { border-left-color: var(--atlas-amber); background: rgba(230, 180, 95, 0.05); }
+.atlas-alert--bad { border-left-color: var(--atlas-red); background: rgba(226, 106, 106, 0.06); }
+
+.atlas-empty {
+  align-items: center;
+  color: var(--atlas-text-mute);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  padding: 26px 16px;
+  text-align: center;
+}
+
+.atlas-empty__glyph {
+  align-items: center;
+  border: 1px dashed var(--atlas-line);
+  border-radius: 50%;
+  color: var(--atlas-text-mute);
+  display: flex;
+  font-family: var(--atlas-font-mono);
+  font-size: 0.9rem;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.atlas-empty__title { color: var(--atlas-text-dim); font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.atlas-empty__hint { font-size: 0.74rem; max-width: 420px; }
+
+.atlas-empty--inline { flex-direction: row; gap: 10px; padding: 12px; text-align: left; }
+
+/* Toast rail (JS-driven, bottom-right). */
+.atlas-toasts {
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+  position: fixed;
+  right: 18px;
+  z-index: 90;
+}
+
+.atlas-toast {
+  animation: atlas-toast-in 180ms ease-out;
+  background: var(--atlas-metal-raised);
+  border: 1px solid var(--atlas-line);
+  border-left-width: 3px;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+}
+
+.atlas-toast--ok { border-left-color: var(--atlas-green); }
+.atlas-toast--info { border-left-color: var(--atlas-blue); }
+.atlas-toast--warn { border-left-color: var(--atlas-amber); }
+.atlas-toast--error { border-left-color: var(--atlas-red); }
+.atlas-toast__title { font-size: 0.78rem; font-weight: 600; }
+.atlas-toast__text { color: var(--atlas-text-dim); font-size: 0.74rem; }
+
+@keyframes atlas-toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-toast { animation: none; }
+}
+
+/* Inline validation summary above a form. */
+.atlas-validation-summary {
+  background: rgba(226, 106, 106, 0.07);
+  border: 1px solid var(--atlas-red-dim);
+  border-radius: var(--atlas-radius-sm);
+  color: #f4c3c3;
+  font-size: 0.78rem;
+  padding: 8px 10px;
+}
+
+.atlas-validation-summary ul { margin: 4px 0 0; padding-left: 18px; }

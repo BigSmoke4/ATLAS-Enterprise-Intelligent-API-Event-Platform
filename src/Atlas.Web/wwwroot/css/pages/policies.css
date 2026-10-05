@@ -1,0 +1,35 @@
+/* ==========================================================================
+   Policy engine: rule table, condition tags, rule authoring dock.
+   Conditions are data ("field OP value"), so they render as monospaced tags —
+   the UI must never look like it is holding a script that will be executed.
+   ========================================================================== */
+
+.atlas-rule { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.atlas-rule .atlas-tag {
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: 3px;
+  font-size: 0.66rem;
+  padding: 2px 6px;
+}
+
+[data-policy-form] .atlas-inset { display: flex; flex-direction: column; gap: var(--atlas-gap-sm); }
+
+[data-condition-list] { gap: var(--atlas-gap-sm); }
+
+[data-condition-row] { align-items: center; display: flex; gap: 6px; }
+[data-condition-row] input[name="fieldName"] { flex: 1 1 140px; min-width: 120px; }
+[data-condition-row] select[name="operator"] { flex: 0 0 72px; }
+[data-condition-row] input[name="value"] { flex: 0 0 96px; }
+
+[data-policy-status] { display: block; max-width: 420px; }
+
+.atlas-policy-strip {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.atlas-policy-strip .atlas-label { margin-right: 2px; }

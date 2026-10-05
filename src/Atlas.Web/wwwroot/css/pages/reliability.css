@@ -1,0 +1,36 @@
+/* ==========================================================================
+   Reliability controls: circuit-breaker states, limiter surface, probes.
+   Breaker keys are rendered monospaced because they are the exact identity the
+   limiter and the metrics use — an operator copy/pastes them into a query.
+   ========================================================================== */
+
+.atlas-probe-list { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0; padding: 0; }
+
+.atlas-probe {
+  align-items: center;
+  background: var(--atlas-inset-soft);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  display: flex;
+  gap: 8px;
+  padding: 6px 9px;
+}
+
+.atlas-probe .atlas-mono { flex: 0 0 auto; font-size: 0.74rem; }
+.atlas-probe .atlas-freshness { flex: 1 1 auto; }
+
+.atlas-list__item {
+  align-items: baseline;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: flex;
+  gap: var(--atlas-gap-sm);
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.atlas-list__item:last-child { border-bottom: 0; }
+.atlas-list__item .atlas-freshness { text-align: right; max-width: 60%; }
+
+.atlas-mttr-strip { display: flex; flex-wrap: wrap; gap: var(--atlas-gap-sm); }
+.atlas-slo-plate { background: var(--atlas-panel-alt); border-radius: var(--atlas-radius-sm); padding: 10px 12px; }
+.atlas-budget { font-family: var(--atlas-font-mono); }

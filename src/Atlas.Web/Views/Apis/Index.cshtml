@@ -1,43 +1,238 @@
 @using Atlas.Modules.APIManagement.Application
 @model IReadOnlyList<ApiSummaryDto>
 @{
-    ViewData["Title"] = "APIs";
+    ViewData["Title"] = "API Management";
+    ViewData["Page"] = "apis";
     Layout = "_Layout";
+    var services = ViewData["Services"] as IReadOnlyList<Atlas.Modules.ServiceRegistry.Application.ServiceStatusDto> ?? Array.Empty<Atlas.Modules.ServiceRegistry.Application.ServiceStatusDto>();
+    var apiKeys = ViewData["ApiKeys"] as IReadOnlyList<Atlas.Modules.Identity.Application.ApiKeySummaryDto> ?? Array.Empty<Atlas.Modules.Identity.Application.ApiKeySummaryDto>();
+    var organizationId = ViewData["OrganizationId"] as Guid? ?? Guid.Empty;
+    var canManageKeys = User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.OrganizationAdmin) || User.IsInRole(Atlas.Modules.Identity.Domain.AtlasRoles.PlatformAdmin);
 }
 
-<section class="atlas-panel atlas-api-catalog">
-    <h1>API CATALOG</h1>
+<section data-atlas-command data-cadence="0">
+    <div class="atlas-page-head">
+        <div class="atlas-page-head__titles">
+            <h1>API Management</h1>
+            <span class="atlas-kicker">
+                API catalog, versioning, per-route rate limits / timeouts / retries and API-key lifecycle
+            </span>
+        </div>
+        <div class="atlas-action-bar">
+            <span class="atlas-freshness">Read <span data-atlas-updated>—</span></span>
+            <button type="button" class="atlas-button atlas-button--ghost atlas-button--sm" data-atlas-refresh>REFRESH</button>
+        </div>
+    </div>
 
-    @if (Model.Count == 0)
-    {
-        <p class="atlas-status-text">No telemetry available. Your organization has no registered APIs yet — register one via POST /api/v1/apis (Role: OrganizationAdmin).</p>
-    }
-    else
-    {
-        <table class="atlas-table">
-            <thead>
-                <tr><th>API</th><th>Base Path</th><th>Versions</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-            @foreach (var api in Model)
-            {
-                <tr>
-                    <td>@api.Name</td>
-                    <td><code>@api.BasePath</code></td>
-                    <td>@api.VersionCount</td>
-                    <td>
-                        @if (api.IsActive)
+    <div class="atlas-grid">
+        <div class="atlas-col-4 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Catalog</span>
+                <span class="atlas-freshness" data-selected-api>@(Model.Count == 0 ? "No APIs registered" : "Select an API to load its versions")</span>
+            </div>
+            <div class="atlas-panel__body">
+                <div class="atlas-api-grid" data-api-catalog>
+                    @if (Model.Count == 0)
+                    {
+                        <div class="atlas-empty">
+                            <span class="atlas-empty__glyph">0</span>
+                            <span class="atlas-empty__title">No APIs registered</span>
+                            <span class="atlas-empty__hint">Register an API to start collecting route-level telemetry.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var api in Model)
                         {
-                            <span class="atlas-badge atlas-badge--healthy">Active</span>
+                            <div class="atlas-api-card" data-api-id="@api.Id">
+                                <div class="atlas-api-card__head">
+                                    <span class="atlas-api-card__name">@api.Name</span>
+                                    <span class="atlas-badge atlas-badge--@(api.IsActive ? "ok" : "neutral")">@(api.IsActive ? "ACTIVE" : "INACTIVE")</span>
+                                </div>
+                                <span class="atlas-api-card__path atlas-mono">@api.BasePath</span>
+                                <div class="atlas-api-card__meta">@api.VersionCount version(s)</div>
+                            </div>
                         }
-                        else
-                        {
-                            <span class="atlas-badge atlas-badge--unavailable">Inactive</span>
-                        }
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    }
+                    }
+                </div>
+
+                <form class="atlas-form-grid" data-create-api-form>
+                    <span class="atlas-field__label">Register a new API</span>
+                    <label class="atlas-field">
+                        <span class="atlas-field__label">Name</span>
+                        <input class="atlas-input" name="name" required placeholder="Orders API" />
+                    </label>
+                    <label class="atlas-field">
+                        <span class="atlas-field__label">Base path</span>
+                        <input class="atlas-input atlas-input--mono" name="basePath" required placeholder="/orders" />
+                    </label>
+                    <div class="atlas-form-actions">
+                        <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">REGISTER</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="atlas-col-8 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Routes</span>
+                <label class="atlas-label" for="version-picker">Version</label>
+                <select class="atlas-select atlas-input--sm" id="version-picker" data-version-picker></select>
+            </div>
+            <div class="atlas-panel__body">
+                <div class="atlas-table-wrap">
+                    <table class="atlas-table atlas-table--compact atlas-table--zebra" data-atlas-table>
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>Path</th>
+                                <th class="atlas-right">Rate limit</th>
+                                <th class="atlas-right">Timeout</th>
+                                <th class="atlas-right">Retries</th>
+                                <th>Target service</th>
+                                <th class="atlas-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody data-routes-body>
+                            <tr class="atlas-empty-row"><td colspan="7">Select an API version to list its routes.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="atlas-col-7 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">Configure route</span>
+                <span class="atlas-freshness" data-route-label>Select CONFIGURE on a route.</span>
+            </div>
+            <div class="atlas-panel__body">
+                <form class="atlas-form-grid" data-route-form>
+                    <input type="hidden" name="routeId" />
+                    <div class="atlas-form-grid atlas-form-grid--two">
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Limit per window</span>
+                            <input class="atlas-input" name="limitPerWindow" type="number" min="1" value="100" required />
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Window (seconds)</span>
+                            <input class="atlas-input" name="windowSeconds" type="number" min="1" max="3600" value="60" required />
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Scope</span>
+                            <select class="atlas-select" name="scope">
+                                <option value="Ip">IP</option>
+                                <option value="User">User</option>
+                                <option value="ApiKey">API key</option>
+                                <option value="Tenant">Tenant</option>
+                                <option value="Endpoint">Endpoint</option>
+                                <option value="Global">Global</option>
+                            </select>
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Algorithm</span>
+                            <select class="atlas-select" name="algorithm">
+                                <option value="FixedWindow">Fixed window</option>
+                                <option value="SlidingWindow">Sliding window</option>
+                                <option value="TokenBucket">Token bucket</option>
+                                <option value="LeakyBucket">Leaky bucket</option>
+                            </select>
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Timeout (seconds)</span>
+                            <input class="atlas-input" name="timeoutSeconds" type="number" min="1" max="300" value="30" required />
+                        </label>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Max retries</span>
+                            <input class="atlas-input" name="maxRetries" type="number" min="0" max="5" value="0" required />
+                        </label>
+                    </div>
+                    <label class="atlas-field">
+                        <span class="atlas-field__label">Target service</span>
+                        <select class="atlas-select" name="targetServiceId">
+                            <option value="">unattributed</option>
+                            @foreach (var service in services)
+                            {
+                                <option value="@service.ServiceId">@service.Name</option>
+                            }
+                        </select>
+                    </label>
+                    <div class="atlas-form-actions">
+                        <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">SAVE CONFIGURATION</button>
+                        <span class="atlas-freshness" data-route-status>
+                            Rate limit and timeout are enforced in the live request pipeline; changing them takes effect on the next request.
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="atlas-col-5 atlas-panel atlas-panel--flat">
+            <div class="atlas-panel__head">
+                <span class="atlas-panel__title">API keys</span>
+                <span class="atlas-freshness">Keys are stored as hashes — the plaintext value is shown once, at issuance.</span>
+            </div>
+            <div class="atlas-panel__body">
+                @if (!canManageKeys)
+                {
+                    <p class="atlas-freshness">Issuing and revoking API keys requires the OrganizationAdmin role.</p>
+                }
+                else if (organizationId == Guid.Empty)
+                {
+                    <p class="atlas-freshness">No organization context — API keys cannot be listed or issued from this session.</p>
+                }
+                else
+                {
+                    <div class="atlas-key-reveal atlas-hidden" data-key-reveal></div>
+
+                    <form class="atlas-form-grid atlas-form-grid--two" data-issue-key-form>
+                        <label class="atlas-field">
+                            <span class="atlas-field__label">Key name</span>
+                            <input class="atlas-input" name="name" required placeholder="ci-pipeline" />
+                        </label>
+                        <div class="atlas-form-actions">
+                            <button type="submit" class="atlas-button atlas-button--primary atlas-button--sm">ISSUE KEY</button>
+                        </div>
+                    </form>
+
+                    <div class="atlas-table-wrap target-keys">
+                        <table class="atlas-table atlas-table--compact" data-atlas-table>
+                            <thead>
+                                <tr><th>Name</th><th>Prefix</th><th>State</th><th>Created</th><th>Last used</th><th class="atlas-right">Actions</th></tr>
+                            </thead>
+                            <tbody data-keys-body>
+                                @if (apiKeys.Count == 0)
+                                {
+                                    <tr class="atlas-empty-row" data-keys-empty><td colspan="6">No API keys issued for this organization.</td></tr>
+                                }
+                                else
+                                {
+                                    foreach (var key in apiKeys)
+                                    {
+                                        <tr>
+                                            <td>@key.Name</td>
+                                            <td class="atlas-mono atlas-small">@key.Prefix…</td>
+                                            <td><span class="atlas-badge atlas-badge--@(key.IsRevoked ? "neutral" : "ok")">@(key.IsRevoked ? "REVOKED" : "ACTIVE")</span></td>
+                                            <td class="atlas-mono atlas-small">@key.CreatedAtUtc.ToString("u")</td>
+                                            <td class="atlas-mono atlas-small">@(key.LastUsedAtUtc?.ToString("u") ?? "never")</td>
+                                            <td class="atlas-right">
+                                                @if (!key.IsRevoked)
+                                                {
+                                                    <button type="button" class="atlas-button atlas-button--danger atlas-button--sm"
+                                                            data-revoke-key="@key.Id" data-key-prefix="@key.Prefix">REVOKE</button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
 </section>
+
+<script type="application/json" id="apis-services">@Html.Raw(WebJson.Serialize(services.Select(service => new { id = service.ServiceId, name = service.Name })))</script>
+<script type="application/json" id="apis-keys">@Html.Raw(WebJson.Serialize(apiKeys))</script>

@@ -13,6 +13,7 @@ using Atlas.Modules.Reliability.Presentation;
 using Atlas.Modules.ServiceRegistry.Presentation;
 using Atlas.Modules.TrafficManagement.Presentation;
 using Atlas.Shared.Contracts;
+using Atlas.Shared.Security;
 using Atlas.Shared.Web;
 using Serilog;
 using Atlas.Web.Middleware;
@@ -51,9 +52,25 @@ var modules = new List<IAtlasModule>
     new AuditModule(),
 };
 
-builder.Services.AddControllersWithViews();
+// Enums cross the wire as their names, not their ordinals: an operations API
+// that returns "Sev2"/"Resolved" is readable, diffable and safe to reorder.
+builder.Services.AddControllersWithViews(options =>
+    {
+        // CSRF for cookie-authenticated writes: the console's ES modules post
+        // JSON to the platform's own API while the browser attaches the Identity
+        // cookie, which is exactly the ambient-credential case antiforgery
+        // exists to stop. API-key callers are exempt (a cross-site page cannot
+        // set that header) — see ValidateAntiforgeryForCookieAuthFilter.
+        options.Filters.AddService<ValidateAntiforgeryForCookieAuthFilter>();
+    })
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+builder.Services.AddScoped<ValidateAntiforgeryForCookieAuthFilter>();
 builder.Services.AddSignalR();
 builder.Services.AddProblemDetails();
+// A stale write must be reported as 409 Conflict, not 500: every mutable
+// aggregate carries a concurrency token (PostgreSQL xmin), and this handler
+// translates the resulting DbUpdateConcurrencyException into ProblemDetails.
+builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = IdentityConstants.ApplicationScheme;
@@ -77,7 +94,45 @@ builder.Services.AddAuthentication(options =>
         if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; }
         context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
     };
+    // Sessions are revocable server-side. A cookie is revalidated on every
+    // request against the user row (IdentitySessionValidation, in the Identity
+    // module's Presentation layer so this host never references its Domain), so
+    // revoke-all and deactivation sign the holder out on the next request
+    // instead of leaving a live cookie until the ticket expires. The cost is one
+    // indexed lookup per authenticated request — deliberate for a control
+    // plane; see docs/security.md.
+    options.Events.OnValidatePrincipal = IdentitySessionValidation.ValidatePrincipalAsync;
+    // A control-plane session is measured in hours, not the framework default
+    // of 14 days; sliding renewal keeps an actively used session alive.
+    options.ExpireTimeSpan = TimeSpan.FromHours(12);
+    options.SlidingExpiration = true;
 });
+
+// OAuth/OIDC federation. The section is bound and validated first, so a
+// half-configured provider stops the host with an actionable message instead of
+// silently falling back to local sign-in. When it is complete the handler *is*
+// registered (IdentityOidcExtension): the provider authenticates, and ATLAS
+// resolves the external identity to a local account so roles, tenant scope and
+// session revocation stay in this database.
+var oidc = builder.Configuration.GetSection(OidcOptions.SectionName).Get<OidcOptions>() ?? new OidcOptions();
+builder.Services.Configure<OidcOptions>(builder.Configuration.GetSection(OidcOptions.SectionName));
+var oidcErrors = oidc.Validate();
+if (oidcErrors.Count > 0)
+{
+    throw new InvalidOperationException(
+        "OAuth/OIDC configuration is incomplete and must not be ignored: " + string.Join(" ", oidcErrors) +
+        " Complete the Oidc section, or remove it to run with local authentication only.");
+}
+if (oidc.HasAnyValue)
+{
+    IdentityOidcExtension.AddAtlasOidc(builder.Services, oidc);
+    Log.Information("OAuth/OIDC federation enabled: external sign-in via {Authority}; roles, tenant scope and revocation remain local. Entry point: GET /account/oidc.",
+        oidc.Authority);
+}
+else
+{
+    Log.Information("OAuth/OIDC is not configured: sign-in uses the local cookie and API keys only.");
+}
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })
     .AddCheck<PostgresHealthCheck>("postgres", tags: new[] { "ready" })
@@ -93,6 +148,16 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-CSRF-TOKEN";
 });
 builder.Services.AddSingleton(modules as IReadOnlyList<IAtlasModule>);
+
+// PostgreSQL connection/query statistics come from the server's own
+// pg_stat_activity / pg_stat_database views (see DatabaseMetricsProbe).
+builder.Services.AddSingleton<Atlas.Web.Observability.IDatabaseMetricsProbe>(
+    sp => new Atlas.Web.Observability.DatabaseMetricsProbe(sp.GetRequiredService<IConfiguration>()));
+
+// Presentation-shaped read models that join several modules' application
+// services (see the class docs for why they live in the composition root).
+builder.Services.AddScoped<Atlas.Web.ReadModels.ServiceTopologyReadModel>();
+builder.Services.AddScoped<Atlas.Web.ReadModels.AlertReadModel>();
 
 foreach (var module in modules)
 {
@@ -151,6 +216,11 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseMiddleware<ApiKeyAuthenticationMiddleware>();
+// Request telemetry sits after authentication (so org/service attribution is
+// possible) and before the rate limiter (so 429s are recorded too). Skipped in
+// the Testing environment, where the integration host has no telemetry schema.
+if (!app.Environment.IsEnvironment("Testing"))
+    app.UseAtlasRequestTelemetry();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api") && context.User.Identity?.IsAuthenticated != true)

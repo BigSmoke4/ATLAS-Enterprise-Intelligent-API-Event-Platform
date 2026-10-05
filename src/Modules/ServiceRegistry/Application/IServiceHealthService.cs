@@ -8,7 +8,9 @@ public interface IServiceHealthService
     Task<Result<Guid>> RegisterServiceAsync(Guid organizationId, Guid environmentId, string name, CancellationToken ct = default);
     Task<Result<Guid>> RegisterInstanceAsync(Guid organizationId, Guid serviceId, string hostAndPort, CancellationToken ct = default);
     Task<Result> RecordHealthCheckAsync(Guid organizationId, Guid instanceId, bool success, CancellationToken ct = default);
-    Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default);
+    /// <summary>Page of registered services with computed aggregate health; <c>sortBy</c> must come from <see cref="ServiceRegistrySorting.Services"/>.</summary>
+    Task<IReadOnlyList<ServiceStatusDto>> GetStatusAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending);
 
     /// <summary>
     /// Per-instance detail — the seam TrafficManagement uses to build real

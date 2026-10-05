@@ -1,3 +1,4 @@
+using Atlas.Shared.Application;
 using Atlas.Modules.EventPlatform.Application;
 using Atlas.Modules.EventPlatform.Domain;
 using Atlas.Shared.Contracts;
@@ -29,7 +30,8 @@ public sealed class EventProcessingCoordinatorTests
     {
         public int Calls { get; private set; }
         public Task RouteToDeadLetterAsync(string topic, Guid eventId, string eventType, Guid correlationId, string payloadJson, string failureReason, CancellationToken ct = default, int version = 1) { Calls++; return Task.CompletedTask; }
-        public Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null) => Task.FromResult<IReadOnlyList<DeadLetterEvent>>(Array.Empty<DeadLetterEvent>());
+        public Task<IReadOnlyList<DeadLetterEvent>> ListAsync(string? topic, int page = 1, int pageSize = 50, CancellationToken ct = default, string? eventType = null, DateTimeOffset? fromUtc = null, DateTimeOffset? toUtc = null, Guid? eventId = null,
+            string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending) => Task.FromResult<IReadOnlyList<DeadLetterEvent>>(Array.Empty<DeadLetterEvent>());
         public Task<DeadLetterOperationResult> MarkReplayedAsync(Guid id, CancellationToken ct = default) => Task.FromResult(DeadLetterOperationResult.Ok());
         public Task<DeadLetterOperationResult> ReplayAsync(Guid id, bool dryRun, CancellationToken ct = default) => Task.FromResult(DeadLetterOperationResult.Ok());
     }

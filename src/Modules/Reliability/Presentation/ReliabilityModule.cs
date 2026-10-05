@@ -35,6 +35,11 @@ public class ReliabilityModule : IAtlasModule
         });
         services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
         services.AddSingleton<IDistributedLock, RedisDistributedLock>();
+        // Cache: Redis-backed with real hit/miss/set/invalidation counters.
+        // Reads of non-sensitive configuration (route policies, service
+        // metadata) go through this; authorization decisions never do.
+        services.AddSingleton<ICacheStatistics, CacheStatistics>();
+        services.AddSingleton<ICacheService, RedisCacheService>();
         services.AddSingleton<IRequestRateLimiter, FixedWindowRequestRateLimiter>();
         services.AddSingleton<ICircuitBreakerRegistry, CircuitBreakerRegistry>();
     }

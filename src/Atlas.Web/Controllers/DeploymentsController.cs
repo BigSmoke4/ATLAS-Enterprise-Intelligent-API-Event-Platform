@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.DeploymentIntelligence.Application;
+using Atlas.Web.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -18,8 +19,13 @@ public class DeploymentsController : ControllerBase
     [HttpGet]
     [Authorize(Policy = "SameOrganization")]
     public async Task<IActionResult> List([FromQuery] Guid organizationId, [FromQuery] Guid? serviceId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _deployments.ListAsync(organizationId, serviceId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(DeploymentSorting.Deployments, sortBy, sortDirection, out var direction, out var error)) return error!;
+        var deployments = await _deployments.ListAsync(organizationId, serviceId, page, pageSize, ct, sortBy, direction);
+        return Ok(deployments.Select(DeploymentDto.From).ToArray());
+    }
 
     [HttpPost]
     [Authorize(Policy = "Role:SRE")]

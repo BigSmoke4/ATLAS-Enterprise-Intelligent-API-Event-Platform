@@ -8,8 +8,14 @@ public abstract class Entity
 {
     public Guid Id { get; protected set; } = Guid.NewGuid();
 
-    /// <summary>EF Core row version token used for optimistic concurrency control.</summary>
-    public byte[]? RowVersion { get; protected set; }
+    /// <summary>
+    /// Optimistic-concurrency token. Npgsql maps a <c>uint</c> property configured with
+    /// <c>IsRowVersion()</c> to PostgreSQL's <c>xmin</c> system column: the token changes on
+    /// every update and no table column is created. Entities that are never updated (the
+    /// append-only ledger, samples and timeline rows) explicitly ignore this property and
+    /// declare no token — see the entity configuration in each module's DbContext.
+    /// </summary>
+    public uint RowVersion { get; protected set; }
 
     public DateTimeOffset CreatedAtUtc { get; protected set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? UpdatedAtUtc { get; protected set; }

@@ -20,16 +20,25 @@ cross-module reads go through the owning module's Application interface
 | `GET/POST /api/v1/policies`, `POST .../{id}/deactivate`, `POST .../evaluate` | `PolicyController` | `IPolicyManagementService` |
 | `GET /api/v1/audit?organizationId=...&resourceType=...&action=...&page=...&pageSize=...` (read-only) | `AuditController` | `IAuditQueryService` |
 | `GET/POST /api/v1/deployments`, `GET .../{id}/regression-analysis` | `DeploymentsController` | `IDeploymentRegressionService` (pulls real Observability samples via `ISloService.GetSamplesAsync`, runs `RegressionAnalyzer`) |
-| `POST /api/v1/traffic/select-instance` | `TrafficController` | `ITrafficRoutingService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms) |
+| `POST /api/v1/traffic/select-instance`, `POST /api/v1/traffic/telemetry` | `TrafficController` | `ITrafficRoutingService` / `IInstanceTelemetryService` (real `ServiceRegistry` health via `IServiceHealthService`, real `RoutingStrategies` algorithms, per-instance gauges with a staleness window) |
+| `GET /api/v1/metrics/{summary,services,routes,series,infrastructure}` | `MetricsController` | `ITelemetryQueryService` (one-minute request aggregates), `IDatabaseMetricsProbe`, `ICacheStatistics`, `ITelemetryIngestService`, `IConsumerLagService` — every response carries `hasData`/`available` plus a reason |
+| `GET /api/v1/alerts?organizationId=` | `AlertsController` | `AlertReadModel` — alerts derived from registry health, SLO compliance, live breaker states, consumer lag and the dead-letter backlog |
 
-Razor UI: `/Dashboard` (the command center) renders the organization read
-model composed from `IServiceHealthService`, `IIncidentService`,
-`ISloService`, and `IDeploymentRegressionService`. `/Services` and
-`/Incidents` render live registry/incident data. All MVC pages sit behind
-cookie authentication (`[Authorize]`); unauthenticated browsers are
-challenged to the sign-in page, and API callers get `401`, never an HTML
-redirect. Additional routes since the first cut of this document:
+Razor UI: eleven operator consoles, each rendered server-side from a typed
+view model and then hydrated by one vanilla ES module against the same JSON
+APIs listed above — `/Dashboard` (command centre), `/Services`,
+`/Apis`, `/Incidents`, `/Observability`, `/Events`, `/Deployments`,
+`/Policies`, `/Reliability`, `/AiOps` and `/Audit`. **Every** page sits behind
+cookie authentication (`[Authorize]`), including the dashboard; unauthenticated
+browsers are challenged to the sign-in page, and API callers get `401`, never
+an HTML redirect. A page that has no recorded evidence for a section prints
+"No telemetry available." (or the server's own reason string) rather than a
+zero. Additional routes since the first cut of this document:
 `POST /api/v1/account/register|login|logout|api-keys[/revoke]`,
+`POST /api/v1/account/sessions/revoke-all` (rotates the caller's security stamp
+and signs them out), `POST /api/v1/account/users/{id}/sessions/revoke-all`
+(PlatformAdmin), `POST /api/v1/account/users/{id}/deactivate|reactivate`
+(PlatformAdmin; self-deactivation is a `400`),
 `GET /api/v1/traffic/policies/{serviceId}` + `PUT` (tenant-checked body),
 `POST /api/v1/traffic/select-configured-instance`,
 `POST /api/v1/events/publish`, `POST /api/v1/events/dead-letters/{id}/replay`,
@@ -47,9 +56,55 @@ redirect. Additional routes since the first cut of this document:
   IncidentManagement, EventPlatform DLQ list, PolicyEngine, and
   DeploymentIntelligence all page at the database query level (`Skip`/`Take`),
   not in memory.
-- **`[Authorize]`** on 10 of 11 controllers (`DashboardController` is the
-  public landing page and stays open), with state-changing actions further
-  restricted to a specific role policy — see docs/security.md.
+- **Sorting** on every paginated list endpoint (`sortBy` + `sortDirection`),
+  applied at the database query level *before* `Skip`/`Take` so a page is a
+  stable slice of the ordered set rather than a re-sorted page. The accepted
+  fields are a per-resource whitelist (`Atlas.Shared.Application.SortSpec`,
+  one spec beside each application service) and each entry is a real LINQ
+  ordering, so a user-supplied string never reaches SQL as a column name. An
+  unknown field is a `400` ProblemDetails (`code: INVALID_SORT_FIELD`) that
+  lists the allowed values; an unknown direction is `400`
+  (`code: INVALID_SORT_DIRECTION`) — mismatched input is never silently
+  ignored, and validation happens in the controller so it costs no query.
+
+  | Endpoint | `sortBy` values | Default ordering |
+  |---|---|---|
+  | `GET /api/v1/apis` | name, basePath, isActive, createdAtUtc | name asc |
+  | `GET /api/v1/apis/routes` | path, httpMethod, maxRetries, createdAtUtc | path, then method |
+  | `GET /api/v1/services` | name, environmentId, createdAtUtc | name asc |
+  | `GET /api/v1/audit` | createdAtUtc, action, resourceType, resourceId, actorDisplay | createdAtUtc desc |
+  | `GET /api/v1/incidents` | detectedAtUtc, startedAtUtc, severity, status, title | detectedAtUtc desc |
+  | `GET /api/v1/deployments` | deployedAtUtc, version, environment, author, status, serviceId | deployedAtUtc desc |
+  | `GET /api/v1/events/dead-letters` | lastFailedAtUtc, firstFailedAtUtc, retryCount, eventType, originalTopic | lastFailedAtUtc desc |
+  | `GET /api/v1/policies` | name, isActive, version, createdAtUtc | name asc |
+  | `GET /api/v1/organizations` | name, slug, isActive, createdAtUtc | name asc (PlatformAdmin only) |
+
+  Field names and `asc`/`desc` are case-insensitive. The non-paginated
+  sub-collections (an API's versions, one version's routes) keep their fixed
+  newest-first/path order. Covered by `SortSpecTests` (unit) and
+  `ListEndpointSortingTests` (HTTP, seeded through the real pipeline).
+- **Application DTOs on the read endpoints.** The five endpoints that used to
+  serialize EF aggregates (`GET /api/v1/incidents` and `…/{id}`,
+  `/api/v1/deployments`, `/api/v1/events/dead-letters`, `/api/v1/audit`,
+  `/api/v1/policies`) now publish `IncidentDto`, `DeploymentDto`,
+  `DeadLetterEventDto`, `AuditEntryDto` and `PolicyRuleDto` from their module's
+  Application layer. The wire format keeps the same field names, but an
+  aggregate's persistence state (`rowVersion`), its domain-event collector
+  (`domainEvents`) and its tenant column can no longer leak onto the wire or
+  change a published contract as a side effect of a mapping change.
+  `ResponseDtoContractTests` fails the build if a DTO member is ever an entity
+  or an EF Core type, and `ReadEndpointContractTests` asserts the JSON shape
+  through the real pipeline.
+- **Optimistic concurrency is a documented HTTP contract.** Every mutable
+  aggregate carries PostgreSQL's `xmin` as its concurrency token, so a write
+  based on a stale read is rejected with `409 Conflict` and a ProblemDetails
+  body (`code: CONCURRENCY_CONFLICT`, plus the conflicting entity names) instead
+  of a 500 or a silent overwrite. A 409 means "re-read, then retry"; a 400
+  keeps meaning "this request was invalid". Details in docs/database.md.
+- **`[Authorize]`** on every controller (an anonymous request to any
+  `/api/**` route returns `401`, never an HTML redirect; every Razor page
+  challenges to sign-in), with state-changing actions further restricted to a
+  named role policy — see docs/security.md.
 - **`POST /api/v1/events/dead-letters/{id}/replay`** — real replay
   (dry-run or live), re-publishing to the original Kafka topic via
   `IEventPublisher`, restricted to `Role:PlatformAdmin`.
@@ -58,16 +113,16 @@ redirect. Additional routes since the first cut of this document:
   `ActionToolGuard` + `Role:PlatformAdmin` + explicit confirmation in the
   request body.
 
-## Now implemented (previously listed as gaps)
+### Traffic routing and tenant scoping
 
-- **`TrafficController`'s routing decision is now per-instance**, not
-  aggregate. `IServiceHealthService.GetInstancesAsync` returns each
-  instance's id/host/health; `TrafficRoutingService` uses real per-instance
-  health for RoundRobin and Weighted. LeastConnections and LatencyBased are
-  **honestly refused** with a clear reason string — ATLAS doesn't measure
-  per-instance active-connection-count or latency anywhere, and returning
-  fabricated zero values would make every instance look artificially tied.
-  Unit-tested, including the refusal path.
+- **`TrafficController`'s routing decision is per-instance.** RoundRobin,
+  Weighted, Priority, Canary and BlueGreen route on real per-instance health
+  from `IServiceHealthService.GetInstancesAsync`. LeastConnections and
+  LatencyBased route on **reported** per-instance gauges pushed to
+  `POST /api/v1/traffic/telemetry`; an instance whose report is missing or
+  older than the staleness window (60 s by default) is excluded from selection
+  instead of being scored with an invented value. Unit-tested, including the
+  staleness/refusal path.
 - **Resource-level tenant authorization**: `[Authorize(Policy =
   "SameOrganization")]` now applies to organization-scoped GET endpoints,
   including the security-engineer-only audit trail. Audit queries require an
@@ -80,6 +135,14 @@ redirect. Additional routes since the first cut of this document:
 
 - **No API versioning beyond `v1`** — nothing to version yet; the routing
   and controller layout leaves space for a `v2` without breaking `v1`.
+- **The 409 path is proven at the handler level, not through an HTTP
+  request.** Every write path re-reads its aggregate inside the same request, so
+  a conflict only occurs when two writes genuinely interleave; that is not
+  deterministically reproducible from a test client without a fault-injection
+  hook. `ConcurrencyConflictExceptionHandlerTests` covers the mapping, and
+  `ReadEndpointContractTests` covers the other half — a real
+  read-then-update cycle (detect an incident, then transition it) still
+  succeeds against PostgreSQL with the token in place.
 - **PolicyController's `evaluate` endpoint is read-only/advisory** by
   design — a matched rule's `Action` is returned in the response but
   nothing auto-executes it outside the explicit `/api/v1/ai/actions` path.

@@ -1,14 +1,84 @@
-/* Pages: API catalog — enterprise control-room panel framing. */
-.atlas-api-catalog {
-    grid-column: 1 / -1;
+/* ==========================================================================
+   API Management: catalog, route table, policy configuration drawer.
+   ========================================================================== */
+
+.atlas-api-grid { display: grid; gap: var(--atlas-gap); grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); }
+
+.atlas-api-card {
+  background: var(--atlas-panel);
+  border: 1px solid var(--atlas-line-soft);
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-card);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 13px;
+  transition: border-color var(--atlas-transition);
 }
 
-.atlas-api-catalog code {
-    font-family: 'IBM Plex Mono', ui-monospace, monospace;
-    font-size: 0.82rem;
-    color: var(--atlas-text-accent, #9fd4a0);
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 3px;
-    padding: 0.05rem 0.35rem;
+.atlas-api-card:hover { border-color: var(--atlas-line-hi); }
+.atlas-api-card.is-selected { border-color: var(--atlas-blue); }
+.atlas-api-card__head { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.atlas-api-card__name { font-size: 0.88rem; font-weight: 600; }
+.atlas-api-card__path { color: var(--atlas-blue); font-family: var(--atlas-font-mono); font-size: 0.72rem; }
+.atlas-api-card__meta { color: var(--atlas-text-mute); font-size: 0.7rem; display: flex; gap: 12px; flex-wrap: wrap; }
+
+.atlas-route-path { font-family: var(--atlas-font-mono); font-size: 0.76rem; }
+
+.atlas-method {
+  border-radius: 3px;
+  font-family: var(--atlas-font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border: 1px solid var(--atlas-line);
+  color: var(--atlas-text-dim);
+}
+
+.atlas-method--get { color: #bfdff3; border-color: var(--atlas-blue-dim); }
+.atlas-method--post { color: #b6ebd1; border-color: var(--atlas-green-dim); }
+.atlas-method--put { color: #f0d7a5; border-color: var(--atlas-amber-dim); }
+.atlas-method--patch { color: #d5cbf5; border-color: #4a3f70; }
+.atlas-method--delete { color: #f4c3c3; border-color: var(--atlas-red-dim); }
+
+.atlas-policy-strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.atlas-config-panel { display: flex; flex-direction: column; gap: var(--atlas-gap-sm); }
+
+.atlas-rate-limit-preview {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+.atlas-key-row {
+  align-items: center;
+  border-bottom: 1px solid var(--atlas-line-soft);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: 8px 0;
+}
+
+.atlas-key-row:last-child { border-bottom: 0; }
+.atlas-key-prefix { color: var(--atlas-text); font-family: var(--atlas-font-mono); font-size: 0.78rem; }
+.atlas-key-reveal {
+  background: rgba(230, 180, 95, 0.06);
+  border: 1px solid var(--atlas-amber-dim);
+  border-radius: var(--atlas-radius-sm);
+  color: #f0d7a5;
+  font-family: var(--atlas-font-mono);
+  font-size: 0.76rem;
+  padding: 8px 10px;
+  word-break: break-all;
+}
+
+@media (max-width: 1100px) {
+  .atlas-api-grid { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Atlas.Modules.ServiceRegistry.Application;
+using Atlas.Modules.TrafficManagement.Application;
+using Atlas.Web.Models;
+using Atlas.Web.ReadModels;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Atlas.Web.Controllers;
@@ -8,8 +11,18 @@ namespace Atlas.Web.Controllers;
 [Authorize]
 public class ServicesController : Controller
 {
+    private const int TopologyTelemetryWindowMinutes = 15;
+
     private readonly IServiceHealthService _serviceHealth;
-    public ServicesController(IServiceHealthService serviceHealth) => _serviceHealth = serviceHealth;
+    private readonly ServiceTopologyReadModel _topology;
+    private readonly ITrafficPolicyService _trafficPolicies;
+
+    public ServicesController(IServiceHealthService serviceHealth, ServiceTopologyReadModel topology, ITrafficPolicyService trafficPolicies)
+    {
+        _serviceHealth = serviceHealth;
+        _topology = topology;
+        _trafficPolicies = trafficPolicies;
+    }
 
     public record RegisterServiceRequest(Guid OrganizationId, Guid EnvironmentId, string Name);
     public record RegisterInstanceRequest(Guid OrganizationId, string HostAndPort);
@@ -29,17 +42,45 @@ public class ServicesController : Controller
         var denial = ResolveOrganizationScope(ref organizationId);
         if (denial is not null) return denial;
 
-        var statuses = organizationId == Guid.Empty
-            ? Array.Empty<ServiceStatusDto>()
-            : (await _serviceHealth.GetStatusAsync(organizationId, 1, 50, ct)).ToArray();
-        return View(statuses);
+        var topology = await _topology.BuildAsync(organizationId, TimeSpan.FromMinutes(TopologyTelemetryWindowMinutes), ct);
+
+        var policies = new Dictionary<Guid, TrafficPolicyDto?>();
+        foreach (var node in topology.Nodes.Take(25))
+        {
+            policies[node.Id] = await _trafficPolicies.GetAsync(organizationId, node.Id, ct);
+        }
+
+        var model = new ServiceTopologyViewModel
+        {
+            HasOrganizationContext = organizationId != Guid.Empty,
+            OrganizationId = organizationId,
+            Topology = topology,
+            TrafficPolicies = policies
+        };
+
+        return View(model);
     }
 
     [HttpGet("/api/v1/services")]
     [Authorize(Policy = "SameOrganization")]
     public async Task<ActionResult<IReadOnlyList<ServiceStatusDto>>> ListJson([FromQuery] Guid organizationId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
-        => Ok(await _serviceHealth.GetStatusAsync(organizationId, page, pageSize, ct));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] string? sortBy = null, [FromQuery] string? sortDirection = null, CancellationToken ct = default)
+    {
+        if (!SortQuery.TryResolve(ServiceRegistrySorting.Services, sortBy, sortDirection, out var direction, out var error)) return error!;
+        return Ok(await _serviceHealth.GetStatusAsync(organizationId, page, pageSize, ct, sortBy, direction));
+    }
+
+    /// <summary>
+    /// Service topology: registry graph (services, instances, dependencies)
+    /// joined with live request telemetry and the latest recorded deployment.
+    /// Consumed by the topology map on /Services and by the API surface.
+    /// </summary>
+    [HttpGet("/api/v1/services/topology")]
+    [Authorize(Policy = "SameOrganization")]
+    public async Task<ActionResult<ReadModels.ServiceTopology>> Topology([FromQuery] Guid organizationId,
+        [FromQuery] int telemetryWindowMinutes = 15, CancellationToken ct = default)
+        => Ok(await _topology.BuildAsync(organizationId, TimeSpan.FromMinutes(Math.Clamp(telemetryWindowMinutes, 1, 1440)), ct));
 
     [HttpPost("/api/v1/services")]
     [Authorize(Policy = "Role:SRE")]

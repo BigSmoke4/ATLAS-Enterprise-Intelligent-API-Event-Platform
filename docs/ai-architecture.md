@@ -40,7 +40,11 @@ real for both the read and (one) action path:
 - Only one Action tool exists (`DeactivatePolicy`). Others described
   conceptually in the master prompt (restart an instance, roll back a
   deployment) aren't built.
-- `AiController.ExecuteAction` now records every action attempt (success or
-  denial) via `IAuditLogger` — actor display name, tool name, and the
-  outcome summary. The actor's user id isn't populated yet (`actorUserId:
-  null`) pending a standardized user-id claim across Identity.
+- `AiController.ExecuteAction` records every action attempt (success or denial)
+  through `IAuditLogger` with the actor's **user id**, display name, the tool
+  name and the outcome summary. `ClaimTypes.NameIdentifier` is the platform-wide
+  actor id — the Identity cookie pipeline writes the local user id there and
+  `ApiKeyAuthenticationMiddleware` writes the key owner's id there too — so the
+  ledger attributes an AI-initiated change to a human in every case; the
+  attribution is asserted by `AiActionAuditIntegrationTests` for both a
+  confirmed attempt and a denied one.

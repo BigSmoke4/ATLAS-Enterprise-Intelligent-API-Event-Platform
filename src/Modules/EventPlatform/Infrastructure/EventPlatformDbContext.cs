@@ -18,6 +18,7 @@ public class EventPlatformDbContext : DbContext
         {
             b.ToTable("IdempotencyRecords");
             b.HasKey(r => r.Id);
+            b.Ignore(x => x.RowVersion);
             b.Property(r => r.ConsumerGroup).HasMaxLength(256).IsRequired();
             // This unique index is the actual mechanism that prevents a
             // duplicate delivery from re-executing business logic.
@@ -28,6 +29,7 @@ public class EventPlatformDbContext : DbContext
         {
             b.ToTable("DeadLetterEvents");
             b.HasKey(d => d.Id);
+            b.Property(x => x.RowVersion).IsRowVersion();
             b.Property(d => d.OriginalTopic).HasMaxLength(256).IsRequired();
             b.Property(d => d.EventType).HasMaxLength(256).IsRequired();
             b.Property(d => d.Version).IsRequired();

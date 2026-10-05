@@ -11,11 +11,11 @@ public class IncidentService : IIncidentService
     public IncidentService(IncidentManagementDbContext db) => _db = db;
 
     public async Task<Result<Guid>> DeclareIncidentAsync(Guid organizationId, string title, IncidentSeverity severity,
-        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, CancellationToken ct = default)
+        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, Guid? declaredByUserId = null, CancellationToken ct = default)
     {
         try
         {
-            var incident = Incident.Detect(organizationId, title, severity, startedAtUtc, affectedServiceIds);
+            var incident = Incident.Detect(organizationId, title, severity, startedAtUtc, affectedServiceIds, declaredByUserId);
             _db.Incidents.Add(incident);
             await _db.SaveChangesAsync(ct);
             return Result.Success(incident.Id);
@@ -52,12 +52,14 @@ public class IncidentService : IIncidentService
     public Task<Incident?> GetAsync(Guid organizationId, Guid incidentId, CancellationToken ct = default)
         => _db.Incidents.Include(i => i.Timeline).AsNoTracking().SingleOrDefaultAsync(i => i.Id == incidentId && i.OrganizationId == organizationId, ct);
 
-    public async Task<IReadOnlyList<Incident>> GetActiveIncidentsAsync(Guid organizationId, int page = 1, int pageSize = 50, IncidentStatus? status = null, IncidentSeverity? severity = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Incident>> GetActiveIncidentsAsync(Guid organizationId, int page = 1, int pageSize = 50, IncidentStatus? status = null, IncidentSeverity? severity = null, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
         var query = _db.Incidents.Where(i => i.OrganizationId == organizationId && i.Status != IncidentStatus.PostmortemComplete);
         if (status.HasValue) query = query.Where(i => i.Status == status.Value);
         if (severity.HasValue) query = query.Where(i => i.Severity == severity.Value);
-        return await query.OrderByDescending(i => i.DetectedAtUtc).Skip((page - 1) * pageSize).Take(pageSize).AsNoTracking().ToListAsync(ct);
+        return await IncidentSorting.Incidents.Apply(query, sortBy, sortDirection)
+            .Skip((page - 1) * pageSize).Take(pageSize).AsNoTracking().ToListAsync(ct);
     }
 }

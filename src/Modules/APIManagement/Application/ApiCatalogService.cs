@@ -1,6 +1,7 @@
 using Atlas.Modules.APIManagement.Domain;
 using Atlas.Modules.APIManagement.Infrastructure;
 using Atlas.Shared.Application;
+using Atlas.Shared.Contracts;
 using Microsoft.EntityFrameworkCore;
 
 namespace Atlas.Modules.APIManagement.Application;
@@ -8,7 +9,13 @@ namespace Atlas.Modules.APIManagement.Application;
 public class ApiCatalogService : IApiCatalogService
 {
     private readonly ApiManagementDbContext _db;
-    public ApiCatalogService(ApiManagementDbContext db) => _db = db;
+    private readonly ICacheService? _cache;
+
+    public ApiCatalogService(ApiManagementDbContext db, ICacheService? cache = null)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     public async Task<Result<Guid>> RegisterApiAsync(Guid organizationId, string name, string basePath, CancellationToken ct = default)
     {
@@ -46,7 +53,7 @@ public class ApiCatalogService : IApiCatalogService
         }
     }
 
-    public async Task<Result> AddRouteAsync(Guid organizationId, Guid apiVersionId, string path, string httpMethod, CancellationToken ct = default)
+    public async Task<Result> AddRouteAsync(Guid organizationId, Guid apiVersionId, string path, string httpMethod, Guid? targetServiceId = null, CancellationToken ct = default)
     {
         var version = await _db.ApiVersions.Include(v => v.Routes)
             .FirstOrDefaultAsync(v => v.Id == apiVersionId && v.OrganizationId == organizationId, ct);
@@ -54,8 +61,10 @@ public class ApiCatalogService : IApiCatalogService
 
         try
         {
-            version.AddRoute(path, httpMethod);
+            var route = version.AddRoute(path, httpMethod);
+            route.SetTargetService(targetServiceId);
             await _db.SaveChangesAsync(ct);
+            await InvalidateRouteCacheAsync(organizationId, route.Path, route.HttpMethod, ct);
             return Result.Success();
         }
         catch (ArgumentException ex)
@@ -78,27 +87,67 @@ public class ApiCatalogService : IApiCatalogService
             route.SetTimeout(timeout);
             route.SetRetryPolicy(maxRetries);
             await _db.SaveChangesAsync(ct);
+            // Explicit invalidation: a policy change must be visible on the
+            // next request, not after the cache TTL expires.
+            await InvalidateRouteCacheAsync(organizationId, route.Path, route.HttpMethod, ct);
             return Result.Success();
         }
         catch (ArgumentException ex) { return Result.Failure(ex.Message, "VALIDATION_ERROR"); }
+    }
+
+    public async Task<Result> SetRouteTargetServiceAsync(Guid organizationId, Guid routeId, Guid? serviceId, CancellationToken ct = default)
+    {
+        var route = await _db.ApiRoutes.FirstOrDefaultAsync(r => r.Id == routeId && r.OrganizationId == organizationId, ct);
+        if (route is null) return Result.Failure("Route not found.", "NOT_FOUND");
+
+        route.SetTargetService(serviceId);
+        await _db.SaveChangesAsync(ct);
+        await InvalidateRouteCacheAsync(organizationId, route.Path, route.HttpMethod, ct);
+        return Result.Success();
     }
 
     public async Task<IReadOnlyList<ApiRouteDto>> ListRoutesAsync(Guid organizationId, Guid apiVersionId, CancellationToken ct = default)
         => await _db.ApiRoutes.AsNoTracking()
             .Where(r => r.OrganizationId == organizationId && r.ApiVersionId == apiVersionId)
             .OrderBy(r => r.Path).ThenBy(r => r.HttpMethod)
-            .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries))
+            .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries, r.TargetServiceId))
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ApiRouteDto>> ListAllRoutesAsync(Guid organizationId, int page = 1, int pageSize = 200, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
     {
         (page, pageSize) = Paging.Clamp(page, pageSize);
-        return await _db.ApiDefinitions
-            .Where(a => a.OrganizationId == organizationId)
-            .OrderBy(a => a.Name)
+        // Ordering is applied before Skip/Take so pages stay stable: the sort
+        // is part of the SQL, not a re-sort of the page that came back.
+        return await ApiCatalogSorting.Routes
+            .Apply(_db.ApiRoutes.AsNoTracking().Where(r => r.OrganizationId == organizationId), sortBy, sortDirection)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(r => new ApiRouteDto(r.Id, r.Path, r.HttpMethod, r.RateLimit, r.Timeout, r.MaxRetries, r.TargetServiceId))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ApiVersionDto>> ListVersionsAsync(Guid organizationId, Guid apiDefinitionId, CancellationToken ct = default)
+        => await _db.ApiVersions.AsNoTracking()
+            .Where(v => v.OrganizationId == organizationId && v.ApiDefinitionId == apiDefinitionId)
+            .OrderByDescending(v => v.VersionNumber)
+            .Select(v => new ApiVersionDto(v.Id, v.VersionNumber, v.Status.ToString(), v.Routes.Count))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<ApiSummaryDto>> ListApisAsync(Guid organizationId, int page = 1, int pageSize = 50, CancellationToken ct = default,
+        string? sortBy = null, SortDirection sortDirection = SortDirection.Ascending)
+    {
+        (page, pageSize) = Paging.Clamp(page, pageSize);
+        return await ApiCatalogSorting.Apis
+            .Apply(_db.ApiDefinitions.Where(a => a.OrganizationId == organizationId), sortBy, sortDirection)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(a => new ApiSummaryDto(a.Id, a.Name, a.BasePath, a.IsActive, a.Versions.Count))
             .AsNoTracking()
             .ToListAsync(ct);
+    }
+
+    private async Task InvalidateRouteCacheAsync(Guid organizationId, string path, string method, CancellationToken ct)
+    {
+        if (_cache is null) return;
+        await _cache.RemoveAsync(ApiRoutePolicyProvider.CacheKey(organizationId, method, path), ct);
     }
 }

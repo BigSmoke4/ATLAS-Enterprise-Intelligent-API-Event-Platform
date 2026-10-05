@@ -1,1 +1,152 @@
-.atlas-gauge { align-items: center; display: flex; gap: 12px; }.atlas-gauge__track { background: var(--atlas-surface-inset); border: 1px solid var(--atlas-border); border-radius: 99px; height: 8px; overflow: hidden; flex: 1; }.atlas-gauge__value { background: var(--atlas-green); height: 100%; transition: width .25s ease; }
+/* ==========================================================================
+   Gauges, lamps, meters and bar readouts. All values are rendered by
+   /js/components/gauges.js from data-value attributes — the CSS only styles
+   the instrument, it never invents a fill level.
+   ========================================================================== */
+
+.atlas-gauge {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.atlas-gauge__dial { height: 108px; position: relative; width: 108px; }
+.atlas-gauge__dial canvas { display: block; height: 100%; width: 100%; }
+
+.atlas-gauge__value {
+  color: var(--atlas-text);
+  font-family: var(--atlas-font-mono);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  left: 0;
+  position: absolute;
+  right: 0;
+  text-align: center;
+  top: 54%;
+}
+
+.atlas-gauge__label {
+  color: var(--atlas-text-mute);
+  font-size: 0.64rem;
+  letter-spacing: var(--atlas-label-spacing);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.atlas-gauge__dial--sm { height: 76px; width: 76px; }
+.atlas-gauge__dial--sm + .atlas-gauge__value { font-size: 0.78rem; }
+
+/* Radial progress ring (conic gradient, uses --atlas-value 0..1). */
+.atlas-ring {
+  --atlas-value: 0;
+  --atlas-ring-colour: var(--atlas-blue);
+  align-items: center;
+  background:
+    conic-gradient(var(--atlas-ring-colour) calc(var(--atlas-value) * 360deg), rgba(255, 255, 255, 0.06) 0);
+  border-radius: 50%;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55);
+  display: flex;
+  height: 92px;
+  justify-content: center;
+  position: relative;
+  width: 92px;
+}
+
+.atlas-ring::after {
+  background: radial-gradient(circle at 50% 0%, #151f26, var(--atlas-inset));
+  border: 1px solid #05090b;
+  border-radius: 50%;
+  box-shadow: var(--atlas-shadow-inset);
+  content: "";
+  height: 70%;
+  position: absolute;
+  width: 70%;
+}
+
+.atlas-ring__value {
+  font-family: var(--atlas-font-mono);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+}
+
+/* LED bar meter: N discrete segments, lit by JS. */
+.atlas-meter { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.atlas-meter__track {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: 3px;
+  box-shadow: var(--atlas-shadow-inset);
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  padding: 2px;
+}
+
+.atlas-meter__segment {
+  background: #1b262d;
+  border-radius: 1px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  flex: 1 1 0;
+}
+
+.atlas-meter__segment.is-lit { background: var(--atlas-green); box-shadow: 0 0 6px rgba(85, 201, 141, 0.55); }
+.atlas-meter__segment.is-lit.is-warn { background: var(--atlas-amber); box-shadow: 0 0 6px rgba(230, 180, 95, 0.55); }
+.atlas-meter__segment.is-lit.is-bad { background: var(--atlas-red); box-shadow: 0 0 6px rgba(226, 106, 106, 0.55); }
+
+.atlas-meter__meta { align-items: baseline; display: flex; gap: 8px; justify-content: space-between; }
+
+/* Continuous bar (single-value proportion, e.g. error budget remaining). */
+.atlas-bar {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: 3px;
+  box-shadow: var(--atlas-shadow-inset);
+  height: 10px;
+  overflow: hidden;
+}
+
+.atlas-bar__fill {
+  background: linear-gradient(180deg, #7fdcae, var(--atlas-green) 55%, #2f7a55);
+  box-shadow: 0 0 12px rgba(85, 201, 141, 0.35);
+  height: 100%;
+  transition: width var(--atlas-transition);
+  width: 0;
+}
+
+.atlas-bar__fill--warn { background: linear-gradient(180deg, #f0cd8c, var(--atlas-amber) 55%, #8a6427); box-shadow: 0 0 12px rgba(230, 180, 95, 0.35); }
+.atlas-bar__fill--bad { background: linear-gradient(180deg, #f09a9a, var(--atlas-red) 55%, #833636); box-shadow: 0 0 12px rgba(226, 106, 106, 0.35); }
+.atlas-bar__fill--info { background: linear-gradient(180deg, #a5d3ef, var(--atlas-blue) 55%, #37617d); box-shadow: 0 0 12px rgba(111, 176, 218, 0.35); }
+
+.atlas-bar-stack { display: flex; flex-direction: column; gap: 8px; }
+
+/* Distribution strip used for health splits (healthy/degraded/unhealthy). */
+.atlas-distribution { display: flex; height: 10px; overflow: hidden; border-radius: 3px; border: 1px solid #05090b; box-shadow: var(--atlas-shadow-inset); }
+.atlas-distribution__part { background: var(--atlas-line-hi); }
+.atlas-distribution__part--ok { background: var(--atlas-green); }
+.atlas-distribution__part--warn { background: var(--atlas-amber); }
+.atlas-distribution__part--bad { background: var(--atlas-red); }
+.atlas-distribution__part--idle { background: #33424b; }
+
+/* Seven-segment style numeric display for headline readouts. */
+.atlas-readout {
+  background: var(--atlas-inset);
+  border: 1px solid #05090b;
+  border-radius: var(--atlas-radius-sm);
+  box-shadow: var(--atlas-shadow-inset);
+  color: var(--atlas-green);
+  font-family: var(--atlas-font-mono);
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  padding: 10px 14px;
+  text-shadow: 0 0 16px rgba(85, 201, 141, 0.35);
+}
+
+.atlas-readout--amber { color: var(--atlas-amber); text-shadow: 0 0 16px rgba(230, 180, 95, 0.35); }
+.atlas-readout--red { color: var(--atlas-red); text-shadow: 0 0 16px rgba(226, 106, 106, 0.35); }
+.atlas-readout--blue { color: var(--atlas-blue); text-shadow: 0 0 16px rgba(111, 176, 218, 0.35); }
