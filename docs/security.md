@@ -159,9 +159,19 @@ completes the `Oidc` section.
    accounts nobody reviewed, and group→role mapping is provider-specific, so
    both are left to a deliberate, reviewed change. [ADR-010](decisions/ADR-010-oidc-extension-point.md)
    is the record, updated by this implementation.
-4. **Verified** — `ExternalIdentityMapperTests` covers the claim precedence
-   (including the refusal to trust `sub`), blank-value handling and the
-   active-account rule; `OidcOptionsTests` covers the configuration contract;
-   and `GET /account/oidc` answers `404` rather than redirecting when no
-   provider is configured, so an unconfigured deployment cannot advertise a
-   broken flow.
+4. **Verified end to end** — `OidcSignInIntegrationTests` runs the handler
+   against an OpenID provider hosted *inside* the test process (discovery, an
+   authorization endpoint that echoes the nonce, a token endpoint returning an
+   RSA-signed `id_token`, the matching JWKS and a userinfo endpoint). It asserts
+   the challenge carries `response_type=code`, a PKCE `code_challenge` and the
+   configured scopes and client id; that a provisioned account completes the
+   exchange, passes nonce and signature validation and arrives at `/Dashboard`
+   with a working session (`IdentitySessionValidation` accepts it, which is only
+   possible if the cookie carries the local principal); that an identity with no
+   local account is refused with `ssoError=notlinked` and no session; that a
+   *deactivated* account is refused even though the provider authenticated it;
+   and that an unconfigured deployment answers `404` and renders no SSO button.
+   `ExternalIdentityMapperTests` pins the claim precedence (including the
+   refusal to trust `sub`) and `OidcOptionsTests` the configuration contract.
+   Still not covered by tests, because it needs a real provider: provider-side
+   logout propagation and group→role mapping, neither of which is implemented.
