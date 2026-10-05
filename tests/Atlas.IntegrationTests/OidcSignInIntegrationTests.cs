@@ -339,14 +339,22 @@ public sealed class OidcSignInIntegrationTests
         using var atlas = Client(factory);
 
         // The login page advertises the federated route only because a provider
-        // is configured (the view is driven by the registered scheme).
+        // is registered: the view asks the scheme provider for "oidc" and points
+        // its form at /account/oidc. (The button label is the configured
+        // DisplayName, which the controller reads from configuration — irrelevant
+        // to whether the route is offered, hence the assertion on the action.)
         using var loginPage = await atlas.GetAsync("/account/login");
         var loginHtml = await loginPage.Content.ReadAsStringAsync();
         Assert.Equal(System.Net.HttpStatusCode.OK, loginPage.StatusCode);
-        Assert.Contains("SIGN IN WITH INTEGRATION PROVIDER", loginHtml);
+        Assert.Contains("SIGN IN WITH", loginHtml);
+        Assert.Contains("/account/oidc", loginHtml);
 
         using var callback = await SignInAsync(atlas, provider);
-        Assert.Equal(System.Net.HttpStatusCode.Redirect, callback.StatusCode);
+        // A provider-side failure is redirected to ?ssoError=... by
+        // OnRemoteFailure, so the Location is the most useful thing to see when
+        // this fails (the handler's own warning is in the test output).
+        Assert.True(callback.StatusCode == System.Net.HttpStatusCode.Redirect,
+            $"The callback returned {(int)callback.StatusCode} {callback.StatusCode}; Location: {callback.Headers.Location}");
         Assert.Equal("/Dashboard", callback.Headers.Location!.ToString());
 
         // The session works, and IdentitySessionValidation accepted it — which
