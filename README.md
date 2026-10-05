@@ -138,7 +138,7 @@ tests/Atlas.ArchitectureTests/         module boundary enforcement
 docs/                                  architecture, security, threat model, DR, performance, ADRs
 scripts/                               add-migration / migrate / smoke / secret-scan / gitleaks-annotations / dr-drill
 observability/                         prometheus.yml, grafana provisioning + dashboards
-.github/workflows/ci.yml               restore → build → warnaserror → unit → migrations → drift+secret scan → architecture → integration (incl. real-PostgreSQL idempotency and outbox) → k6 → Docker build+smoke
+.github/workflows/ci.yml               restore → build → warnaserror → unit → migrations → drift+secret scan → architecture → integration (incl. real-PostgreSQL idempotency and outbox, and federated sign-in against an in-process OpenID provider) → k6 → Docker build+smoke
 .github/workflows/ci.yml (2nd job)      gitleaks over the full commit history (independent secret-scan layer)
 ```
 
