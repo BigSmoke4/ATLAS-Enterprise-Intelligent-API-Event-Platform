@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Atlas.Modules.AIOperations.Application;
 using Atlas.Modules.Audit.Application;
 using Microsoft.AspNetCore.Authorization;
@@ -54,7 +55,10 @@ public class AiController : ControllerBase
             callerIsAuthorized: true, explicitConfirmationGiven: request.ExplicitConfirmation, ct);
 
         await _audit.RecordAsync(
-            actorUserId: null, // TODO: populate from User.FindFirst once a user-id claim is standardized across Identity
+            // ClaimTypes.NameIdentifier is the platform-wide actor id: the Identity
+            // cookie pipeline and ApiKeyAuthenticationMiddleware both put the user
+            // id there, so an AI action is attributed to a human in every case.
+            actorUserId: ActorUserId(),
             actorDisplay: User.Identity?.Name ?? "unknown",
             organizationId: request.OrganizationId,
             action: $"ai.action.{request.ToolName}",
@@ -67,6 +71,9 @@ public class AiController : ControllerBase
         if (!result.Success) return UnprocessableEntity(new ProblemDetails { Title = result.Summary });
         return Ok(result);
     }
+
+    private Guid? ActorUserId()
+        => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
     private bool CanAccess(Guid organizationId)
         => User.IsInRole("PlatformAdmin") || User.FindFirst("org_id")?.Value == organizationId.ToString();

@@ -41,11 +41,10 @@ real for both the read and (one) action path:
   conceptually in the master prompt (restart an instance, roll back a
   deployment) aren't built.
 - `AiController.ExecuteAction` records every action attempt (success or denial)
-  through `IAuditLogger` with the actor's display name, the tool name and the
-  outcome summary. The actor **user id** is still written as `null`: the
-  controller reads `User.FindFirst(ClaimTypes.NameIdentifier)`, and the cookie
-  pipeline's claim set is not yet guaranteed to carry it for every principal
-  (API-key principals carry a different id claim). Until that claim is
-  standardised across Identity, the audit record identifies the actor by name
-  and by the request's correlation id rather than by user id — deliberately
-  visible rather than silently wrong.
+  through `IAuditLogger` with the actor's **user id**, display name, the tool
+  name and the outcome summary. `ClaimTypes.NameIdentifier` is the platform-wide
+  actor id — the Identity cookie pipeline writes the local user id there and
+  `ApiKeyAuthenticationMiddleware` writes the key owner's id there too — so the
+  ledger attributes an AI-initiated change to a human in every case; the
+  attribution is asserted by `AiActionAuditIntegrationTests` for both a
+  confirmed attempt and a denied one.

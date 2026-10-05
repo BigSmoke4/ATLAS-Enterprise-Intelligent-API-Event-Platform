@@ -1,6 +1,9 @@
 # ADR-010: OAuth/OIDC as an executable extension point, not a half-flow
 
-**Status:** Accepted — configuration contract implemented; handler deliberately not registered.
+**Status:** Accepted — implemented. The configuration contract shipped first
+(with the handler deliberately unregistered); the handler itself was registered
+afterwards, with the provisioning policy this ADR required. See the update at the
+end of this document.
 
 ## Context
 
