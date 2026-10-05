@@ -145,7 +145,8 @@ public sealed class OutboxRelayService : BackgroundService
             catch (Exception ex)
             {
                 var attemptNumber = message.Attempts + 1;
-                message.RecordFailure(ex.Message, BackoffFor(attemptNumber), _options.MaxAttempts, DateTimeOffset.UtcNow);
+                var backoff = BackoffFor(attemptNumber, _options.InitialBackoff, _options.MaxBackoff);
+                message.RecordFailure(ex.Message, backoff, _options.MaxAttempts, DateTimeOffset.UtcNow);
                 await db.SaveChangesAsync(CancellationToken.None);
 
                 if (message.IsAbandoned)
@@ -159,7 +160,7 @@ public sealed class OutboxRelayService : BackgroundService
                 {
                     _logger.LogWarning(ex,
                         "Outbox message {EventId} ({EventType}) attempt {Attempts} failed; retrying in {Delay}.",
-                        message.EventId, message.EventType, message.Attempts, BackoffFor(attemptNumber));
+                        message.EventId, message.EventType, message.Attempts, backoff);
                 }
             }
         }
