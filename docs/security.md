@@ -75,6 +75,17 @@
   unit-tested independently of the database. This is the platform's first
   per-object ACL and the pattern the other aggregates copy.
 
+- **Secret scanning runs in CI as two independent layers.**
+  `scripts/secret-scan.sh` fails the build on a curated deny-list of credential
+  formats (AWS access key ids, GitHub tokens, Anthropic/OpenAI/Slack/Google keys,
+  PEM private keys) and on a literal value under a secret-shaped key in
+  configuration or `.env.example` — deterministic, fast, and reviewed in the same
+  pull request as the code. A second job runs `gitleaks`
+  (`ghcr.io/gitleaks/gitleaks:v8.30.1`) over the **full commit history** with its
+  own rules and entropy heuristics, configured by the narrow reviewed
+  `.gitleaks.toml` allowlist, and republishes findings as check annotations via
+  `scripts/gitleaks-annotations.py`.
+
 ## Not yet implemented
 
 - **Per-object authorization beyond incidents.** Incidents now carry a
@@ -104,18 +115,10 @@
   Nothing in the application performs those statements, so this is safe to
   apply; it is listed here rather than assumed, because a bug in the DbContext
   guard would otherwise be the only line of defence.
-- **Secret scanning is two layers, both in CI.** `scripts/secret-scan.sh`
-  fails the build on a curated deny-list of credential formats (AWS access key
-  ids, GitHub tokens, Anthropic/OpenAI/Slack/Google keys, PEM private keys) and
-  on a literal value under a secret-shaped key in configuration or
-  `.env.example` — deterministic, fast, and reviewed in the same pull request as
-  the code. A second, independent layer runs as its own CI job: `gitleaks`
-  (pinned `ghcr.io/gitleaks/gitleaks:v8.30.1`) scans the **full commit history**
-  with its own rules and entropy heuristics, reads the reviewed `.gitleaks.toml`
-  allowlist, and republishes findings as check annotations through
-  `scripts/gitleaks-annotations.py`. What remains operator-side is GitHub's own
-  push protection (a repository setting that rejects a secret at `git push`
-  time, before CI runs), which `docs/deployment.md` recommends enabling.
+- **Push protection (operator-side).** CI scans a secret *after* it has reached
+  the remote. GitHub's push protection — a repository setting, not code — refuses
+  the push outright; `docs/deployment.md` lists enabling it in the production
+  checklist. Everything else about secret scanning is implemented (below).
 - **Antiforgery scope.** MVC forms carry `[ValidateAntiForgeryToken]`, and
   `ValidateAntiforgeryForCookieAuthFilter` now enforces the token for
   *cookie-authenticated* JSON writes as well — the console reads the request

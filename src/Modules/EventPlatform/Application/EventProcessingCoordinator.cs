@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Atlas.Shared.Contracts;
+using Atlas.Shared.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace Atlas.Modules.EventPlatform.Application;
@@ -41,6 +42,10 @@ public sealed class EventProcessingCoordinator
                 lastFailure = ex;
                 await _idempotency.ReleaseAsync(consumerGroup, eventId, ct);
                 if (attempt > maxRetries) break;
+                // Counted only when a retry is actually scheduled: the final
+                // failure is a dead-letter, not a retry.
+                AtlasMetrics.EventRetries.Add(1,
+                    new KeyValuePair<string, object?>("event_type", eventType));
                 _logger.LogWarning(ex, "Event {EventId} attempt {Attempt}/{MaxRetries} failed.", eventId, attempt, maxRetries);
                 await Task.Delay(backoff, ct);
                 backoff = TimeSpan.FromMilliseconds(Math.Min(backoff.TotalMilliseconds * 2, TimeSpan.FromMinutes(1).TotalMilliseconds));
@@ -49,6 +54,9 @@ public sealed class EventProcessingCoordinator
 
         await _deadLetters.RouteToDeadLetterAsync(topic, eventId, eventType, correlationId, payloadJson,
             lastFailure?.Message ?? "Event processing failed.", ct, version);
+        AtlasMetrics.EventsDeadLettered.Add(1,
+            new KeyValuePair<string, object?>("event_type", eventType),
+            new KeyValuePair<string, object?>("topic", topic));
     }
 
     private static Guid? ExtractEventId(string payloadJson)
