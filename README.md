@@ -86,7 +86,7 @@ scripts/migrate.sh                # applies every module's reviewed migrations
 dotnet run --project src/Atlas.Web
 ```
 
-Then browse to `https://localhost:5001` (sign in with the seeded admin, or register via `POST /api/v1/account/register`). `docker compose up -d` (full stack) additionally gives you Prometheus (`:9090`), Grafana (`:3000`, provisioned *Prometheus* datasource + *ATLAS Platform Overview* dashboard), and Kafka UI (`:8081`).
+Then browse to `https://localhost:5001` (sign in with the seeded admin, or register via `POST /api/v1/account/register`). `docker compose up -d` (full stack) additionally gives you Prometheus (`:9090`), Grafana (`:3000`, provisioned *Prometheus* datasource + the *ATLAS Platform Overview* dashboard, whose container-internals panels read the bundled PostgreSQL/Redis/Kafka exporters), and Kafka UI (`:8081`).
 
 Health probes: `/health/live` (process), `/health/ready` (PostgreSQL+Redis+Kafka), `/health` (aggregate). Prometheus scrapes `/metrics`.
 
@@ -132,9 +132,9 @@ tests/Atlas.UnitTests/                 150 deterministic unit tests
 tests/Atlas.IntegrationTests/          WebApplicationFactory suites (PostgreSQL/Redis/Kafka)
 tests/Atlas.ArchitectureTests/         module boundary enforcement
 docs/                                  architecture, security, threat model, DR, performance, ADRs
-scripts/                               add-migration / migrate / smoke
+scripts/                               add-migration / migrate / smoke / secret-scan
 observability/                         prometheus.yml, grafana provisioning + dashboards
-.github/workflows/ci.yml               restore → build → warnaserror → unit → migrations → architecture → integration → Docker build+smoke
+.github/workflows/ci.yml               restore → build → warnaserror → unit → migrations → drift+secret scan → architecture → integration (incl. real-PostgreSQL idempotency) → k6 → Docker build+smoke
 ```
 
 ## Engineering discipline
