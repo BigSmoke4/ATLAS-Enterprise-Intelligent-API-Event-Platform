@@ -5,8 +5,12 @@ namespace Atlas.Modules.IncidentManagement.Application;
 
 public interface IIncidentService
 {
+    /// <summary>
+    /// Declares an incident. <paramref name="declaredByUserId"/> is the attribution
+    /// <see cref="IncidentAccessPolicy"/> uses to decide who may later change it.
+    /// </summary>
     Task<Result<Guid>> DeclareIncidentAsync(Guid organizationId, string title, IncidentSeverity severity,
-        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, CancellationToken ct = default);
+        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, Guid? declaredByUserId = null, CancellationToken ct = default);
 
     Task<Result> TransitionAsync(Guid organizationId, Guid incidentId, IncidentStatus target, string note, Guid? actorUserId = null, CancellationToken ct = default);
     Task<Result> RecordRootCauseAsync(Guid organizationId, Guid incidentId, string rootCause, string mitigation, Guid? actorUserId = null, CancellationToken ct = default);

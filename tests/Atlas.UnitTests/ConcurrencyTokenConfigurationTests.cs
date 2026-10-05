@@ -46,6 +46,17 @@ public class ConcurrencyTokenConfigurationTests
         typeof(Atlas.Modules.ServiceRegistry.Domain.ServiceDependency),
     };
 
+    /// <summary>
+    /// Rows whose updates are coordinated by an explicit claim instead of a row
+    /// version: the outbox relay leases a message with one conditional
+    /// <c>UPDATE</c> over <c>NextAttemptAtUtc</c>, so a token would turn every
+    /// claim into an optimistic race the relay had to retry (ADR-011).
+    /// </summary>
+    private static readonly Type[] LeaseClaimedByDesign =
+    {
+        typeof(Atlas.Modules.DeploymentIntelligence.Domain.OutboxMessage),
+    };
+
     private static (string Name, DbContext Context)[] Contexts()
     {
         var tenant = new OpenTenant();
@@ -87,10 +98,10 @@ public class ConcurrencyTokenConfigurationTests
                     var label = $"{module}/{entityType.ClrType.Name}";
                     var token = entityType.FindProperty(nameof(Entity.RowVersion));
 
-                    if (ImmutableByDesign.Contains(entityType.ClrType))
+                    if (ImmutableByDesign.Contains(entityType.ClrType) || LeaseClaimedByDesign.Contains(entityType.ClrType))
                     {
                         if (token is not null)
-                            problems.Add($"{label}: append-only/immutable rows must not map RowVersion");
+                            problems.Add($"{label}: a row updated without a version token must not map RowVersion");
                         continue;
                     }
 

@@ -50,23 +50,74 @@ InMemory provider.
 `IDeadLetterService.MarkReplayedAsync` still exists separately for the
 "fixed out-of-band, don't resend" case.
 
-## Not yet implemented
+## Transactional outbox (now implemented)
 
-- **Retry *topics*** (as opposed to in-process retry with backoff). The current
-  loop delays and retries the same consumer poll rather than republishing to a
-  separate `topic.retry` topic, which is the more Kafka-idiomatic approach when
-  a handler wants to release the partition during backoff. The in-process delay
-  is bounded and the outcome is the same (retry, then DLQ), so this is an
-  operational refinement rather than a correctness gap.
-- **Consumer-side contract validation before dispatch.** The publisher validates
-  every payload it produces (`EventContractValidator.ValidateJson`), so
-  platform-emitted events are well formed at the source; an event produced by
-  another system can still reach a handler and throw, which correctly routes it
-  to the dead-letter queue. Validating against a schema registry *before*
-  dispatch — and rejecting unknown versions there rather than in the handler — is
-  the remaining step.
-- **Transactional outbox.** Publication happens after the business transaction
-  commits, with the failure logged and counted; a broker outage therefore loses
-  the event rather than the business fact. An outbox table with a relay would
-  make publication recoverable, and is the documented price of not writing
-  Kafka into the request path today.
+Publication no longer happens *after* the business transaction commits, where a
+broker outage lost the event while the business fact survived. The deployment
+event is now written into an outbox row by the **same `SaveChanges` as the
+deployment** (`DeploymentIntelligence`, table
+`deploymentintelligence."OutboxMessages"`, migration
+`20261005120000_OutboxMessages`), and `OutboxRelayService` — a hosted service —
+publishes what is pending.
+
+- **Atomicity.** `DeploymentRegressionService.RecordDeploymentAsync` adds the
+  `Deployment` and its `OutboxMessage` in one transaction: if the deployment is
+  durable the event is too, and if the transaction rolls back neither exists.
+- **Delivery is at least once.** A row is marked sent only *after* the broker
+  accepted the publish, so a crash in between republishes on the next pass. That
+  is exactly why consumers are idempotent by construction (the unique
+  `(ConsumerGroup, EventId)` index above): the two halves of the contract are
+  designed together, and the duplicate is absorbed rather than prevented.
+- **Claiming is a database operation, not a lock.** A pass selects pending rows
+  that are due, then claims each with a conditional `UPDATE` that pushes
+  `NextAttemptAtUtc` into the future (the lease). Two relay instances, or a
+  restart, cannot publish the same row inside that window; a row whose publisher
+  died becomes claimable again when the lease expires.
+- **Failure handling.** Attempts are counted, the error is stored (truncated to
+  the column width), and the retry is scheduled with exponential backoff
+  (`Outbox:InitialBackoff` 5 s, doubling, capped by `Outbox:MaxBackoff` at
+  10 min). After `Outbox:MaxAttempts` (default 10) the row is marked abandoned:
+  it stays in the table for inspection and is never retried automatically. A
+  pass that throws (database unreachable, say) is caught and logged — it never
+  takes the host down.
+- **Observability.** `atlas.events.published` carries the topic, the event type
+  and `path="outbox"`; `atlas.outbox.abandoned` counts messages that exhausted
+  their budget. A growing backlog with a flat publish rate is the signal that the
+  broker is unreachable while the platform keeps serving.
+- **Configuration** (`appsettings.json`, `Outbox` section): `PollInterval`,
+  `BatchSize`, `MaxAttempts`, `LeaseDuration`, `InitialBackoff`, `MaxBackoff`.
+  The relay is not started in the `Testing` environment, where the integration
+  suites drive `RunOnceAsync` directly and must not race a background poller.
+- **Verified.** `OutboxMessageTests` (unit: envelope validation at write time,
+  the backoff schedule, abandonment after the last attempt, error truncation)
+  and `OutboxRelayIntegrationTests` (real PostgreSQL: published once and marked
+  sent, a failed publish stays pending with a future retry window, an abandoned
+  row is never retried, a leased row is invisible to a second pass).
+
+The deployment event is the only publisher that uses the outbox today; every
+module that starts publishing an integration event copies this pattern instead of
+publishing inside a request. With no broker configured the publisher seam is
+absent and the relay logs once, at startup, that recorded events stay pending —
+it never pretends to deliver them.
+
+## Deliberately not implemented
+
+- **Retry *topics*** (as opposed to in-process retry with backoff). The consumer
+  loop delays and retries the same poll rather than republishing to a separate
+  `topic.retry` topic, which is the more Kafka-idiomatic shape when a handler
+  wants to release the partition during backoff. The in-process delay is bounded
+  (`KafkaConsumerOptions.MaxRetries`, doubling to a one-minute cap) and the
+  outcome is identical — retry, then dead-letter — so this stays an operational
+  refinement, not a correctness gap.
+- **Schema-registry-style version gating before dispatch.** Every consumed
+  payload *is* validated before dispatch: `EventProcessingCoordinator.ProcessAsync`
+  calls `EventContractValidator.ValidateJson` ahead of the idempotency claim, so a
+  non-object envelope or a missing/empty EventId, EventType, CorrelationId,
+  Producer, Version or TimestampUtc fails that attempt, exhausts the retries and
+  lands in the dead-letter store (hostile-input tested by
+  `EventContractValidatorTests`). What is not implemented is rejecting an
+  *unknown event type or version* up front against a schema registry; today the
+  registered handler validates the body it needs and throws, which routes the
+  event to the dead-letter queue with a named failure reason. A registry — or a
+  version gate in the coordinator — remains the next step for multi-producer
+  deployments.

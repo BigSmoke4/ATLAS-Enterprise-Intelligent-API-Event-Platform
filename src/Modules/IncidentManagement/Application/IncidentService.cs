@@ -11,11 +11,11 @@ public class IncidentService : IIncidentService
     public IncidentService(IncidentManagementDbContext db) => _db = db;
 
     public async Task<Result<Guid>> DeclareIncidentAsync(Guid organizationId, string title, IncidentSeverity severity,
-        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, CancellationToken ct = default)
+        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, Guid? declaredByUserId = null, CancellationToken ct = default)
     {
         try
         {
-            var incident = Incident.Detect(organizationId, title, severity, startedAtUtc, affectedServiceIds);
+            var incident = Incident.Detect(organizationId, title, severity, startedAtUtc, affectedServiceIds, declaredByUserId);
             _db.Incidents.Add(incident);
             await _db.SaveChangesAsync(ct);
             return Result.Success(incident.Id);

@@ -46,6 +46,10 @@ one-line configuration change; the right-hand column says which.
       applied by `UseAtlasSecurityHeaders()` and the cookie policy.
 - [ ] Development seeding **off** (`Seed:Development` unset): the seeded admin
       account exists only for local use.
+- [ ] GitHub secret scanning **with push protection** enabled on the repository
+      (Settings → Code security): CI already runs two layers (`secret-scan.sh`
+      and the gitleaks history job), but push protection is the only one that
+      refuses a credential before it enters the remote history at all.
 
 **Data**
 

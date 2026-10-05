@@ -15,7 +15,10 @@ public sealed class IncidentAlertSink : IIncidentAlertSink
         if (active.Any(i => string.Equals(i.Title, incidentTitle, StringComparison.OrdinalIgnoreCase)))
             return active.First(i => string.Equals(i.Title, incidentTitle, StringComparison.OrdinalIgnoreCase)).Id;
         if (!Enum.TryParse<IncidentSeverity>(severity, true, out var parsedSeverity)) parsedSeverity = IncidentSeverity.Sev2;
-        var result = await _incidents.DeclareIncidentAsync(organizationId, incidentTitle, parsedSeverity, DateTimeOffset.UtcNow, Array.Empty<Guid>(), ct);
+        // Alert-sourced incidents carry no declarer: they are attributed to the
+        // alert source, and IncidentAccessPolicy therefore leaves them to the
+        // privileged roles (see ADR-012).
+        var result = await _incidents.DeclareIncidentAsync(organizationId, incidentTitle, parsedSeverity, DateTimeOffset.UtcNow, Array.Empty<Guid>(), declaredByUserId: null, ct);
         return result.IsSuccess ? result.Value : null;
     }
 }

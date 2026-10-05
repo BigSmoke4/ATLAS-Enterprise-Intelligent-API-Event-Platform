@@ -29,6 +29,12 @@ public class Incident : TenantEntity
     public DateTimeOffset? MitigatingAtUtc { get; private set; }
     public DateTimeOffset? ResolvedAtUtc { get; private set; }
 
+    /// <summary>
+    /// Who declared the incident. Attribution, not ownership: <see cref="Application.IncidentAccessPolicy"/>
+    /// lets the declarer (and privileged roles) act on it.
+    /// </summary>
+    public Guid? DeclaredByUserId { get; private set; }
+
     public string? RootCause { get; private set; }
     public string? Mitigation { get; private set; }
     public string? PostmortemUrl { get; private set; }
@@ -42,7 +48,7 @@ public class Incident : TenantEntity
     private Incident() { }
 
     public static Incident Detect(Guid organizationId, string title, IncidentSeverity severity,
-        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds)
+        DateTimeOffset startedAtUtc, IEnumerable<Guid> affectedServiceIds, Guid? declaredByUserId = null)
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Incident title is required.", nameof(title));
 
@@ -54,6 +60,7 @@ public class Incident : TenantEntity
             Severity = severity,
             StartedAtUtc = startedAtUtc,
             DetectedAtUtc = now,
+            DeclaredByUserId = declaredByUserId,
         };
         incident._affectedServiceIds.AddRange(affectedServiceIds);
         incident.AddTimelineEntry("Incident detected.");

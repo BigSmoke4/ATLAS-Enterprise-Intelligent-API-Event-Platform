@@ -108,13 +108,14 @@ builder.Services.AddAuthentication(options =>
     options.SlidingExpiration = true;
 });
 
-// OAuth/OIDC federation. The configuration contract below is real: the section
-// is bound and validated so an operator's intent to federate is never silently
-// ignored — a half-configured provider stops the host with an actionable
-// message. The OpenIdConnect handler itself is a marked extension point (see
-// docs/security.md and ADR-010): registering it is a deliberate follow-up, so
-// the platform runs on local cookie + API-key authentication until then.
+// OAuth/OIDC federation. The section is bound and validated first, so a
+// half-configured provider stops the host with an actionable message instead of
+// silently falling back to local sign-in. When it is complete the handler *is*
+// registered (IdentityOidcExtension): the provider authenticates, and ATLAS
+// resolves the external identity to a local account so roles, tenant scope and
+// session revocation stay in this database.
 var oidc = builder.Configuration.GetSection(OidcOptions.SectionName).Get<OidcOptions>() ?? new OidcOptions();
+builder.Services.Configure<OidcOptions>(builder.Configuration.GetSection(OidcOptions.SectionName));
 var oidcErrors = oidc.Validate();
 if (oidcErrors.Count > 0)
 {
@@ -124,8 +125,13 @@ if (oidcErrors.Count > 0)
 }
 if (oidc.HasAnyValue)
 {
-    Log.Warning("OAuth/OIDC configuration detected (Authority: {Authority}) but no OpenIdConnect handler is registered in this build — external sign-in stays disabled. See docs/security.md for the marked extension point.",
+    IdentityOidcExtension.AddAtlasOidc(builder.Services, oidc);
+    Log.Information("OAuth/OIDC federation enabled: external sign-in via {Authority}; roles, tenant scope and revocation remain local. Entry point: GET /account/oidc.",
         oidc.Authority);
+}
+else
+{
+    Log.Information("OAuth/OIDC is not configured: sign-in uses the local cookie and API keys only.");
 }
 builder.Services.AddHealthChecks()
     .AddCheck("process", () => HealthCheckResult.Healthy("Process is alive."), tags: new[] { "live" })

@@ -14,4 +14,10 @@ public sealed class LoginViewModel
     public bool RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }
+
+    /// <summary>True when an OIDC provider is registered, so the form offers the federated route.</summary>
+    public bool SsoEnabled { get; set; }
+
+    /// <summary>Label shown on the federated sign-in button (from <c>Oidc:DisplayName</c>).</summary>
+    public string SsoDisplayName { get; set; } = "Single sign-on";
 }

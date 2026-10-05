@@ -54,6 +54,27 @@ no working sign-in has been misled by the platform.
 - Remaining gap, stated plainly: ATLAS does not authenticate against an external
   identity provider today. Enterprise SSO requires the follow-up above.
 
+## Update — 2026-10-05: the extension point became a handler
+
+The follow-up this ADR called for is implemented, with the provisioning decision
+it demanded made explicit and safe:
+
+- `IdentityOidcExtension.AddAtlasOidc` registers the handler when `OidcOptions`
+  is complete (scheme `oidc`, authorization code + PKCE, `SaveTokens = false`),
+  and `GET /account/oidc` is the entry point; the login page offers the button
+  only when the handler is registered, and the endpoint answers `404` otherwise.
+- The provisioning policy is **none for unknown identities**: the external
+  principal is resolved to an existing, active local account by verified e-mail
+  claim (`ExternalIdentityMapper`), roles/organization/security stamp always come
+  from this database, and the local principal *replaces* the external one before
+  the cookie is issued — so session revocation (`IdentitySessionValidation`) and
+  the authorization pipeline keep working unchanged.
+- Partial configuration still fails startup, exactly as required below.
+
+The decision recorded here (no silent, half-configured federation) is unchanged;
+federation is now real rather than marked. See `docs/security.md` for the
+operating detail and `ExternalIdentityMapperTests` for the pinned rules.
+
 ## Alternatives considered
 
 - **Register the handler behind the configuration flag without provisioning.**

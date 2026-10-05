@@ -248,6 +248,20 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
+      - name: Integration tests - transactional outbox (real PostgreSQL)
+        run: |
+          set -o pipefail
+          # At-least-once delivery is a property of the committed row and the
+          # leased claim, so the relay is exercised against PostgreSQL: published
+          # once and marked sent, a failed publish stays pending with a future
+          # retry window, an abandoned row is never retried, and a leased row is
+          # invisible to another pass.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~OutboxRelayIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/outbox 2>&1 | tee integration-outbox.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
       - name: Integration tests - readiness
         run: |
           set -o pipefail
@@ -401,3 +415,43 @@ jobs:
           done
           echo "Container smoke test did not become healthy in time."
           exit 1
+
+  secret-history-scan:
+    name: Secret scan (gitleaks over the full history)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # This layer scans commits, not the working tree: a credential that was
+          # committed and later edited out is still a leaked credential.
+          fetch-depth: 0
+
+      - name: Scan every commit with gitleaks
+        run: |
+          set -o pipefail
+          # Independent of scripts/secret-scan.sh: that one is ATLAS's own
+          # reviewed deny-list over the working tree, this one is an external
+          # engine with its own rules and entropy heuristics over git history.
+          # Both must pass — the cheap gate stays in the main job, this is the
+          # second layer that catches what a curated pattern list misses.
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose \
+            --report-format sarif --report-path /repo/gitleaks.sarif || GITLEAKS_EXIT=$?
+
+          # The report is written before the process exits non-zero, so it is
+          # always worth publishing the findings.
+          python3 scripts/gitleaks-annotations.py gitleaks.sarif
+
+          if [ "${GITLEAKS_EXIT:-0}" -ne 0 ]; then
+            echo "::error::gitleaks detected committed secrets (exit ${GITLEAKS_EXIT})"
+            exit "${GITLEAKS_EXIT}"
+          fi
+          echo "No committed secrets found in the full history."
+
+      - name: Upload the gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks.sarif
+          if-no-files-found: ignore

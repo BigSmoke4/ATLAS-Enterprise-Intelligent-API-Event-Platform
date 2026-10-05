@@ -69,6 +69,9 @@ public static class AtlasMetrics
     public static readonly Counter<long> EventRetries = Meter.CreateCounter<long>(
         "atlas.events.retries", unit: "{retry}", description: "In-flight event processing retries performed before dead-lettering.");
 
+    public static readonly Counter<long> OutboxMessagesAbandoned = Meter.CreateCounter<long>(
+        "atlas.outbox.abandoned", unit: "{message}", description: "Outbox messages abandoned after exhausting their retry budget (kept in the table for inspection, never retried automatically).");
+
     // ---- Reliability --------------------------------------------------------------
 
     public static readonly Counter<long> RateLimitRejections = Meter.CreateCounter<long>(

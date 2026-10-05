@@ -49,13 +49,34 @@ by the operator (archival, not deletion).
 6. Record the drill result (achieved RPO/RTO, surprises) in the operations log —
    an untested target is an assumption.
 
+### Running the drill
+
+`scripts/dr-drill.sh` turns the runbook's first four steps into one command and
+prints the measured result instead of an estimate:
+
+```bash
+PGHOST=… PGPORT=5432 PGDATABASE=atlas PGUSER=… PGPASSWORD=… scripts/dr-drill.sh
+```
+
+It records row counts for one table per schema, takes a `pg_dump` backup, drops
+every application schema (the simulated total loss), restores the backup, and
+re-checks the counts, printing the restore time as the measured RTO. A count
+mismatch fails the script — a restore that silently drops rows is the failure
+mode a drill exists to find. It is destructive by construction and therefore
+never runs in this repository's CI (the pipeline shares one ephemeral database
+with the other suites); run it in a maintenance window against a database you
+are allowed to destroy, and record the output in the operations log.
+
 ## Known gaps (honest)
 
 - No automated failover is shipped: the platform exposes readiness and health,
   but a managed PostgreSQL/Kafka offering or an orchestrator-driven failover is
   the deployment's job.
-- Restore drills have not been run in this repository's CI (CI uses ephemeral
-  databases by design); the targets above are what a drill must reproduce.
+- The restore drill **is** automated (`scripts/dr-drill.sh`, above) but cannot
+  run in this repository's CI: it destroys the database, and the pipeline shares
+  one ephemeral instance with the other suites. The targets above stay estimates
+  until an operator runs the script in a maintenance window and records the
+  measured RTO/RPO.
 - Backup age is not currently alerted on by the platform — it belongs to the
   backup system, and is listed as an operator responsibility in
   `docs/deployment.md`.

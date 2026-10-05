@@ -32,6 +32,9 @@ namespace Atlas.Modules.IncidentManagement.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("DeclaredByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("DetectedAtUtc")
                         .HasColumnType("timestamp with time zone");
 

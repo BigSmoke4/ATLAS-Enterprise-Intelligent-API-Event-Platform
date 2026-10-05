@@ -50,26 +50,47 @@
   request — a deliberate control-plane trade-off; a high-throughput service
   would cache the stamp with a short TTL instead.
 
+- **Federated sign-in (OAuth/OIDC).** When the `Oidc` section is complete,
+  `IdentityOidcExtension.AddAtlasOidc` registers a real
+  `Microsoft.AspNetCore.Authentication.OpenIdConnect` handler (scheme `oidc`,
+  authorization-code flow with PKCE, no token persistence) and
+  `GET /account/oidc` starts the round trip; the login page renders the SSO
+  button only when that handler is registered. Federation is **authentication
+  only**: the external identity is resolved to a local account by verified
+  e-mail claim (`email` → `ClaimTypes.Email` → `preferred_username` → `upn`;
+  `sub` is deliberately not used — it is provider-local), and the request
+  proceeds only when that account exists **and is active**. Roles, `org_id` and
+  the security stamp always come from this database, so
+  `IdentitySessionValidation` and the whole authorization pipeline behave
+  unchanged. There is no auto-provisioning: an unknown identity is refused with
+  an explicit redirect to `/account/login?ssoError=notlinked`. The policy and
+  its rationale are in the section below and in ADR-010.
+- **Per-incident ownership.** Incidents carry their declarer
+  (`Incident.DeclaredByUserId`), and `IncidentAccessPolicy` decides writes per
+  *record*, not only per role: `PlatformAdmin`/`OrganizationAdmin` may act on
+  any incident in scope, an `SRE` may act on the incidents they declared, and an
+  incident with no declarer on record is closed to a plain `SRE` (fail closed —
+  the privileged roles stay the escape hatch). Transition, root cause and
+  postmortem answer `403` with the reason when the policy denies, and the rule is
+  unit-tested independently of the database. This is the platform's first
+  per-object ACL and the pattern the other aggregates copy.
+
 ## Not yet implemented
 
-- **Per-object authorization beyond the tenant.** A caller is authorized for
-  their organization (query filters + the `SameOrganization` policy + explicit
-  body checks on writes); there is no per-*record* ACL (e.g. "this SRE may edit
-  only incidents they declared"). Role policies are the current granularity, and
-  the roles themselves are coarse by design.
+- **Per-object authorization beyond incidents.** Incidents now carry a
+  per-record rule (see "Per-incident ownership" above). The other aggregates are
+  authorized by tenant scope plus role: a caller is authorized for their
+  organization (query filters + the `SameOrganization` policy + explicit body
+  checks on writes), with no per-record ACL (e.g. "this developer may edit only
+  the routes they created"). Extending the incident pattern across the remaining
+  resources is deliberate, incremental work rather than a silent gap.
 - **Refresh-token rotation.** *Session revocation is implemented* (see
   "Revocable sessions" above): an operator can end every session for an
   account and it takes effect on the next request. What is deliberately absent
   is token *rotation* for machine clients: API keys are long-lived until
   revoked, and there is no refresh-token grant, because the platform issues no
-  access tokens today. If an OIDC connector is registered (see below), rotation
-  is the identity provider's concern.
-- **OAuth/OIDC connector.** The `Oidc` configuration section *is* implemented
-  and enforced at startup (`Atlas.Shared.Security.OidcOptions`, bound in
-  `Program.cs`): a partial configuration fails the host with an actionable
-  message instead of being ignored, and a complete one logs loudly that
-  external sign-in is still disabled. The OpenIdConnect handler itself is a
-  marked extension point — see [OAuth/OIDC extension point](#oauthoidc-extension-point).
+  access tokens today. With federated sign-in enabled (see below), rotation is
+  the identity provider's concern.
 - **Append-only audit trail at the database level.** `AuditDbContext` rejects
   `Modified`/`Deleted` entries in `SaveChanges` (and `docs/architecture.md`
   records the callers), but the deployment role can still issue raw SQL. The
@@ -83,15 +104,18 @@
   Nothing in the application performs those statements, so this is safe to
   apply; it is listed here rather than assumed, because a bug in the DbContext
   guard would otherwise be the only line of defence.
-- **Secret scanning in CI.** `scripts/secret-scan.sh` runs as a CI step and
+- **Secret scanning is two layers, both in CI.** `scripts/secret-scan.sh`
   fails the build on a curated deny-list of credential formats (AWS access key
   ids, GitHub tokens, Anthropic/OpenAI/Slack/Google keys, PEM private keys) and
   on a literal value under a secret-shaped key in configuration or
-  `.env.example`. It is intentionally a deny-list rather than an entropy
-  scanner: deterministic, fast and reviewable, at the cost of not catching an
-  unusual credential shape. Running `gitleaks` (or GitHub secret scanning with
-  push protection) as a second, independent layer is an operator-side control
-  and remains recommended.
+  `.env.example` — deterministic, fast, and reviewed in the same pull request as
+  the code. A second, independent layer runs as its own CI job: `gitleaks`
+  (pinned `ghcr.io/gitleaks/gitleaks:v8.30.1`) scans the **full commit history**
+  with its own rules and entropy heuristics, reads the reviewed `.gitleaks.toml`
+  allowlist, and republishes findings as check annotations through
+  `scripts/gitleaks-annotations.py`. What remains operator-side is GitHub's own
+  push protection (a repository setting that rejects a secret at `git push`
+  time, before CI runs), which `docs/deployment.md` recommends enabling.
 - **Antiforgery scope.** MVC forms carry `[ValidateAntiForgeryToken]`, and
   `ValidateAntiforgeryForCookieAuthFilter` now enforces the token for
   *cookie-authenticated* JSON writes as well — the console reads the request
@@ -99,42 +123,42 @@
   exempt by construction (a cross-site page cannot set that header), and the
   skip rules are pinned by unit tests so the exemption cannot silently widen.
 
-## OAuth/OIDC extension point
+## Federated sign-in (OAuth/OIDC)
 
 Local authentication (cookie session for the console, hashed API keys for
-machines) is what ATLAS runs on today. Federation is *marked*, not silently
-absent, and the marker is executable:
+machines) remains the default; federation activates only when the operator
+completes the `Oidc` section.
 
 1. **Configuration contract** — `Oidc:Authority`, `Oidc:ClientId`,
    `Oidc:ClientSecret`, `Oidc:DisplayName`, `Oidc:Scopes`,
    `Oidc:RequireHttpsMetadata` (see `.env.example` and `appsettings.json`).
    `OidcOptions.Validate()` runs before `builder.Build()`:
    - section absent → valid, local authentication only;
-   - partially filled → startup fails, e.g. *"Oidc:Authority is required once
-     any Oidc setting is present"*;
-   - complete → the host logs a warning that no handler is registered.
-2. **What is missing** — the `Microsoft.AspNetCore.Authentication.OpenIdConnect`
-   package and this registration in `Program.cs`:
-
-   ```csharp
-   builder.Services.AddAuthentication()
-       .AddOpenIdConnect("oidc", options =>
-       {
-           options.Authority = oidc.Authority;
-           options.ClientId = oidc.ClientId;
-           options.ClientSecret = oidc.ClientSecret;
-           options.ResponseType = "code";
-           options.RequireHttpsMetadata = oidc.RequireHttpsMetadata;
-           options.SignInScheme = IdentityConstants.ExternalScheme;
-           foreach (var scope in oidc.Scopes) options.Scope.Add(scope);
-       });
-   ```
-
-3. **Why it is not registered yet** — a credential exchange is the easy part;
-   the security decision is what happens to the claims afterwards. ATLAS users
-   carry an `org_id` claim and one of seven roles, so the connector must be
-   accompanied by an explicit provisioning policy (reject unknown identities
-   vs. auto-provision to a named role) and a tenant-scoping test. Shipping the
-   redirect without that policy would create accounts nobody can audit. The
-   decision and its rationale are recorded in
-   [ADR-010](decisions/ADR-010-oidc-extension-point.md).
+   - partially filled → the host fails with an actionable message, e.g.
+     *"Oidc:Authority is required once any Oidc setting is present"*; an
+     `http://` authority is refused while `RequireHttpsMetadata` is true;
+   - complete → `IdentityOidcExtension.AddAtlasOidc` registers the handler and
+     the host logs the entry point.
+2. **What the handler does** (`src/Modules/Identity/Presentation/IdentityOidcExtension.cs`)
+   — authorization-code flow with PKCE, `SaveTokens = false`, scheme `oidc`,
+   `SignInScheme = IdentityConstants.ApplicationScheme`. On `OnTokenValidated`
+   the external principal is **replaced** by the local one produced by
+   `IUserClaimsPrincipalFactory<AtlasUser>`. That single decision keeps the
+   platform's security model intact: the cookie carries the local user id,
+   roles, `org_id` and security stamp, so authorization policies, tenant query
+   filters and per-request session revocation behave exactly as they do for
+   password sign-in. `OnRemoteFailure` redirects to
+   `/account/login?ssoError=provider`.
+3. **Provisioning policy — none, deliberately.** `ExternalIdentityMapper`
+   resolves a verified e-mail claim and `IsUsable` requires an existing, active
+   local account; unknown or disabled identities are refused with
+   `ssoError=notlinked`. Auto-provisioning from a federated claim would create
+   accounts nobody reviewed, and group→role mapping is provider-specific, so
+   both are left to a deliberate, reviewed change. [ADR-010](decisions/ADR-010-oidc-extension-point.md)
+   is the record, updated by this implementation.
+4. **Verified** — `ExternalIdentityMapperTests` covers the claim precedence
+   (including the refusal to trust `sub`), blank-value handling and the
+   active-account rule; `OidcOptionsTests` covers the configuration contract;
+   and `GET /account/oidc` answers `404` rather than redirecting when no
+   provider is configured, so an unconfigured deployment cannot advertise a
+   broken flow.

@@ -66,6 +66,15 @@ first, then persisted `MetricSample` rows, and `hasData: false` (rendered as
   cache statistics counters, the ingest-buffer statistics, and the Kafka
   consumer-lag registry (which reports `available: false` with a staleness
   reason instead of a stale number).
+- **Trace sampling is configuration, not code.** `OpenTelemetry:Traces:SamplerRatio`
+  (0…1) installs a parent-based trace-id-ratio sampler: a deployment under real
+  load sets e.g. `0.1` for 10 % of traces, while `appsettings.json` keeps `1.0`
+  because a control plane's request volume is human-scale and losing a trace
+  usually costs more than the span volume. A value outside 0…1 fails startup with
+  the offending value in the message — a sampling policy that is silently ignored
+  is worse than no policy. The decision is derived from the trace id and inherited
+  by child spans, so a sampled trace stays complete; spans are exported over OTLP
+  only when `OpenTelemetry:Otlp:Endpoint` is set.
 - **Alerting is derived, never stored:** `GET /api/v1/alerts` recomputes the
   active alert list from registry health, SLO compliance, live breaker states,
   consumer lag and the dead-letter backlog, and each item names the evidence it
@@ -78,6 +87,7 @@ first, then persisted `MetricSample` rows, and `hasData: false` (rendered as
   `atlas.telemetry.samples.dropped`, `atlas.telemetry.flush.failures`,
   `atlas.telemetry.buckets.persisted`, `atlas.events.published`,
   `atlas.events.consumed`, `atlas.events.dead_lettered`, `atlas.events.retries`,
+  `atlas.outbox.abandoned`,
   `atlas.ratelimit.rejections`, `atlas.ratelimit.store.failures`,
   `atlas.circuitbreaker.state.changes`, `atlas.cache.hits`, `atlas.cache.misses`,
   `atlas.ai.tool.invocations`, `atlas.ai.answers.insufficient_evidence`.
@@ -92,9 +102,10 @@ first, then persisted `MetricSample` rows, and `hasData: false` (rendered as
   repoint `observability/prometheus.yml` at the provider's exporter (or a
   Prometheus scrape configuration the provider supplies); no dashboard change
   is needed.
-- **Trace sampling policy.** Spans are exported when
-  `OpenTelemetry:Otlp:Endpoint` is set; choosing tail-based sampling and a
-  collector topology is deployment-specific.
+- **Trace sampling *values* and tail-based sampling.** The ratio sampler is
+  implemented and configurable (above); which ratio a given deployment uses, and
+  whether to move to tail-based sampling with a collector, is a deployment
+  decision that depends on traffic volume and retention cost.
 - **Telemetry backfill.** When a flush fails, buckets are retained in memory and
   retried; a restart loses what was buffered (a bounded, documented trade-off
   against writing telemetry inside the request path).

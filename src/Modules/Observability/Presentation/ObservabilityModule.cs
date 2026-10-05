@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using System.Globalization;
 
 namespace Atlas.Modules.Observability.Presentation;
 
@@ -63,6 +64,31 @@ public class ObservabilityModule : IAtlasModule
         services.AddOpenTelemetry()
             .WithTracing(tracing =>
             {
+                // Sampling policy is configuration, not code: a full deployment
+                // sets OpenTelemetry:Traces:SamplerRatio to a value between 0 and
+                // 1 (e.g. 0.1 for 10% of traces) and gets a parent-based
+                // trace-id-ratio sampler, which keeps a trace coherent across
+                // services because the decision is derived from the trace id.
+                // Absent = always on, which is the right default for a control
+                // plane whose request volume is human-scale.
+                var samplerRatio = configuration["OpenTelemetry:Traces:SamplerRatio"];
+                if (!string.IsNullOrWhiteSpace(samplerRatio))
+                {
+                    if (!double.TryParse(samplerRatio, NumberStyles.Float, CultureInfo.InvariantCulture, out var ratio) ||
+                        ratio is < 0 or > 1)
+                    {
+                        throw new InvalidOperationException(
+                            $"OpenTelemetry:Traces:SamplerRatio must be a number between 0 and 1 inclusive; '{samplerRatio}' is not. " +
+                            "Use 1 to keep every trace, or remove the setting for the default (always on).");
+                    }
+
+                    tracing.SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(ratio)));
+                }
+                else
+                {
+                    tracing.SetSampler(new ParentBasedSampler(new AlwaysOnSampler()));
+                }
+
                 tracing
                     .AddAspNetCoreInstrumentation()
                     // Npgsql ships its own ActivitySource — this is how PostgreSQL

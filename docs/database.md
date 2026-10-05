@@ -65,6 +65,18 @@ model).
   `DbContext` rejects Modified/Deleted states), `IncidentTimelineEntry`,
   `MetricSample`, `IdempotencyRecord`, `ServiceDependency`. They are inserted
   and read, never updated, so a token would only add noise.
+- **One updated table is intentionally tokenless:** `OutboxMessage`
+  (`deploymentintelligence."OutboxMessages"`). The relay's correctness comes from
+  a *claim*, not a row version: a conditional
+  `UPDATE … WHERE SentAtUtc IS NULL AND AbandonedAtUtc IS NULL AND NextAttemptAtUtc <= now`
+  either wins the row and leases it (`NextAttemptAtUtc` in the future) or reports
+  zero rows affected because another instance owns it. An `xmin` token would turn
+  every relay update into an optimistic race the relay would have to retry, which
+  is strictly worse than one atomic statement. The table carries a single index on
+  `(SentAtUtc, AbandonedAtUtc, NextAttemptAtUtc)` — exactly the claim predicate —
+  and migration `20261005120000_OutboxMessages`, which is hand-written because the
+  generation workflow needs an SDK-equipped machine; the CI drift check and the
+  disposable-schema application gate it like every other migration.
 - **What the caller sees:** `ConcurrencyConflictExceptionHandler`
   (`Atlas.Shared.Web`, registered in `Program.cs`) turns the exception into
   `409 Conflict` with a ProblemDetails body (`code: CONCURRENCY_CONFLICT` and

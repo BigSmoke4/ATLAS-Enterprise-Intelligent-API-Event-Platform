@@ -36,6 +36,19 @@
             <button type="submit" class="atlas-button">SIGN IN</button>
         </form>
 
+        @if (Model.SsoEnabled)
+        {
+            <form asp-action="Oidc" asp-controller="Account" method="get">
+                <input type="hidden" name="ReturnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" class="atlas-button">SIGN IN WITH @Model.SsoDisplayName.ToUpperInvariant()</button>
+            </form>
+            <p class="atlas-note">
+                Federated sign-in authenticates you at your organization's identity
+                provider. ATLAS then applies its own roles and organization scope —
+                an account must already exist here and be active.
+            </p>
+        }
+
         <p class="atlas-note">
             Accounts are provisioned administratively (registration is disabled by
             default in production profiles). Repeated failures lock the account

@@ -34,6 +34,16 @@ public class DeploymentIntelligenceModule : IAtlasModule
         // with the service version that was live when it was recorded, so
         // deployment-vs-error-rate correlation is computed from real data.
         services.AddScoped<IActiveDeploymentVersionProvider, ActiveDeploymentVersionProvider>();
+
+        // Outbox relay: publishes what RecordDeploymentAsync wrote in the same
+        // transaction as the deployment. Skipped in the Testing environment for
+        // the same reason the Kafka consumer is — the integration suites drive the
+        // relay explicitly and must not race a background poller.
+        services.Configure<OutboxRelayOptions>(configuration.GetSection("Outbox"));
+        if (configuration["ASPNETCORE_ENVIRONMENT"] != "Testing")
+        {
+            services.AddHostedService<OutboxRelayService>();
+        }
     }
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
