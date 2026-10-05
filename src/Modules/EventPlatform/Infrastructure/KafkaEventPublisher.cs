@@ -11,8 +11,9 @@ namespace Atlas.Modules.EventPlatform.Infrastructure;
 ///
 /// KafkaEventConsumer provides the complementary consumer-group, retry, and
 /// DLQ pipeline. This publisher also exposes raw replay publishing so DLQ
-/// replay preserves the original business payload. Untested against a real
-/// broker in this environment.
+/// replay preserves the original business payload. The integration suite
+/// (KafkaEventIntegrationTests) publishes through this class against a real
+/// broker in CI and asserts the payload and versioned headers round-trip.
 /// </summary>
 public class KafkaEventPublisher : IEventPublisher, IRawEventPublisher, IAsyncDisposable
 {

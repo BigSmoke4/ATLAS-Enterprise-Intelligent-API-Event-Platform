@@ -51,6 +51,17 @@ answering fast enough.
 4. **Redis rate-limit correctness under concurrency** — an integration test
    drives concurrent increments against a real Redis and asserts the counters
    are atomic, i.e. the limiter stays correct with more than one node.
+5. **Event-ingress contract suite** (`EventContractValidatorTests`, unit) — the
+   security boundary in front of the dispatcher is exercised with malformed
+   envelopes, empty identifiers, a 257-character event type, duplicate keys and
+   a depth bomb, so a relaxation of the validator fails CI without needing a
+   container.
+6. **Idempotency proof against real PostgreSQL** (`EventIdempotencyIntegrationTests`)
+   — a redelivered event is claimed once and stays claimed across contexts, a
+   released claim can be re-taken after a handler failure, two consumers racing
+   the same event produce exactly one claim, and claims are scoped per consumer
+   group. This is the "idempotent consumers proven by integration tests"
+   requirement, and it is a correctness gate rather than a timing one.
 
 ## Running a real load test
 

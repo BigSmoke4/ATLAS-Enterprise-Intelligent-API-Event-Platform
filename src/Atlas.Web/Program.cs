@@ -94,6 +94,18 @@ builder.Services.AddAuthentication(options =>
         if (context.Request.Path.StartsWithSegments("/api")) { context.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; }
         context.Response.Redirect(context.RedirectUri); return Task.CompletedTask;
     };
+    // Sessions are revocable server-side. A cookie is revalidated on every
+    // request against the user row (IdentitySessionValidation, in the Identity
+    // module's Presentation layer so this host never references its Domain), so
+    // revoke-all and deactivation sign the holder out on the next request
+    // instead of leaving a live cookie until the ticket expires. The cost is one
+    // indexed lookup per authenticated request — deliberate for a control
+    // plane; see docs/security.md.
+    options.Events.OnValidatePrincipal = IdentitySessionValidation.ValidatePrincipalAsync;
+    // A control-plane session is measured in hours, not the framework default
+    // of 14 days; sliding renewal keeps an actively used session alive.
+    options.ExpireTimeSpan = TimeSpan.FromHours(12);
+    options.SlidingExpiration = true;
 });
 
 // OAuth/OIDC federation. The configuration contract below is real: the section

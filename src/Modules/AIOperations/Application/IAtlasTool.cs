@@ -5,9 +5,9 @@ public enum ToolKind { Read, Action }
 /// <summary>
 /// A single callable capability the AI can invoke — GetServiceHealth,
 /// GetSLOStatus, GetIncidentHistory, etc. Read tools may be invoked freely;
-/// Action tools (none implemented yet) must go through explicit
-/// authorization + confirmation per the master prompt's AI-safety section —
-/// see ActionToolGuard.
+/// Action tools (DeactivatePolicy today) must go through explicit
+/// authorization + confirmation — see ActionToolGuard, which the orchestrator
+/// checks before running anything of kind <see cref="ToolKind.Action"/>.
 /// </summary>
 public interface IAtlasTool
 {

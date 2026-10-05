@@ -35,6 +35,10 @@ an HTML redirect. A page that has no recorded evidence for a section prints
 "No telemetry available." (or the server's own reason string) rather than a
 zero. Additional routes since the first cut of this document:
 `POST /api/v1/account/register|login|logout|api-keys[/revoke]`,
+`POST /api/v1/account/sessions/revoke-all` (rotates the caller's security stamp
+and signs them out), `POST /api/v1/account/users/{id}/sessions/revoke-all`
+(PlatformAdmin), `POST /api/v1/account/users/{id}/deactivate|reactivate`
+(PlatformAdmin; self-deactivation is a `400`),
 `GET /api/v1/traffic/policies/{serviceId}` + `PUT` (tenant-checked body),
 `POST /api/v1/traffic/select-configured-instance`,
 `POST /api/v1/events/publish`, `POST /api/v1/events/dead-letters/{id}/replay`,

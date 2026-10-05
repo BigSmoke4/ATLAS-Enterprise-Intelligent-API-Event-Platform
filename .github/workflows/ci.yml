@@ -141,6 +141,14 @@ jobs:
           if [ "$failed" -ne 0 ]; then exit 1; fi
           echo "All console modules parse."
 
+      - name: Secret scan
+        run: |
+          set -o pipefail
+          # Curated deny-list (cloud keys, tokens, private keys, literal secrets
+          # in configuration) plus the .env.example placeholder rule. Failures
+          # arrive as file/line annotations rather than as a log excerpt.
+          bash scripts/secret-scan.sh
+
       - name: Architecture tests
         run: |
           set -o pipefail
@@ -223,6 +231,18 @@ jobs:
           # and applied at query level before Skip/Take, so it must be proven
           # through the real pipeline, not only on the spec objects.
           dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~ListEndpointSortingTests" --logger "console;verbosity=detailed" --results-directory TestResults/list-sorting 2>&1 | tee integration-list-sorting.log
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
+          ConnectionStrings__Redis: "localhost:6379"
+          Kafka__BootstrapServers: "localhost:9092"
+
+      - name: Integration tests - event idempotency (real PostgreSQL)
+        run: |
+          set -o pipefail
+          # The claim that a redelivered or racing event runs its handler once is
+          # a database property (the unique index on ConsumerGroup+EventId), so it
+          # is proven against PostgreSQL and not against a stub.
+          dotnet test tests/Atlas.IntegrationTests/Atlas.IntegrationTests.csproj -c Release --filter "FullyQualifiedName~EventIdempotencyIntegrationTests" --logger "console;verbosity=detailed" --results-directory TestResults/idempotency 2>&1 | tee integration-idempotency.log
         env:
           ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=atlas_ci;Username=atlas;Password=atlas_ci"
           ConnectionStrings__Redis: "localhost:6379"

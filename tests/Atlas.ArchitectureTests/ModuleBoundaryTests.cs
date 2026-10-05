@@ -9,9 +9,10 @@ public sealed class ModuleBoundaryTests
     private static readonly string[] Assemblies =
     [
         "Atlas.Modules.Identity", "Atlas.Modules.Organizations", "Atlas.Modules.APIManagement",
-        "Atlas.Modules.ServiceRegistry", "Atlas.Modules.EventPlatform", "Atlas.Modules.Reliability",
-        "Atlas.Modules.Observability", "Atlas.Modules.IncidentManagement", "Atlas.Modules.DeploymentIntelligence",
-        "Atlas.Modules.PolicyEngine", "Atlas.Modules.AIOperations", "Atlas.Modules.Audit"
+        "Atlas.Modules.TrafficManagement", "Atlas.Modules.ServiceRegistry", "Atlas.Modules.EventPlatform",
+        "Atlas.Modules.Reliability", "Atlas.Modules.Observability", "Atlas.Modules.IncidentManagement",
+        "Atlas.Modules.DeploymentIntelligence", "Atlas.Modules.PolicyEngine", "Atlas.Modules.AIOperations",
+        "Atlas.Modules.Audit"
     ];
 
     [Fact]
@@ -29,6 +30,45 @@ public sealed class ModuleBoundaryTests
                 .GetResult();
 
             Assert.True(result.IsSuccessful, $"{assemblyName} domain/application references another module infrastructure layer.");
+        }
+    }
+
+    [Fact]
+    public void Every_module_assembly_is_covered_by_the_boundary_sweep()
+    {
+        // The sweep above is only as strong as its list: a module added to the
+        // solution but forgotten here would be silently unpoliced. Enumerate the
+        // solution's module projects and require each to appear.
+        var solutionDir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (solutionDir is not null && !File.Exists(Path.Combine(solutionDir.FullName, "ATLAS.sln")))
+            solutionDir = solutionDir.Parent;
+        Assert.NotNull(solutionDir);
+
+        var projectModules = Directory.GetFiles(Path.Combine(solutionDir!.FullName, "src", "Modules"), "Atlas.Modules.*.csproj")
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        var covered = Assemblies.OrderBy(name => name, StringComparer.Ordinal).ToArray();
+        Assert.Equal(projectModules, covered);
+    }
+
+    [Fact]
+    public void Domain_layers_do_not_depend_on_entity_framework()
+    {
+        // The domain model must be persistence-ignorant: mappings live in each
+        // module's Infrastructure/DbContext, so an aggregate can be unit-tested
+        // without a database. Identity is not exempt — its Domain type derives
+        // from ASP.NET Identity's user, not from EF Core.
+        foreach (var assemblyName in Assemblies)
+        {
+            var assembly = Assembly.Load(assemblyName);
+            var result = Types.InAssembly(assembly)
+                .That().ResideInNamespace(assemblyName + ".Domain")
+                .Should().NotHaveDependencyOn("Microsoft.EntityFrameworkCore")
+                .GetResult();
+
+            Assert.True(result.IsSuccessful, $"{assemblyName}.Domain depends on Entity Framework Core.");
         }
     }
 

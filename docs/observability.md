@@ -24,6 +24,18 @@ first, then persisted `MetricSample` rows, and `hasData: false` (rendered as
   "ATLAS Platform Overview" dashboard
   (`observability/grafana/provisioning/`, `observability/grafana/dashboards/`),
   mounted by `docker-compose.yml`.
+- **Container-infrastructure metrics in the same stack.**
+  `docker-compose.yml` runs three standard exporters next to the dependencies
+  they describe — `prometheuscommunity/postgres-exporter` (connections,
+  transactions, buffer-hit ratio, locks), `oliver006/redis_exporter` (throughput,
+  memory, hit ratio, connected clients) and `danielqsj/kafka-exporter`
+  (consumer-group lag per group, produced offsets per topic). The matching
+  scrape jobs are in `observability/prometheus.yml`, and the dashboard's three
+  "PostgreSQL / Redis / Kafka (exporter)" panels query them directly. Exporting
+  this dashboard for another Grafana instance is
+  `curl -s localhost:3000/api/dashboards/uid/atlas-overview | jq .dashboard > atlas-overview.json`
+  (the committed file is the provisioned source of truth and includes the panel
+  ids and grid layout Grafana needs).
 - `SloCalculator` real, pure, unit-tested error-budget/burn-rate math.
 - `ISloService.GetSamplesAsync` cross-module read seam for deployment
   regression analysis; `ISloService.ListSlosAsync` feeds the command-center
@@ -75,12 +87,11 @@ first, then persisted `MetricSample` rows, and `hasData: false` (rendered as
 - **Long-term metrics storage.** Aggregates live in PostgreSQL and expire after
   14 days; shipping the same instruments to Prometheus/Mimir for year-scale
   retention is deployment work, not platform code.
-- **Grafana panels for container internals.** Kafka, PostgreSQL and Redis
-  *internals* need their own exporters (or a Prometheus scrape of a managed
-  service) before panels can be drawn; the provisioned dashboard therefore
-  charts the platform's HTTP and runtime metrics only, and this document lists
-  the ATLAS instrument names so additional panels can be added against the
-  exporter's real naming instead of an invented one.
+- **Managed-service wiring for the exporter jobs.** The three exporter jobs
+  ship pointed at the compose services. Against a managed database or broker,
+  repoint `observability/prometheus.yml` at the provider's exporter (or a
+  Prometheus scrape configuration the provider supplies); no dashboard change
+  is needed.
 - **Trace sampling policy.** Spans are exported when
   `OpenTelemetry:Otlp:Endpoint` is set; choosing tail-based sampling and a
   collector topology is deployment-specific.

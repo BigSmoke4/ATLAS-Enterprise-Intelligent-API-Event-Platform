@@ -5,8 +5,9 @@ namespace Atlas.Modules.AIOperations.Application;
 /// is the enforcement point for "destructive or operational actions require
 /// authorization + explicit confirmation + audit logging" — it is not
 /// optional prompting guidance, it's a gate the orchestrator cannot skip.
-/// No Action tools are registered yet (see AIOperationsModule), so this is
-/// exercised by tests but not yet reachable from a live tool.
+/// DeactivatePolicy is a live Action tool reachable through
+/// <c>POST /api/v1/ai/actions</c> (PlatformAdmin + explicitConfirmation), and
+/// every attempt — allowed or denied — is written to the audit ledger.
 /// </summary>
 public class ActionToolGuard
 {

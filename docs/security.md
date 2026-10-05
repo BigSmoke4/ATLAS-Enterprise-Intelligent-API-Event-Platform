@@ -23,11 +23,11 @@
   `Content-Security-Policy` (script-src 'self' — safe because no inline
   scripts exist anywhere in `wwwroot/js` per the centralized-JS rule).
   Applied on every response via `app.UseAtlasSecurityHeaders()`.
-- **CSRF**: `AddAntiforgery` is registered in `Program.cs`. Applies to any
-  future cookie-authenticated Razor `<form>` POST (none exist yet — the
-  current Razor pages are read-only) via `@Html.AntiForgeryToken()` +
-  `[ValidateAntiForgeryToken]`; API-key-authenticated JSON clients are a
-  different auth mechanism and aren't subject to the same CSRF vector.
+- **CSRF**: `AddAntiforgery` is registered in `Program.cs`; MVC forms carry
+  `[ValidateAntiForgeryToken]` and `ValidateAntiforgeryForCookieAuthFilter`
+  additionally requires the token for cookie-authenticated JSON writes from
+  the console (the client sends `X-CSRF-TOKEN`); API-key callers are exempt
+  because a cross-site page cannot set that header.
 - **Webhook signature verification**: `Atlas.Shared.Security.WebhookSignatureVerifier`
   — real HMAC-SHA256 + constant-time comparison, unit-tested (tamper,
   wrong-secret, and malformed-signature cases). No concrete webhook
@@ -37,11 +37,18 @@
 - **Rate limiting enforced on every live request** (`RateLimitingMiddleware`,
   Redis-backed, atomic Lua-scripted counters).
 - **Circuit breaker enforced on outbound calls** (`CircuitBreakerDelegatingHandler`).
-
-- **CSRF**: Razor forms validate antiforgery tokens, and cookie-authenticated
-  JSON writes from the console are validated by
-  `ValidateAntiforgeryForCookieAuthFilter`; API-key requests are exempt because
-  the credential is not attached by the browser automatically.
+- **Revocable sessions.** The console cookie is revalidated on every request
+  (`IdentitySessionValidation`, wired through `CookieAuthenticationEvents.OnValidatePrincipal`):
+  the user row is re-read and the cookie's security stamp must still match it.
+  `POST /api/v1/account/sessions/revoke-all` rotates the caller's stamp and
+  signs them out; `POST /api/v1/account/users/{id}/sessions/revoke-all`
+  (PlatformAdmin) revokes another account's sessions;
+  `POST /api/v1/account/users/{id}/deactivate|reactivate` (PlatformAdmin)
+  turns access off and on, refusing self-deactivation. Every one of those calls
+  is written to the audit ledger. Tickets expire after 12 hours and slide while
+  the session is used. The cost is one indexed user read per authenticated
+  request — a deliberate control-plane trade-off; a high-throughput service
+  would cache the stamp with a short TTL instead.
 
 ## Not yet implemented
 
@@ -50,8 +57,13 @@
   body checks on writes); there is no per-*record* ACL (e.g. "this SRE may edit
   only incidents they declared"). Role policies are the current granularity, and
   the roles themselves are coarse by design.
-- **Session revocation / refresh-token rotation.** Cookie sessions are not
-  server-side revocable before expiry.
+- **Refresh-token rotation.** *Session revocation is implemented* (see
+  "Revocable sessions" above): an operator can end every session for an
+  account and it takes effect on the next request. What is deliberately absent
+  is token *rotation* for machine clients: API keys are long-lived until
+  revoked, and there is no refresh-token grant, because the platform issues no
+  access tokens today. If an OIDC connector is registered (see below), rotation
+  is the identity provider's concern.
 - **OAuth/OIDC connector.** The `Oidc` configuration section *is* implemented
   and enforced at startup (`Atlas.Shared.Security.OidcOptions`, bound in
   `Program.cs`): a partial configuration fails the host with an actionable
@@ -71,9 +83,15 @@
   Nothing in the application performs those statements, so this is safe to
   apply; it is listed here rather than assumed, because a bug in the DbContext
   guard would otherwise be the only line of defence.
-- **Secret-scanning in CI.** The pipeline fails on committed credentials only
-  through the advisory dependency scan; a dedicated secret scanner (or branch
-  protection with a pre-commit hook) is an operator-side control.
+- **Secret scanning in CI.** `scripts/secret-scan.sh` runs as a CI step and
+  fails the build on a curated deny-list of credential formats (AWS access key
+  ids, GitHub tokens, Anthropic/OpenAI/Slack/Google keys, PEM private keys) and
+  on a literal value under a secret-shaped key in configuration or
+  `.env.example`. It is intentionally a deny-list rather than an entropy
+  scanner: deterministic, fast and reviewable, at the cost of not catching an
+  unusual credential shape. Running `gitleaks` (or GitHub secret scanning with
+  push protection) as a second, independent layer is an operator-side control
+  and remains recommended.
 - **Antiforgery scope.** MVC forms carry `[ValidateAntiForgeryToken]`, and
   `ValidateAntiforgeryForCookieAuthFilter` now enforces the token for
   *cookie-authenticated* JSON writes as well — the console reads the request

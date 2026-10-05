@@ -71,7 +71,9 @@ public class IdentityModule : IAtlasModule
 
     public void RegisterEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Auth endpoints (login/logout/register/api-key management) are planned
-        // for Atlas.Web/Controllers/Identity — not yet built (see README).
+        // The account surface is mapped by Atlas.Web/Controllers/IdentityController
+        // (register, login, logout, revoke-all sessions, deactivate/reactivate,
+        // API-key create/list/revoke). It lives in the host project because it
+        // is HTTP presentation, not module state.
     }
 }

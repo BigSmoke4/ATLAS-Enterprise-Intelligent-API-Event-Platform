@@ -1,7 +1,25 @@
 global:
   scrape_interval: 15s
 scrape_configs:
+  # What ATLAS itself does: request rates, latency percentiles, cache, events,
+  # rate limiting, circuit breaker, AI tool calls (see docs/observability.md).
   - job_name: atlas
     metrics_path: /metrics
     static_configs:
       - targets: ["atlas-web:8080"]
+
+  # What ATLAS runs on. These jobs map one-to-one to the exporter services in
+  # docker-compose.yml; the Grafana dashboard's container-internals panels read
+  # them. Against a managed service, point the same jobs at the provider's
+  # exporter instead.
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: kafka
+    static_configs:
+      - targets: ["kafka-exporter:9308"]

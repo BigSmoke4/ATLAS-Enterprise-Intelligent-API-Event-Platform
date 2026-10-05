@@ -96,4 +96,45 @@ public sealed class AuthenticatedAuthorizationTests : IClassFixture<TestWebAppli
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task Revoking_sessions_for_an_unknown_user_is_a_404_not_a_silent_success()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/account/users/{Guid.NewGuid()}/sessions/revoke-all");
+        request.Headers.Add("X-Test-Role", "PlatformAdmin");
+
+        var response = await _client.SendAsync(request);
+
+        // Revocation is an operator action: "nothing happened" must never be
+        // reported as success, or an incident responder would believe a
+        // compromised session is dead when the account never existed.
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_operator_cannot_deactivate_their_own_account()
+    {
+        // The test principal's NameIdentifier — see IntegrationTestAuthenticationHandler.
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            "/api/v1/account/users/22222222-2222-2222-2222-222222222222/deactivate");
+        request.Headers.Add("X-Test-Role", "PlatformAdmin");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_non_platform_admin_cannot_revoke_another_users_sessions()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"/api/v1/account/users/{Guid.NewGuid()}/sessions/revoke-all");
+        request.Headers.Add("X-Test-Organization", OrganizationA.ToString());
+        request.Headers.Add("X-Test-Role", "SRE");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
 }
