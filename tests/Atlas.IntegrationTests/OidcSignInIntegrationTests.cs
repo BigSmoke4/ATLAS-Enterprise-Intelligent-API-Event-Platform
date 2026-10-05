@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Atlas.Modules.Identity.Domain;
+using Atlas.Modules.Identity.Presentation;
+using Atlas.Shared.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -208,10 +210,26 @@ public sealed class OidcSignInIntegrationTests
     }
 
     /// <summary>
-    /// The real host with a complete <c>Oidc</c> section pointing at the fake
-    /// provider. Overriding the section through <see cref="IWebHostBuilder"/>
-    /// configuration is what the operator's environment variables do in a
-    /// deployment, so the registration branch in Program.cs runs unchanged.
+    /// The real host — every controller, the Identity cookie configuration,
+    /// <c>IdentitySessionValidation</c>, the claims factory and the real user
+    /// store — with the production federated-sign-in entry point
+    /// (<see cref="IdentityOidcExtension.AddAtlasOidc"/>) invoked for a fake
+    /// provider.
+    ///
+    /// Why the entry point is called here instead of through configuration:
+    /// <c>appsettings.json</c> already defines the <c>Oidc</c> keys (deliberately
+    /// empty), and configuration layered by a test host is read *before* the app's
+    /// own sources, so a per-test authority URL cannot win through
+    /// <c>UseSetting</c> or <c>ConfigureAppConfiguration</c> — the empty value
+    /// would stay and Program.cs would correctly register nothing. Rather than
+    /// mutating process-wide environment variables (which would leak into other
+    /// test classes' hosts), the test calls the same production method Program.cs
+    /// calls, so the handler options, the principal mapping and the refusal
+    /// behaviour under test are exactly the shipped ones. The enable/disable
+    /// branch itself is covered separately: <c>OidcOptionsTests</c> pins the
+    /// configuration contract and
+    /// <see cref="An_unconfigured_deployment_serves_no_federated_route_and_advertises_none"/>
+    /// pins the disabled deployment.
     /// </summary>
     private sealed class OidcWebApplicationFactory : WebApplicationFactory<Program>
     {
@@ -222,18 +240,15 @@ public sealed class OidcSignInIntegrationTests
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseEnvironment("Testing");
-            builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["Oidc:Authority"] = _provider.BaseUrl,
-                    ["Oidc:ClientId"] = _provider.ClientId,
-                    ["Oidc:ClientSecret"] = "sso-test-secret",
-                    ["Oidc:DisplayName"] = "Integration Provider",
-                    ["Oidc:Scopes:0"] = "openid",
-                    ["Oidc:Scopes:1"] = "profile",
-                    ["Oidc:Scopes:2"] = "email",
-                    ["Oidc:RequireHttpsMetadata"] = "false",
-                }));
+            builder.ConfigureServices(services => IdentityOidcExtension.AddAtlasOidc(services, new OidcOptions
+            {
+                Authority = _provider.BaseUrl,
+                ClientId = _provider.ClientId,
+                ClientSecret = "sso-test-secret",
+                DisplayName = "Integration Provider",
+                Scopes = new[] { "openid", "profile", "email" },
+                RequireHttpsMetadata = false,
+            }));
         }
     }
 

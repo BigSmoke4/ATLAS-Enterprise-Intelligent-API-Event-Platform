@@ -173,5 +173,10 @@ completes the `Oidc` section.
    and that an unconfigured deployment answers `404` and renders no SSO button.
    `ExternalIdentityMapperTests` pins the claim precedence (including the
    refusal to trust `sub`) and `OidcOptionsTests` the configuration contract.
-   Still not covered by tests, because it needs a real provider: provider-side
-   logout propagation and group→role mapping, neither of which is implemented.
+   One thing the round trip does not itself exercise is the *enablement branch*
+   in `Program.cs` (which the suite cannot reach, because the test host's
+   configuration layer is read before the app's own sources): the disabled half
+   is pinned by the unconfigured-deployment fact above and the enabled half by
+   `OidcOptionsTests`. Still not covered anywhere, because it needs a real
+   provider: provider-side logout propagation and group→role mapping, neither of
+   which is implemented.
