@@ -78,9 +78,13 @@ model).
   emits an `AddColumn<uint>("xmin", "xid", rowVersion: true, …)` for these
   properties, and PostgreSQL rejects it at apply time (`42701: column name
   "xmin" conflicts with a system column name` — npgsql/efcore.pg#3854, open at
-  the time of writing). The reviewed `ModelSync` migrations therefore contain a
-  comment where that operation was removed: the token works through the system
-  column, and only the obsolete `bytea` `"RowVersion"` columns are dropped.
+  the time of writing). The reviewed `ModelSync` migrations therefore carry a
+  comment where that DDL was replaced: the token works through the system
+  column, and only the obsolete `bytea` `"RowVersion"` columns are dropped (22
+  across the eleven contexts). Three things keep the edit from being lost:
+  `scripts/add-migration.sh` prints the review note, the CI model-drift step
+  fails the build if any `*_ModelSync.cs` contains `RenameColumn`/`AlterColumn`
+  DDL next to `"xmin"`, and the paragraph above is the review record.
   **A future regeneration of migrations must repeat that edit** (see the
   comment in `src/Modules/*/Infrastructure/Migrations/*_ModelSync.cs`).
 

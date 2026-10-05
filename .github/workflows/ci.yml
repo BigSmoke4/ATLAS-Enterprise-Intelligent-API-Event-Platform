@@ -89,7 +89,7 @@ jobs:
           ConnectionStrings__Redis: "localhost:6379"
           Kafka__BootstrapServers: "localhost:9092"
 
-      - name: Model drift check (checked-in migrations match the EF model)
+      - name: Model drift check (checked-in migrations match the EF model and the reviewed xmin edit)
         run: |
           set -o pipefail
           # `migrations add` always succeeds: if the model matches the committed
@@ -108,6 +108,20 @@ jobs:
           done
           if [ "$drift" -ne 0 ]; then exit 1; fi
           echo "All eleven module models match their checked-in migrations."
+
+          # The reviewed migrations must not carry physical DDL for the "xmin"
+          # system column: PostgreSQL rejects it (42701) and the concurrency
+          # token already works through the system column. A regeneration that
+          # forgets the reviewed edit is caught here instead of at deployment.
+          bogus=0
+          for file in $(find src/Modules -path '*Migrations*' -name '*_ModelSync.cs'); do
+            if grep -qE 'migrationBuilder\.(RenameColumn|AlterColumn)' "$file" && grep -q '"xmin"' "$file"; then
+              echo "::error file=$file::contains generated DDL for the xmin system column — the reviewed edit (drop RowVersion, keep the system column) is missing"
+              bogus=1
+            fi
+          done
+          if [ "$bogus" -ne 0 ]; then exit 1; fi
+          echo "No generated migration touches the xmin system column."
 
       - name: Validate JavaScript syntax
         run: |

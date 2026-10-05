@@ -16,6 +16,15 @@ modules=(
   "PolicyEngine:src/Modules/PolicyEngine/Atlas.Modules.PolicyEngine.csproj:PolicyEngineDbContext"
   "Audit:src/Modules/Audit/Atlas.Modules.Audit.csproj:AuditDbContext"
 )
+# The generated files always need one review step before they are committed:
+# Npgsql emits physical DDL for the "xmin" system column (RenameColumn
+# "RowVersion" -> "xmin", then AlterColumn to type "xid") and PostgreSQL
+# rejects it with 42701, so each *_<Name>.cs must keep only the DropColumn of
+# the obsolete "RowVersion" column. docs/database.md ("Optimistic concurrency")
+# describes the edit and npgsql/efcore.pg#3854 is the provider issue.
+echo "NOTE: review the generated migrations and replace the xmin DDL with the" >&2
+echo "      DropColumn of the obsolete RowVersion column before committing." >&2
+
 for entry in "${modules[@]}"; do
   IFS=: read -r name project context <<< "$entry"
   echo "Creating $name migration $NAME"
