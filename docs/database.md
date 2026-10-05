@@ -37,6 +37,18 @@ migrations* workflow exists so the next one can be produced on a machine that
 has the SDK and `dotnet-ef` and committed back to the branch, and
 `scripts/add-migration.sh <Name>` does the same locally.
 
+The *Generate EF migrations* workflow automates the same step on a runner and
+commits the result. It is **manual-only** by design: it commits and pushes, so it
+must never be attached to a push trigger (a merge of the workflow file itself would
+otherwise arm it against `main`), and re-running it with an already-used migration
+name produces empty migrations whose duplicate class name breaks the build. As of
+2026-10-05 its generation step fails on a bare runner — the design-time host starts
+its background services, and the same script on the same commit applies cleanly in
+CI where PostgreSQL, Redis and Kafka are running — so a maintainer should mirror
+CI's service block before relying on it. The workflow documents this, publishes the
+generator's output as annotations and uploads its log; `scripts/add-migration.sh`
+locally (with the SDK) is the supported path.
+
 CI applies those committed migrations to ephemeral PostgreSQL before the
 integration tests, and additionally runs `dotnet ef migrations add` to prove
 the model still matches the checked-in snapshot — a drift between the two
