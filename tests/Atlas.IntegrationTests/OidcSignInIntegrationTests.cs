@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -82,7 +83,7 @@ public sealed class OidcSignInIntegrationTests
 
             app.MapGet("/.well-known/openid-configuration", () => Results.Json(provider.Discovery()));
             app.MapGet("/authorize", (HttpContext context) => provider.Authorize(context));
-            app.MapPost("/token", (HttpContext context) => provider.Token(context));
+            app.MapPost("/token", (HttpContext context) => provider.WriteTokenAsync(context));
             app.MapGet("/userinfo", (HttpContext context) => provider.UserInfo(context));
             app.MapGet("/jwks", () => Results.Json(provider.Jwks()));
 
@@ -123,13 +124,17 @@ public sealed class OidcSignInIntegrationTests
             return Results.Redirect(location);
         }
 
-        private async Task<IResult> Token(HttpContext context)
+        private async Task WriteTokenAsync(HttpContext context)
         {
             var form = await context.Request.ReadFormAsync();
             if (!_noncesByCode.TryRemove(form["code"].ToString(), out var nonce))
-                return Results.BadRequest(new { error = "invalid_grant" });
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(new { error = "invalid_grant" });
+                return;
+            }
 
-            return Results.Json(new Dictionary<string, object?>
+            await context.Response.WriteAsJsonAsync(new Dictionary<string, object?>
             {
                 ["access_token"] = "integration-access-token",
                 ["token_type"] = "Bearer",
@@ -287,8 +292,8 @@ public sealed class OidcSignInIntegrationTests
         Assert.Equal("S256", query["code_challenge_method"].ToString());
         Assert.Contains("openid", query["scope"].ToString());
         Assert.EndsWith("/signin-oidc", query["redirect_uri"].ToString(), StringComparison.Ordinal);
-        Assert.False(string.IsNullOrEmpty(query["state"]));
-        Assert.False(string.IsNullOrEmpty(query["nonce"]));
+        Assert.NotEqual(string.Empty, query["state"].ToString());
+        Assert.NotEqual(string.Empty, query["nonce"].ToString());
 
         // The provider's authorize endpoint is a second in-process host, so it
         // is called with its own client (no cookies, no redirect following).
